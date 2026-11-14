@@ -132,12 +132,18 @@ drawTrack(new Date());
 setInterval(tick, 1000);
 setInterval(() => drawTrack(new Date()), 60_000);
 
-refreshElements(elements).then((fresh) => {
-  if (!fresh) return;
-  elements = fresh;
-  tick();
-  drawTrack(new Date());
-});
+// One live fetch per page load. When the browser reports no network (Wi-Fi off, the double-clicked
+// offline copy) the page skips it and makes no request at all, then tries once if the connection returns.
+function refreshOnce() {
+  refreshElements(elements).then((fresh) => {
+    if (!fresh) return;
+    elements = fresh;
+    tick();
+    drawTrack(new Date());
+  });
+}
+if (navigator.onLine === false) window.addEventListener('online', refreshOnce, { once: true });
+else refreshOnce();
 
 // ---- "Check against reference": one wheretheiss.at request per click.
 const btn = $('check-ref') as HTMLButtonElement;

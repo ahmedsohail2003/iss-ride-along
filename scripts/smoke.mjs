@@ -2,10 +2,15 @@
 //
 //   node scripts/smoke.mjs                      dist/index.html from file://, network mocked
 //   node scripts/smoke.mjs --net                real network; also presses "Check against reference"
+//   node scripts/smoke.mjs --offline            network off (browser offline, every request refused);
+//                                               defaults to docs/iss-ride-along-offline.html
 //   node scripts/smoke.mjs --url <url> --out evidence/x.png --size 390x844
 //
 // Default (mocked) mode: the CelesTrak request is answered with the TLE saved in src/data/, every
 // other non-file request is blocked and counted, so the run is the same on any network.
+// Offline mode: the browser context is offline and every non-file request is aborted as
+// "internet disconnected" (CelesTrak included), so the page must run on the orbit data built into it;
+// it also requires the age label to say so.
 // RAM rule (PLAN.md section 3): runs at 0.8 GB free or more; below that it waits 60 s, retries once,
 // then prints DEFERRED and exits 0 (not a failure).
 import { chromium } from 'playwright-core';
@@ -20,8 +25,14 @@ const opt = (name, def) => {
   return i >= 0 ? args[i + 1] : def;
 };
 const NET = args.includes('--net');
-const url = opt('--url', pathToFileURL(resolve('dist/index.html')).href);
-const out = resolve(opt('--out', 'evidence/m1.png'));
+const OFFLINE = args.includes('--offline');
+if (NET && OFFLINE) {
+  console.log('SMOKE FAIL: --net and --offline cannot be used together');
+  process.exit(1);
+}
+const defaultFile = OFFLINE ? 'docs/iss-ride-along-offline.html' : 'dist/index.html';
+const url = opt('--url', pathToFileURL(resolve(defaultFile)).href);
+const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : 'evidence/m1.png'));
 const [w, h] = opt('--size', '1366x768').split('x').map(Number);
 
 const MIN_FREE_GB = 0.8;
@@ -38,12 +49,13 @@ if (gb() < MIN_FREE_GB) {
 const tle = readFileSync(resolve('src/data/iss.tle'), 'utf8');
 const consoleErrors = [];
 const pageErrors = [];
-const requests = { file: 0, mockedCelestrak: 0, blocked: [], network: [] };
+const requests = { file: 0, mockedCelestrak: 0, blocked: [], network: [], refusedOffline: [] };
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 let failed = false;
 try {
-  const page = await browser.newPage({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({ viewport: { width: w, height: h }, offline: OFFLINE });
+  const page = await context.newPage();
   page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()));
   page.on('pageerror', (e) => pageErrors.push(String(e)));
   await page.route('**/*', (route) => {
@@ -51,6 +63,10 @@ try {
     if (u.startsWith('file:') || u.startsWith('data:') || u.startsWith('blob:')) {
       requests.file++;
       return route.continue();
+    }
+    if (OFFLINE) {
+      requests.refusedOffline.push(u);
+      return route.abort('internetdisconnected');
     }
     if (NET) {
       requests.network.push(u);
@@ -101,9 +117,11 @@ try {
 
   const latNumeric = /^-?\d+(\.\d+)?$/.test(second.lat ?? '');
   const moved = first.marker !== second.marker || first.lat !== second.lat || first.lon !== second.lon;
+  // Offline the page must say it runs on its built-in orbit data (a fresh profile has no saved copy).
+  const offlineLabelOk = !OFFLINE || /built into this page/.test(info.dataAge ?? '');
   const result = {
     url,
-    mode: NET ? 'network' : 'mocked',
+    mode: NET ? 'network' : OFFLINE ? 'offline' : 'mocked',
     viewport: `${w}x${h}`,
     screenshot: out,
     first,
@@ -112,13 +130,25 @@ try {
     moved,
     ...info,
     ref,
+    offlineLabelOk,
     consoleErrors,
     pageErrors,
-    requests: { ...requests, blocked: requests.blocked.length, blockedUrls: requests.blocked },
+    requests: {
+      ...requests,
+      blocked: requests.blocked.length,
+      blockedUrls: requests.blocked,
+      refusedOffline: requests.refusedOffline.length,
+      refusedOfflineUrls: requests.refusedOffline,
+    },
   };
   console.log(JSON.stringify(result, null, 2));
-  failed = !latNumeric || !moved || consoleErrors.length > 0 || pageErrors.length > 0 || info.trackPaths < 2;
-  console.log(failed ? 'SMOKE FAIL' : `SMOKE PASS: #lat ${second.lat}, marker moved, ${info.trackPaths} track paths, 0 console errors`);
+  failed = !latNumeric || !moved || consoleErrors.length > 0 || pageErrors.length > 0 || info.trackPaths < 2 || !offlineLabelOk;
+  const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
+  console.log(
+    failed
+      ? 'SMOKE FAIL'
+      : `SMOKE PASS: #lat ${second.lat}, marker moved, ${info.trackPaths} track paths, 0 console errors${offlineNote}`,
+  );
 } finally {
   await browser.close();
 }

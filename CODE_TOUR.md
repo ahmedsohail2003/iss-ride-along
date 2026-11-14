@@ -14,7 +14,8 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
   its orbit at one moment, called the epoch). CelesTrak redistributes the US Space Force's TLEs.
 - `initialElements()` picks the newest of two copies that need no network: the one built into the
   page and the one this browser saved last time. `refreshElements()` then tries one CelesTrak download
-  in the background (skipped if this device saved one less than 2 hours ago, to be polite to CelesTrak).
+  in the background (skipped if this device saved one less than 2 hours ago, to be polite to CelesTrak,
+  and skipped when the browser reports no network, so the offline file makes no request at all).
 - `parseIssTle()` rejects anything that is not the ISS (catalogue number 25544) or that SGP4 cannot run.
 - Say: "The page never waits for the network: it starts on the newest saved orbit numbers and swaps in
   a fresh download if one arrives."
