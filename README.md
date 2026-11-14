@@ -40,6 +40,12 @@ node scripts/record-demo.mjs  # backup demo capture -> docs/demo-backup.mp4 (nee
 - "Check against reference": one request to wheretheiss.at, then the distance between its position
   and ours for the same second. Both run their own code on public orbit data, so this checks our
   math, not the station's true position.
+- "Plan my sighting": type your week in your own words ("Ypsilanti until Monday, then Chicago Tuesday
+  to Thursday, kids in bed by 8:30"). An AI agent splits it into places and nights, runs our pass engine,
+  the Open-Meteo cloud forecast and an Exa web search for station news, and picks the one pass worth going
+  out for; the map moves to it and a countdown starts. Every step is listed on the page, and every number
+  in the AI's words is checked against what our tools returned. Without a key, the same button runs a
+  fixed plan (no AI) for one place.
 - `npm test` compares our position, altitude and speed with 10 saved wheretheiss.at samples,
   propagated from the same element set that tracker used (limits: 2 km, 0.1 km, 1 km/h).
 
@@ -63,7 +69,19 @@ snapshot used that earlier fetch and says so in `snapshot-meta.json`.
 - [Vite](https://vite.dev/) 8.3.8 and vite-plugin-singlefile 2.3.4: build the page into one HTML file.
 - [Vitest](https://vitest.dev/) 5.1.0: the unit tests.
 
-## How we used AI
+## AI in the app
+
+The planner is an agent: the model chooses which of our tools to run, step by step, and can only pick
+among pass ids our engine returned; the card's numbers are written by our engine, not the model.
+
+- Gemini (`gemini-4-hydrogen`, `generateContent` endpoint): live-tested on Nov 14, 2026, 6:09-6:13 PM EST
+  (3 one-place runs and 1 two-city trip run, each 4 model calls, 7.2-11.0 s, 0 unverified numbers).
+- OpenAI (Responses API): the same adapter, tested with saved replies written from OpenAI's documentation, not live-tested.
+- Exa search: live-tested without a key; the keyed call is not live-tested.
+- Keys are typed into the page's settings by the person using it, kept in memory (or in this tab's
+  storage until it closes, if ticked), and never put in the repo, the address bar or a log.
+
+## How we used AI to build it
 
 Built through Claude Code: Fable 5.2 planned, Opus 5.5 wrote the code. Ahmed Sohail Butt approved
 the plan and reviews every change before it is pushed. What each teammate did is listed in the

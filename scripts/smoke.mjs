@@ -4,6 +4,9 @@
 //   node scripts/smoke.mjs --net                real network; also presses "Check against reference"
 //   node scripts/smoke.mjs --offline            network off (browser offline, every request refused);
 //                                               defaults to docs/iss-ride-along-offline.html
+//   node scripts/smoke.mjs --plan               mocked network; presses "Plan my sighting" with no key
+//                                               (fixed plan), then the trip example, then a keyed run
+//                                               with the test key (Gemini mocked); evidence/a1.png
 //   node scripts/smoke.mjs --url <url> --out evidence/x.png --size 390x844
 //
 // Default (mocked) mode: the CelesTrak request is answered with the TLE saved in src/data/, the NASA
@@ -34,13 +37,14 @@ const opt = (name, def) => {
 };
 const NET = args.includes('--net');
 const OFFLINE = args.includes('--offline');
+const PLAN = args.includes('--plan');
 if (NET && OFFLINE) {
   console.log('SMOKE FAIL: --net and --offline cannot be used together');
   process.exit(1);
 }
 const defaultFile = OFFLINE ? 'docs/iss-ride-along-offline.html' : 'dist/index.html';
 const url = opt('--url', pathToFileURL(resolve(defaultFile)).href);
-const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : 'evidence/m1.png'));
+const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : 'evidence/m1.png'));
 const [w, h] = opt('--size', '1366x768').split('x').map(Number);
 
 // Stale-build guard (M4 fix r2): a file:// page must carry the fingerprint of the current source
@@ -73,6 +77,16 @@ if (gb() < MIN_FREE_GB) {
 const tle = readFileSync(resolve('src/data/iss.tle'), 'utf8');
 const eonetSnapshot = readFileSync(resolve('src/data/eonet-open.json'), 'utf8');
 const blueMarbleTile = readFileSync(resolve('src/data/bluemarble-z0.jpg'));
+// --plan: the planner's services answered from the saved real replies in tests/fixtures/.
+const planFixtures = PLAN
+  ? {
+      openMeteo: JSON.stringify(JSON.parse(readFileSync(resolve('tests/fixtures/openmeteo-ypsilanti.json'), 'utf8')).reply),
+      exa: JSON.parse(readFileSync(resolve('tests/fixtures/exa-station-news.json'), 'utf8')).reply,
+      gemini: JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: 'No pass is worth going out for in your window.' }] }, finishReason: 'STOP' }] }),
+      testKey: (await import('../tests/fixtures/test-key.mjs')).TEST_KEY,
+    }
+  : null;
+const planRequests = { openMeteo: 0, exa: 0, gemini: 0, geminiUrls: [], geminiKeyHeader: 0 };
 const GIBS_TILE = /^https:\/\/gibs\.earthdata\.nasa\.gov\/wmts\/epsg3857\/best\/MODIS_Terra_CorrectedReflectance_TrueColor\/default\/(\d{4}-\d{2}-\d{2})\/GoogleMapsCompatible_Level9\/(\d+)\/(\d+)\/(\d+)\.jpg$/;
 const gibsResponses = [];
 const consoleErrors = [];
@@ -103,6 +117,20 @@ try {
     if (NET) {
       requests.network.push(u);
       return route.continue();
+    }
+    if (PLAN && u.startsWith('https://api.open-meteo.com/')) {
+      planRequests.openMeteo++;
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: planFixtures.openMeteo });
+    }
+    if (PLAN && u.startsWith('https://mcp.exa.ai/')) {
+      planRequests.exa++;
+      return route.fulfill({ status: 200, contentType: 'text/event-stream', headers: { 'access-control-allow-origin': '*' }, body: planFixtures.exa });
+    }
+    if (PLAN && u.startsWith('https://generativelanguage.googleapis.com/')) {
+      planRequests.gemini++;
+      planRequests.geminiUrls.push(u);
+      if (route.request().headers()['x-goog-api-key'] === planFixtures.testKey) planRequests.geminiKeyHeader++;
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: planFixtures.gemini });
     }
     if (u.startsWith('https://celestrak.org/')) {
       requests.mockedCelestrak++;
@@ -180,8 +208,69 @@ try {
     }));
   }
 
-  mkdirSync(dirname(out), { recursive: true });
-  await page.screenshot({ path: out });
+  // ---- --plan: the sighting planner (A1)
+  let plan = null;
+  if (PLAN) {
+    plan = {};
+    plan.buttonText = await page.textContent('#plan-go');
+    await page.click('#plan-go');
+    await page.waitForFunction(() => !!document.body.dataset.planKind, null, { timeout: 15_000 });
+    await page.waitForTimeout(1200);
+    Object.assign(
+      plan,
+      await page.evaluate(() => ({
+        traceRows: document.querySelectorAll('#plan-trace li').length,
+        traceTools: [...document.querySelectorAll('#plan-trace li strong')].map((e) => e.textContent),
+        kind: document.body.dataset.planKind,
+        headline: document.getElementById('plan-headline')?.textContent ?? '',
+        passShown: document.body.dataset.passShown ?? null,
+        arcPaths: [...document.querySelectorAll('path.pass-arc')].filter((p) => (p.getAttribute('d') ?? '').length > 10).length,
+        countdown: document.getElementById('plan-countdown')?.textContent ?? '',
+        news: document.querySelectorAll('#news-list li').length,
+        newsNote: document.getElementById('news-note')?.textContent ?? '',
+      })),
+    );
+    mkdirSync(dirname(out), { recursive: true });
+    await page.screenshot({ path: out, fullPage: true });
+    await page.click('button.example[data-example="trip"]');
+    plan.tripNote = await page.textContent('#plan-note');
+    // Keys: a run with the typed test key (Gemini mocked), the tick box, a reload, then sessionStorage cleared.
+    const k = planFixtures.testKey;
+    await page.click('#plan-settings summary');
+    await page.fill('#key-gemini', k);
+    await page.check('#key-keep');
+    await page.click('button.example[data-example="simple"]');
+    plan.modeWithKey = await page.textContent('#plan-mode');
+    await page.click('#plan-go');
+    await page.waitForFunction(() => /Planned by the AI|Fixed plan/.test(document.getElementById('plan-note')?.textContent ?? ''), null, { timeout: 20_000 });
+    plan.keyedNote = await page.textContent('#plan-note');
+    // localStorage already holds the tracker's own orbit-data copy (M1); the key must be in none of it.
+    const lsScan = (key) => page.evaluate((kk) => ({ names: Object.keys(localStorage), withKey: Object.keys(localStorage).filter((n) => (localStorage.getItem(n) ?? '').includes(kk) || n.includes(kk)).length }), key);
+    plan.localStorage = await lsScan(k);
+    plan.urlHasKey = page.url().includes(k);
+    await page.reload({ waitUntil: 'load' });
+    plan.keptAfterReload = (await page.inputValue('#key-gemini')) === k;
+    await page.evaluate(() => sessionStorage.clear());
+    await page.reload({ waitUntil: 'load' });
+    plan.goneAfterClear = (await page.inputValue('#key-gemini')) === '';
+    plan.localStorageEnd = await lsScan(k);
+    plan.requests = { ...planRequests, geminiUrlHasKey: planRequests.geminiUrls.some((u) => u.includes(k)), geminiUrls: planRequests.geminiUrls.length };
+    plan.checks = {
+      fixedLabel: /fixed plan, no AI/.test(plan.buttonText ?? ''),
+      traceRows5: plan.traceRows >= 5,
+      passOnMap: plan.arcPaths > 0 && !!plan.passShown,
+      countdown: /Starts in|Happening now|This pass is over/.test(plan.countdown),
+      tripNeedsAi: /this one needs the AI/.test(plan.tripNote ?? ''),
+      keyedRun: plan.requests.gemini >= 1 && plan.requests.geminiKeyHeader === plan.requests.gemini && !plan.requests.geminiUrlHasKey,
+      keyNotInLocalStorage: plan.localStorage.withKey === 0 && plan.localStorageEnd.withKey === 0,
+      noKeyInAddress: !plan.urlHasKey,
+      keptAfterReload: plan.keptAfterReload,
+      goneAfterClear: plan.goneAfterClear,
+    };
+  } else {
+    mkdirSync(dirname(out), { recursive: true });
+    await page.screenshot({ path: out });
+  }
 
   const latNumeric = /^-?\d+(\.\d+)?$/.test(second.lat ?? '');
   const moved = first.marker !== second.marker || first.lat !== second.lat || first.lon !== second.lon;
@@ -212,6 +301,7 @@ try {
     ref,
     offlineLabelOk,
     nasaChecks,
+    plan,
     gibsTiles: { total: gibsResponses.length, status200: tiles200.length, sample: gibsResponses.slice(0, 3) },
     consoleErrors,
     pageErrors,
@@ -231,13 +321,15 @@ try {
     pageErrors.length > 0 ||
     info.trackPaths < 2 ||
     !offlineLabelOk ||
-    Object.values(nasaChecks).includes(false);
+    Object.values(nasaChecks).includes(false) ||
+    (PLAN && Object.values(plan.checks).includes(false));
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
     failed
       ? 'SMOKE FAIL'
       : `SMOKE PASS: #lat ${second.lat}, marker moved, ${info.trackPaths} track paths, 0 console errors${offlineNote}; ` +
-          `map label "${info.gibsLabel}"${NET ? `, ${tiles200.length} GIBS tile(s) HTTP 200` : ''}; ${info.eventsListed} event line(s); photo ${info.photo}`,
+          `map label "${info.gibsLabel}"${NET ? `, ${tiles200.length} GIBS tile(s) HTTP 200` : ''}; ${info.eventsListed} event line(s); photo ${info.photo}` +
+          (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : ''),
   );
 } finally {
   await browser.close();
