@@ -46,3 +46,21 @@ code { font-family: ui-monospace, Consolas, monospace; }
   border: 2px solid rgba(127, 219, 255, 0.7);
 }
 .leaflet-container { background: #050814; }
+/* M4: NASA layers */
+.key-view { width: 0.9rem; height: 0.9rem; border: 1.5px solid #7fdbff; border-radius: 50%; background: rgba(127, 219, 255, 0.12); }
+#gibs-date { font-weight: 600; }
+.below { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 22rem); gap: 1rem; margin-top: 1rem; }
+@media (max-width: 860px) { .below { grid-template-columns: 1fr; } }
+.card { background: #121a30; border: 1px solid #23304d; border-radius: 8px; padding: 0.8rem 1rem; min-width: 0; }
+.card h2 { margin: 0 0 0.4rem; font-size: 1.05rem; }
+.events-status { margin: 0.4rem 0 0.3rem; font-weight: 600; }
+.events-list { margin: 0 0 0.5rem; padding-left: 1.1rem; font-size: 0.88rem; }
+.events-list li { margin: 0.2rem 0; overflow-wrap: anywhere; }
+.photo { margin: 0.4rem 0 0; }
+.photo img { display: block; width: 100%; max-width: 22rem; height: auto; border-radius: 6px; background: #050814; }
+.photo img.not-in-view { opacity: 0.55; }
+.photo figcaption { margin-top: 0.35rem; overflow-wrap: anywhere; }
+.photo a, .credits a { color: #7fdbff; }
+.credits { margin-top: 1rem; font-size: 0.85rem; background: #121a30; border: 1px solid #23304d; border-radius: 8px; padding: 0.6rem 1rem; }
+.credits summary { cursor: pointer; font-weight: 600; }
+.credits ul { padding-left: 1.1rem; }

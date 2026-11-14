@@ -1,4 +1,4 @@
-# Code tour (6 stops)
+# Code tour (7 stops)
 
 For anyone presenting ISS Ride-Along. A judge may say "walk me through this": each stop has the file,
 the functions to point at, what they do, and a one-sentence answer to say out loud. Read it top to
@@ -62,20 +62,38 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
 
 - File: `src/main.ts`
 - Functions: `tick()`, `drawTrack()`, `renderAge()`
-- Leaflet, a map library, draws one built-in NASA Blue Marble world image so the map also works offline.
+- Leaflet, a map library, draws the map. `initNasaLayers()` (stop 6) adds the NASA layers to it.
 - `tick()` runs every second: it calls `stateAt()` for "now", updates the numbers and moves the marker.
   `drawTrack()` redraws the two orbit lines every minute. `renderAge()` writes the data-age label.
 - Say: "Every second the browser recomputes the station's position itself; nothing is streamed from a
   server."
 
-## Stop 6: how we know it works
+## Stop 6: what the station is flying over (NASA layers)
 
-- Files: `tests/position.test.ts`, `tests/track.test.ts`, `tests/orbit.test.ts`, `scripts/check-live.mjs`, `scripts/smoke.mjs`
+- Files: `src/nasa/layers.ts`, `src/nasa/footprint.ts`, `src/nasa/gibs.ts`, `src/nasa/eonet.ts`, `src/nasa/photos.ts`
+- Functions: `initNasaLayers()`, `renderLists()`, `footprintRadiusKm()`, `splitByFootprint()`, `pickGibsDay()`, `parseEonet()`, `photoCreditLine()`
+- `footprintRadiusKm()` is the station's view: how far along the ground a place can be and still see
+  the station above its horizon (cos(angle) = R / (R + altitude)). `splitByFootprint()` sorts events or
+  photos by distance and keeps the ones inside that circle.
+- `pickGibsDay()` chooses the NASA GIBS daily image: yesterday (UTC) if GIBS's reply header confirms it,
+  else two days ago; the date is printed under the map. `parseEonet()` reads NASA EONET's events and
+  turns GeoJSON's [longitude, latitude] into named fields so they cannot be swapped.
+- `photoCreditLine()` writes each curated photo's NASA credit. `renderLists()` (inside
+  `initNasaLayers()`) refreshes the events and the photo every 5 seconds.
+- Say: "The circle is computed from the altitude; the image, events and photos are NASA data, each
+  shown with its date and credit."
+
+## Stop 7: how we know it works
+
+- Files: `tests/position.test.ts`, `tests/track.test.ts`, `tests/orbit.test.ts`, `tests/geometry.test.ts`, `tests/nasa.test.ts`, `scripts/check-live.mjs`, `scripts/smoke.mjs`
 - Functions: `stateAt()` (the copy in `scripts/check-live.mjs`)
 - `tests/position.test.ts` compares our position, altitude and speed with 10 saved wheretheiss.at
   positions, using the same TLE that tracker used. Limits: 2 km, 0.1 km, 1 km/h. Measured: at most
   0.0003 km, 0.0020 km and 0.0000 km/h over the 10 samples.
 - `scripts/check-live.mjs` does the same for "now" against the live site. `scripts/smoke.mjs` opens the
   built page in headless Chrome, checks the numbers appear and the marker moves, and saves a screenshot.
-- Say: "`npm test` runs 14 checks in about a second, and the position test is the one that proves the
+- `tests/geometry.test.ts` checks the view circle against wheretheiss.at's own figure (4,596 km across
+  at 437.66 km; ours 4,593.5 km). `tests/nasa.test.ts` checks the EONET coordinate order, the GIBS date
+  rule and that every photo's credit is NASA only.
+- Say: "`npm test` runs 32 checks in about a second, and the position test is the one that proves the
   math: 10 of 10 samples within 1 metre of the reference."

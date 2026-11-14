@@ -6,9 +6,10 @@ checked against an independent tracker: in the saved test, our position agreed w
 to within 0.0003 km on 10 of 10 samples. The whole page builds into one HTML file that also opens
 without internet.
 
-Status (Sat Nov 14, 2:30 PM EST): the live tracker works. The NASA imagery and events under the
-station, the "when can I see it" predictor and the game are planned and not built yet; this page is
-updated as each one ships.
+Status (Sat Nov 14, 4 PM EST): the live tracker and the NASA layers work (a dated NASA satellite
+image under the station, NASA natural events inside its view, curated NASA astronaut photos). The
+"when can I see it" predictor and the game are planned and not built yet; this page is updated as
+each one ships.
 
 ## In one minute
 
@@ -30,9 +31,30 @@ distance between the two answers.
 | Orbit data age | computed: now minus the TLE's epoch | days, hours, minutes | TLE from CelesTrak |
 | The TLE itself | fetched: one CelesTrak request per page load, else the copy saved in this browser, else the copy built into the page (newest wins) | - | CelesTrak (US Space Force data; not NASA) |
 | "X km from wheretheiss.at" | fetched (their position) and computed (ours, at their timestamp) | km, km/h | wheretheiss.at (not NASA) |
-| World map | built into the page (one low-resolution image) | - | NASA EOSDIS GIBS, Blue Marble |
+| World map (base) | built into the page: 21 tiles, zoom 0-2, so it works offline | - | NASA EOSDIS GIBS, Blue Marble |
+| Daily satellite image on top | fetched tiles, labelled "daily satellite image, {date}, not a live camera" | - | NASA GIBS, MODIS Terra true colour |
+| The station's view (circle) | computed: horizon radius from altitude (see below) | km | our geometry |
+| Natural events in view | fetched list (one request per page load, else the saved copy); which ones are in view and how far is computed | km, dates in UTC | NASA EONET |
+| Astronaut photo | built in (12 thumbnails chosen by hand, labelled curated); which one is in view is computed | - | NASA Image and Video Library |
 
 Nothing else is downloaded. There is no server, no account and no API key.
+
+## The NASA layers
+
+- **The station's view.** Everything within the circle can see the station above its horizon. On a
+  round Earth of radius R, a station at altitude h sees out to the angle where cos(angle) = R / (R + h);
+  the circle's radius along the ground is R times that angle. At 437.66 km it is 4,593.5 km across;
+  wheretheiss.at gives 4,596 km (0.054% apart; `tests/geometry.test.ts`, and within 0.059% on all 10
+  saved samples).
+- **Satellite image.** The page asks GIBS for yesterday's daily mosaic (UTC) and uses it if GIBS's
+  `Layer-Time-Actual` reply header confirms that day, else two days ago. The date is printed under the map.
+- **Events.** The page asks EONET for the newest 50 open events (saved copy, Nov 14: 46 US wildfires,
+  2 tropical storms, 2 sea-ice events; more than 50 events were open). The page lists
+  the ones inside the circle with category, date, reporting agency and distance; if none are, it says
+  so and names the nearest one.
+- **Photos.** The library has no coordinates, so each photo's place was set by hand from its title.
+  Only photos whose own NASA description credits NASA are used (ESA, JAXA and CSA photos were left
+  out). No NASA logo or insignia is used.
 
 ## What the reference check means
 
@@ -57,11 +79,14 @@ the station. The difference also grows when the two sides use TLEs of different 
 - **CelesTrak**: a public website that redistributes the US Space Force's TLEs; one request per page load.
 - **wheretheiss.at**: a free independent ISS tracker, used only as the reference to check against.
 - **Leaflet 1.9.4** (BSD-2-Clause): a small map library that draws the 2D map, marker and lines.
-- **NASA GIBS Blue Marble**: one world image built into the page, so the map works offline.
+- **NASA GIBS**: NASA's map-tile service; Blue Marble tiles are built in (offline), the daily MODIS
+  Terra image is fetched live.
+- **NASA EONET**: NASA's list of open natural events (wildfires, storms, ice), as points with dates.
+- **NASA Image and Video Library**: NASA's photo archive; the source of the curated astronaut photos.
 - **Vite 8.3.8 + vite-plugin-singlefile 2.3.4**: build the site into one self-contained `index.html`
   that teammates can open on their own laptops.
 - **TypeScript 7.0.2**: JavaScript with type checks; `npm run build` fails on a type error.
-- **Vitest 5.1.0**: runs the 14 unit tests in about a second, with no network.
+- **Vitest 5.1.0**: runs the 32 unit tests in about a second, with no network.
 - **playwright-core 1.65.1**: drives the Chrome already on the laptop for the screenshot and video
   scripts (no browser download).
 
@@ -70,7 +95,9 @@ the station. The difference also grows when the two sides use TLEs of different 
 - The built-in TLE was downloaded from CelesTrak at 12:36 PM EST Nov 14; CelesTrak did not answer
   from our network later that afternoon, so a fresh copy arrives only when a visitor's network
   reaches it. The age label always shows which copy is in use and how old it is.
-- The map is one low-resolution world image for now; sharper NASA imagery is the next feature.
+- Offline, the map is the built-in Blue Marble image (sharp to zoom 2 only) and the events are the
+  saved copy, labelled with its date. The daily image has gaps where the satellite did not pass.
+- Open events are mostly US wildfires, so "no events in view" is the common, honest answer.
 - On a phone-sized screen the map does not follow the marker yet.
 - The speed shown is orbital speed. Speed over the ground is lower because the Earth turns
   underneath; the label says so.

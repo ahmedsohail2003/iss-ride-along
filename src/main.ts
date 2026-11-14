@@ -1,16 +1,17 @@
-// ISS Ride-Along, M1: the live tracker. Every second the page runs SGP4 (satellite.js) on the
-// station's orbit elements and moves the marker; a button compares our answer with wheretheiss.at.
+// ISS Ride-Along: the live tracker (M1) with NASA layers (M4). Every second the page runs SGP4
+// (satellite.js) on the station's orbit elements and moves the marker; a button compares our answer
+// with wheretheiss.at; src/nasa/layers.ts draws what the station is flying over.
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import * as L from 'leaflet';
 import tleText from './data/iss.tle?raw';
 import meta from './data/snapshot-meta.json';
-import worldTile from './data/bluemarble-z0.jpg';
 import { stateAt } from './orbit/orbit';
 import { ageLevel, formatAge, groundTrack, periodMinutes } from './orbit/track';
 import { compareWithReference } from './orbit/compare';
 import { initialElements, refreshElements, type Elements } from './elements';
 import { fetchReference } from './reference';
+import { belowPanelHtml, initNasaLayers, WORLD } from './nasa/layers';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -24,7 +25,8 @@ app.innerHTML = `
       <p class="small legend">
         <span class="key key-past"></span> last orbit
         <span class="key key-next"></span> next orbit
-        · Base map: NASA Blue Marble (one built-in low-resolution image, so it works offline).
+        <span class="key key-view"></span> station's view
+        · <span id="gibs-date"></span>
       </p>
     </section>
     <aside class="panel">
@@ -43,6 +45,7 @@ app.innerHTML = `
         (not NASA). Not affiliated with or endorsed by NASA.</p>
     </aside>
   </main>
+  ${belowPanelHtml}
 `;
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -51,14 +54,10 @@ const $ = (id: string) => document.getElementById(id)!;
 const embeddedRetrieved = new Date(meta.files['iss.tle'].retrievedAt);
 let elements: Elements = initialElements(tleText, embeddedRetrieved);
 
-// ---- Map: one embedded Web Mercator world tile (zoom 0) stretched over the whole map.
-const WORLD: L.LatLngBoundsExpression = [
-  [-85.0511, -180],
-  [85.0511, 180],
-];
+// ---- Map: built-in Blue Marble tiles (zoom 0-2) plus NASA layers, drawn by src/nasa/layers.ts.
 const map = L.map('map', {
   minZoom: 1,
-  maxZoom: 4,
+  maxZoom: 6,
   zoomSnap: 0.25,
   maxBounds: WORLD,
   maxBoundsViscosity: 1,
@@ -66,12 +65,12 @@ const map = L.map('map', {
   attributionControl: true,
 });
 map.attributionControl.setPrefix('Leaflet');
-L.imageOverlay(worldTile, WORLD, { attribution: 'Imagery: NASA EOSDIS GIBS, Blue Marble' }).addTo(map);
 // The station never goes past 51.6 degrees of latitude, so frame the band it flies over.
 map.fitBounds([
   [-62, -180],
   [72, 180],
 ]);
+const nasa = initNasaLayers(map);
 
 const issIcon = L.divIcon({
   className: 'iss-icon',
@@ -80,8 +79,8 @@ const issIcon = L.divIcon({
   iconAnchor: [11, 11],
 });
 const marker = L.marker([0, 0], { icon: issIcon, keyboard: false, title: 'International Space Station' }).addTo(map);
-const pastLine = L.polyline([], { color: '#ffd166', weight: 2, opacity: 0.9 }).addTo(map);
-const nextLine = L.polyline([], { color: '#7fdbff', weight: 2, opacity: 0.9, dashArray: '6 6' }).addTo(map);
+const pastLine = L.polyline([], { color: '#ffd166', weight: 2, opacity: 0.9, className: 'track-line' }).addTo(map);
+const nextLine = L.polyline([], { color: '#7fdbff', weight: 2, opacity: 0.9, dashArray: '6 6', className: 'track-line' }).addTo(map);
 
 function drawTrack(now: Date) {
   const p = periodMinutes(elements.satrec);
@@ -124,6 +123,7 @@ function tick() {
   $('speed').textContent = Math.round(s.speedKmS * 3600).toLocaleString('en-US');
   $('clock').textContent = `${now.toISOString().slice(11, 19)} UTC`;
   marker.setLatLng([s.latDeg, s.lonDeg]);
+  nasa.update(s.latDeg, s.lonDeg, s.altKm);
   renderAge(now);
 }
 

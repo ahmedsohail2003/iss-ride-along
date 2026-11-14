@@ -15,12 +15,13 @@ Needs Node 22 (built with 22.14.0) and npm. In this folder:
 
 ```
 npm install        # once; installs the exact versions in package-lock.json
-npm test           # 14 unit tests, offline, about 1 second
+npm test           # 32 unit tests, offline, about 1 second
 npm run build      # type check + one self-contained file: dist/index.html
 npm run offline    # build, then copy it to docs/iss-ride-along-offline.html (fails at 8 MB or more)
 npm run dev        # local dev server with reload; open the address Vite prints
 npm run preview    # serve the built dist/ folder
 npm run snapshot   # refresh the saved data in src/data/ (needs the network; one request per source)
+npm run snapshot -- --only nasa  # refresh only the NASA files (Blue Marble tiles, EONET, photos)
 ```
 
 ## Checks
@@ -30,7 +31,7 @@ They use the Chrome already installed on the laptop through playwright-core (no 
 
 ```
 node scripts/smoke.mjs        # headless Chrome on dist/index.html from file://, network mocked
-node scripts/smoke.mjs --net  # real network; also presses "Check against reference"
+node scripts/smoke.mjs --net --out evidence/m4.png  # real network; also presses "Check against reference"
 node scripts/smoke.mjs --offline  # network off, on docs/iss-ride-along-offline.html
 node scripts/make-offline.mjs # copy dist/index.html to docs/; checks size and no http(s) tags
 node scripts/check-live.mjs   # our position for "now" vs wheretheiss.at; prints SKIPPED offline without network
@@ -39,7 +40,10 @@ node scripts/check-docs.mjs   # every file and function named in CODE_TOUR.md ex
 ```
 
 - `smoke.mjs` passes when the latitude is a number, the marker moves within 2.5 s, both orbit lines are
-  drawn and there are 0 console or page errors.
+  drawn and there are 0 console or page errors. It also needs the NASA layers: the map's date label,
+  at least one event line, a curated photo with its NASA credit and the credits panel; with `--net`
+  at least one real NASA GIBS map tile must answer HTTP 200. The mocked mode answers EONET from the
+  saved copy and GIBS with the built-in Blue Marble tile.
   With `--offline` it also needs the label to say "built into this page".
   Options: `--url <url>`, `--out <png>`, `--size 390x844`. Screenshots go to `evidence/` (not committed).
 - `check-live.mjs` exits 1 if our position is 2 km or more from wheretheiss.at.
@@ -53,4 +57,6 @@ node scripts/check-docs.mjs   # every file and function named in CODE_TOUR.md ex
 | "Orbit data age ... built into this page" | CelesTrak was not reachable, so the page uses its built-in orbit data | nothing: the tracker still works; the label shows how old the data is |
 | The age label is amber or red | the orbit data is over 1 day (amber) or 3 days (red) old | connect to the internet and reload |
 | "Could not reach wheretheiss.at" | no internet, or the reference site is slow | the tracker keeps running; try the button again online |
+| "built-in NASA Blue Marble image" under the map | offline, or NASA GIBS did not answer | nothing: the map still works; online, reload for the daily image |
+| "Saved copy from ..." under the events | the live NASA EONET list did not load | the saved list is used and dated; reload when online |
 | `npm run build` fails with a type error | `tsc` found a TypeScript error | read the file and line it prints |

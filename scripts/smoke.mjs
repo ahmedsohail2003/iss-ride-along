@@ -6,8 +6,13 @@
 //                                               defaults to docs/iss-ride-along-offline.html
 //   node scripts/smoke.mjs --url <url> --out evidence/x.png --size 390x844
 //
-// Default (mocked) mode: the CelesTrak request is answered with the TLE saved in src/data/, every
-// other non-file request is blocked and counted, so the run is the same on any network.
+// Default (mocked) mode: the CelesTrak request is answered with the TLE saved in src/data/, the NASA
+// EONET request with src/data/eonet-open.json, every NASA GIBS tile with the built-in Blue Marble
+// tile (status 200, Layer-Time-Actual set to the requested day); every other non-file request is
+// blocked and counted, so the run is the same on any network.
+// NASA layers (M4), every mode: the map's date label (#gibs-date) must be filled in. With --net it
+// must name a day ("daily satellite image, YYYY-MM-DD, not a live camera") and at least one real
+// GIBS map tile (zoom/row/column URL, not the probe) must answer HTTP 200.
 // Offline mode: the browser context is offline and every non-file request is aborted as
 // "internet disconnected" (CelesTrak included), so the page must run on the orbit data built into it;
 // it also requires the age label to say so.
@@ -47,9 +52,13 @@ if (gb() < MIN_FREE_GB) {
 }
 
 const tle = readFileSync(resolve('src/data/iss.tle'), 'utf8');
+const eonetSnapshot = readFileSync(resolve('src/data/eonet-open.json'), 'utf8');
+const blueMarbleTile = readFileSync(resolve('src/data/bluemarble-z0.jpg'));
+const GIBS_TILE = /^https:\/\/gibs\.earthdata\.nasa\.gov\/wmts\/epsg3857\/best\/MODIS_Terra_CorrectedReflectance_TrueColor\/default\/(\d{4}-\d{2}-\d{2})\/GoogleMapsCompatible_Level9\/(\d+)\/(\d+)\/(\d+)\.jpg$/;
+const gibsResponses = [];
 const consoleErrors = [];
 const pageErrors = [];
-const requests = { file: 0, mockedCelestrak: 0, blocked: [], network: [], refusedOffline: [] };
+const requests = { file: 0, mockedCelestrak: 0, mockedEonet: 0, mockedGibs: 0, blocked: [], network: [], refusedOffline: [] };
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 let failed = false;
@@ -58,6 +67,10 @@ try {
   const page = await context.newPage();
   page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()));
   page.on('pageerror', (e) => pageErrors.push(String(e)));
+  page.on('response', (r) => {
+    const m = GIBS_TILE.exec(r.url());
+    if (m) gibsResponses.push({ day: m[1], zyx: `${m[2]}/${m[3]}/${m[4]}`, status: r.status(), kind: r.request().resourceType() });
+  });
   await page.route('**/*', (route) => {
     const u = route.request().url();
     if (u.startsWith('file:') || u.startsWith('data:') || u.startsWith('blob:')) {
@@ -76,6 +89,24 @@ try {
       requests.mockedCelestrak++;
       return route.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: tle });
     }
+    if (u.startsWith('https://eonet.gsfc.nasa.gov/api/v3/events')) {
+      requests.mockedEonet++;
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: eonetSnapshot });
+    }
+    const g = GIBS_TILE.exec(u);
+    if (g) {
+      requests.mockedGibs++;
+      return route.fulfill({
+        status: 200,
+        contentType: 'image/jpeg',
+        headers: {
+          'access-control-allow-origin': '*',
+          'access-control-expose-headers': 'layer-time-actual',
+          'layer-time-actual': `${g[1]}T00:00:00Z`,
+        },
+        body: blueMarbleTile,
+      });
+    }
     requests.blocked.push(u);
     return route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: '' });
   });
@@ -91,15 +122,33 @@ try {
       clock: document.getElementById('clock')?.textContent,
       marker: document.querySelector('.iss-icon')?.getAttribute('style'),
     }));
+  // NASA layers: wait for the map label to settle (GIBS tiles loaded, or a final fallback text).
+  if (!OFFLINE) {
+    await page
+      .waitForFunction(() => ['loaded', 'failed', 'unreachable'].includes(document.body.dataset.gibs ?? ''), null, { timeout: 25_000 })
+      .catch(() => {});
+    await page.waitForTimeout(NET ? 3000 : 500); // let the visible tiles paint before the screenshot
+  }
   const first = await read();
   await page.waitForTimeout(2500);
   const second = await read();
   const info = await page.evaluate(() => ({
-    trackPaths: document.querySelectorAll('.leaflet-overlay-pane path').length,
+    // only the two orbit lines (the footprint circle and event markers are paths too)
+    trackPaths: document.querySelectorAll('.leaflet-overlay-pane path.track-line').length,
     dataAge: document.getElementById('data-age')?.textContent,
     ageClass: document.getElementById('data-age')?.className,
     elements: document.body.dataset.elements,
     hScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    gibsState: document.body.dataset.gibs ?? null,
+    gibsDay: document.body.dataset.gibsDay ?? null,
+    gibsLabel: document.getElementById('gibs-date')?.textContent ?? '',
+    eventsStatus: document.getElementById('events-status')?.textContent ?? '',
+    eventsListed: document.querySelectorAll('#events-list li').length,
+    eventsSource: document.getElementById('events-source')?.textContent ?? '',
+    photo: document.getElementById('photo-card')?.dataset.nasaId ?? null,
+    photoCaption: document.getElementById('photo-caption')?.textContent ?? '',
+    photoLoaded: document.getElementById('photo-img')?.naturalWidth ?? 0,
+    creditsHasGibs: /Global Imagery Browse Services/.test(document.getElementById('credits')?.textContent ?? ''),
   }));
 
   let ref = null;
@@ -119,6 +168,16 @@ try {
   const moved = first.marker !== second.marker || first.lat !== second.lat || first.lon !== second.lon;
   // Offline the page must say it runs on its built-in orbit data (a fresh profile has no saved copy).
   const offlineLabelOk = !OFFLINE || /built into this page/.test(info.dataAge ?? '');
+  // NASA layers (M4). Mocked and --net: the label names the day; --net also needs a real 200 map tile.
+  const tiles200 = gibsResponses.filter((r) => r.status === 200 && r.kind === 'image');
+  const dayLabelOk = /daily satellite image, \d{4}-\d{2}-\d{2}, not a live camera/.test(info.gibsLabel);
+  const nasaChecks = {
+    gibsLabelOk: OFFLINE ? /Blue Marble/.test(info.gibsLabel) : dayLabelOk,
+    gibsTile200: !NET || tiles200.length > 0,
+    eventsShown: info.eventsListed > 0 && info.eventsStatus.length > 0,
+    photoShown: info.photo !== null && info.photoLoaded > 0 && /Photo: NASA, Image and Video Library, iss/.test(info.photoCaption),
+    creditsOk: info.creditsHasGibs,
+  };
   const result = {
     url,
     mode: NET ? 'network' : OFFLINE ? 'offline' : 'mocked',
@@ -131,6 +190,8 @@ try {
     ...info,
     ref,
     offlineLabelOk,
+    nasaChecks,
+    gibsTiles: { total: gibsResponses.length, status200: tiles200.length, sample: gibsResponses.slice(0, 3) },
     consoleErrors,
     pageErrors,
     requests: {
@@ -142,12 +203,20 @@ try {
     },
   };
   console.log(JSON.stringify(result, null, 2));
-  failed = !latNumeric || !moved || consoleErrors.length > 0 || pageErrors.length > 0 || info.trackPaths < 2 || !offlineLabelOk;
+  failed =
+    !latNumeric ||
+    !moved ||
+    consoleErrors.length > 0 ||
+    pageErrors.length > 0 ||
+    info.trackPaths < 2 ||
+    !offlineLabelOk ||
+    Object.values(nasaChecks).includes(false);
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
     failed
       ? 'SMOKE FAIL'
-      : `SMOKE PASS: #lat ${second.lat}, marker moved, ${info.trackPaths} track paths, 0 console errors${offlineNote}`,
+      : `SMOKE PASS: #lat ${second.lat}, marker moved, ${info.trackPaths} track paths, 0 console errors${offlineNote}; ` +
+          `map label "${info.gibsLabel}"${NET ? `, ${tiles200.length} GIBS tile(s) HTTP 200` : ''}; ${info.eventsListed} event line(s); photo ${info.photo}`,
   );
 } finally {
   await browser.close();

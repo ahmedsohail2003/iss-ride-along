@@ -1,0 +1,17 @@
+// Credit lines shown in the page's credits panel. Wording from the research verdict table
+// (.autopilot/research/track-data-sources-cors.md); the GIBS line is NASA's own requested text.
+
+export const CREDIT_GIBS =
+  "We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).";
+export const CREDIT_GIBS_LAYERS =
+  'Daily image: MODIS Terra Corrected Reflectance (True Color). Built-in base map: Blue Marble Shaded Relief and Bathymetry. Both from NASA EOSDIS GIBS.';
+export const CREDIT_EONET = 'Natural events: NASA Earth Observatory Natural Event Tracker (EONET)';
+export const CREDIT_EONET_SOURCES =
+  "Each event also names the agency that reported it (for example IRWIN for US wildfires, JTWC for tropical storms, NATICE for ice), as EONET lists it.";
+export const CREDIT_PHOTOS =
+  'Astronaut photos: NASA Image and Video Library (images.nasa.gov), chosen by hand (curated); each photo shows its own NASA ID and credit.';
+export const CREDIT_CELESTRAK =
+  'Orbital elements: CelesTrak (celestrak.org), GP data from the US Space Force (18 SDS). Not NASA data.';
+export const CREDIT_WHERETHEISS = 'Reference positions: Where the ISS at? API (wheretheiss.at). Not NASA data.';
+export const CREDIT_NOT_NASA =
+  'ISS Ride-Along is a Hack the Nest 2026 hackathon project. Not affiliated with or endorsed by NASA. No NASA logo or insignia is used.';
