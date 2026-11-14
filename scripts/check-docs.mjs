@@ -7,6 +7,9 @@
 // 3. Every other `name()` mentioned in CODE_TOUR.md is defined somewhere in src/, scripts/ or tests/.
 // 4. HOW_IT_WORKS.md and CODE_TOUR.md are each under 120 lines; RUN.md exists.
 // 5. Every `node scripts/*.mjs` and `npm run <script>` in RUN.md exists.
+// 6. (C1) The words "accurate to" never appear near the NASA trajectory gap (we say "apart": NASA's file
+//    is also a prediction): no "accurate to" within 300 characters of "NASA" plus "trajectory"/"OEM" in the
+//    public docs and the panel's source.
 // Exit 0 when everything holds, 1 otherwise. Offline, no dependencies.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -102,6 +105,22 @@ if (existsSync(join(root, 'RUN.md'))) {
   }
   if (/\bnpm test\b/.test(run) && !('test' in scripts)) problems.push('RUN.md: "npm test" but package.json has no test script');
   passes.push('RUN.md: every node scripts/*.mjs and npm run command checked against the repo');
+}
+
+// ---- 6. Wording next to the NASA trajectory gap (C1).
+{
+  const files = ['README.md', 'HOW_IT_WORKS.md', 'CODE_TOUR.md', 'RUN.md', 'DEVPOST_DRAFT.md', 'docs/STUDY_CARDS.md', 'src/oem-ui.ts', 'src/orbit/oemAgreement.ts'];
+  let checked = 0;
+  for (const f of files) {
+    if (!existsSync(join(root, f))) continue;
+    checked++;
+    const text = read(f);
+    for (const m of text.matchAll(/accurate to/gi)) {
+      const near = text.slice(Math.max(0, m.index - 300), m.index + 300);
+      if (/NASA/.test(near) && /trajectory|OEM/.test(near)) problems.push(`${f}: "accurate to" next to the NASA trajectory gap (say "apart")`);
+    }
+  }
+  passes.push(`wording: no "accurate to" near the NASA trajectory gap in ${checked} files`);
 }
 
 for (const p of passes) console.log(`ok   ${p}`);

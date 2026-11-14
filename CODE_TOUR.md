@@ -1,8 +1,7 @@
-# Code tour (9 stops)
+# Code tour (10 stops)
 
-For anyone presenting ISS Ride-Along. A judge may say "walk me through this": each stop has the file,
-the functions to point at, what they do, and a one-sentence answer to say out loud. Read it top to
-bottom once; it follows one second of the page's life, from orbit numbers to the dot on the map.
+For anyone presenting ISS Ride-Along. A judge may say "walk me through this": each stop has the file, the functions to
+point at, what they do, and a sentence to say out loud. It follows the page's life, from orbit numbers to the dot on the map.
 
 `node scripts/check-docs.mjs` checks that every file and function named here exists.
 
@@ -22,9 +21,8 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
 
 - Files: `src/orbit/orbit.ts`, `src/orbit/satellite-lite.ts`
 - Functions: `satrecFromTle()`, `stateAt()`, `greatCircleKm()`, `isSunlitCylinder()`
-- `stateAt()` runs SGP4, the standard model for propagating TLEs (it moves the orbit forward from the
-  epoch to any time), through the satellite.js library. It turns the result into latitude, longitude,
-  altitude in km and speed in km/s. The speed is the speed through space, not over the ground.
+- `stateAt()` runs SGP4, the standard model for propagating TLEs (it moves the orbit from the epoch to any time), through
+  satellite.js, and turns the result into latitude, longitude, altitude in km and speed in km/s (through space, not over the ground).
 - `greatCircleKm()` is the haversine formula: the distance between two points on the Earth's surface.
 - `isSunlitCylinder()` is a simple Earth-shadow test; the pass predictor (stop 8) uses satellite.js's
   `shadowFraction()`. `satellite-lite.ts` imports only satellite.js's plain JavaScript (its WebAssembly broke the build).
@@ -34,9 +32,8 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
 
 - File: `src/orbit/track.ts`
 - Functions: `groundTrack()`, `splitAtAntimeridian()`, `periodMinutes()`, `ageLevel()`
-- `periodMinutes()` gets the time for one orbit from the TLE's mean motion (92.95 minutes for the
-  built-in TLE). `groundTrack()` computes the point under the station every 30 seconds from one
-  orbit ago to one orbit ahead.
+- `periodMinutes()` gets the time for one orbit from the TLE's mean motion (92.95 minutes for the built-in TLE).
+  `groundTrack()` computes the point under the station every 30 seconds from one orbit ago to one orbit ahead.
 - `splitAtAntimeridian()` cuts the path at longitude 180, so a flat map draws no line across the world.
 - `ageLevel()` colours the "orbit data age" label: green under 1 day, amber 1-3 days, red over 3 days,
   because SGP4 errors grow as the TLE gets older.
@@ -50,8 +47,7 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
   that the reply has numbers for time, latitude, longitude, altitude and speed.
 - `compareWithReference()` runs our model at the reference's own timestamp, so both numbers describe
   the same second, then reports the ground distance in km and the altitude and speed differences.
-- Say: "Both trackers run their own code on public orbit numbers, so a small difference shows our math
-  is right; it does not measure the station's true position."
+- Say: "Both trackers run their own code on public orbit numbers: a small gap shows our math is right, not where it truly is."
 
 ## Stop 5: the page itself
 
@@ -60,8 +56,7 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
 - Leaflet, a map library, draws the map. `initNasaLayers()` (stop 6) adds the NASA layers to it.
 - `tick()` runs every second: it calls `stateAt()` for "now", updates the numbers and moves the marker.
   `drawTrack()` redraws the two orbit lines every minute. `renderAge()` writes the data-age label.
-- Say: "Every second the browser recomputes the station's position itself; nothing is streamed from a
-  server."
+- Say: "Every second the browser recomputes the station's position itself; nothing is streamed from a server."
 
 ## Stop 6: what the station is flying over (NASA layers)
 
@@ -73,10 +68,8 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
 - `pickGibsDay()` chooses the NASA GIBS daily image: yesterday (UTC) if GIBS's reply header confirms it,
   else two days ago; the date is printed under the map. `parseEonet()` reads NASA EONET's events and
   turns GeoJSON's [longitude, latitude] into named fields so they cannot be swapped.
-- `photoCreditLine()` writes each curated photo's NASA credit. `renderLists()` (inside
-  `initNasaLayers()`) refreshes the events and the photo every 5 seconds.
-- Say: "The circle is computed from the altitude; the image, events and photos are NASA data, each
-  shown with its date and credit."
+- `photoCreditLine()` writes each curated photo's NASA credit. `renderLists()` refreshes events and photo every 5 seconds.
+- Say: "The circle is computed from the altitude; the image, events and photos are NASA data, each with its date and credit."
 
 ## Stop 7: how we know it works
 
@@ -92,8 +85,7 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
   rule and that every photo's credit is NASA only.
 - `tests/passes.test.ts` checks the pass list against Heavens-Above (stop 8) and a polar city;
   `tests/planner.test.ts` checks the planner (stop 9), with every service answered from saved replies.
-- Say: "`npm test` runs 68 checks in a few seconds, and the position test is the one that proves the
-  math: 10 of 10 samples within 1 metre of the reference."
+- Say: "`npm test` runs 78 checks in a few seconds; the position test proves the math: 10 of 10 samples within 1 metre."
 
 ## Stop 8: when can I see it (visible passes)
 
@@ -104,8 +96,7 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
   0.5 s, and finds the highest point. `predictForPlace()` adds a plain sentence when the list is empty.
 - `agreementWith()` re-runs the search on Heavens-Above's saved list for Ypsilanti; the page prints the
   result. `initPassPanel()` reads the city box or typed coordinates and writes the table.
-- Say: "For Ypsilanti we found the same 8 passes Heavens-Above lists, with start times within about a
-  second; the line under the table is computed on the page every time it loads."
+- Say: "For Ypsilanti we found the same 8 passes Heavens-Above lists, starts within about a second, recomputed on every load."
 
 ## Stop 9: the sighting planner (the agent loop and the number audit)
 
@@ -116,3 +107,13 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
 - `planLeg()` runs our pass engine, the cloud forecast and `scorePass()` for one place and its nights. `showPass()`
   refuses any pass id the engine did not return. `audit()` marks every number in the model's words that no tool gave.
 - Say: "The AI only chooses; every number on the card comes from our engine, and the badge counts any it made up."
+
+## Stop 10: our math against NASA's own trajectory (the frame conversion)
+
+- Files: `src/orbit/frames.ts`, `src/orbit/oem.ts`, `src/orbit/oemCompare.ts`, `src/oem-ui.ts`, `tests/oem.test.ts`, `scripts/check-oem.mjs`
+- Functions: `parseOem()`, `temeToJ2000Matrix()`, `precessionMatrix()`, `nutation80()`, `gapAt()`, `initOemPanel()`
+- SGP4 answers in TEME, a frame tied to each date; NASA's file is in J2000. `temeToJ2000Matrix()` turns one into the other:
+  precession (`precessionMatrix()`), nutation from all 106 terms (`nutation80()`) and the equation of the equinoxes.
+- `gapAt()` compares only at NASA's own 4-minute row times. `tests/oem.test.ts` checks the conversion against a published
+  example (Vallado et al. 2006, 0.82 m off) and astronomy-engine (under 3 m); with no conversion the gap is 26 to 45 km.
+- Say: "Within 12 hours of the orbit numbers' time we are 0.37 km from NASA mission control's own trajectory (median; 1.03 km at most)."

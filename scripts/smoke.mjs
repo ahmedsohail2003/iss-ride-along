@@ -7,6 +7,10 @@
 //   node scripts/smoke.mjs --plan               mocked network; presses "Plan my sighting" with no key
 //                                               (fixed plan), then the trip example, then a keyed run
 //                                               with the test key (Gemini mocked); evidence/a1.png
+//   node scripts/smoke.mjs --oem                mocked network; the NASA trajectory panel (C1): a gap in km,
+//                                               its row time, and the orbit numbers' age, which must equal
+//                                               row time minus the TLE epoch (recomputed here) within 0.1 h;
+//                                               evidence/c1.png
 //   node scripts/smoke.mjs --url <url> --out evidence/x.png --size 390x844
 //
 // Default (mocked) mode: the CelesTrak request is answered with the TLE saved in src/data/, the NASA
@@ -38,13 +42,14 @@ const opt = (name, def) => {
 const NET = args.includes('--net');
 const OFFLINE = args.includes('--offline');
 const PLAN = args.includes('--plan');
+const OEM = args.includes('--oem');
 if (NET && OFFLINE) {
   console.log('SMOKE FAIL: --net and --offline cannot be used together');
   process.exit(1);
 }
 const defaultFile = OFFLINE ? 'docs/iss-ride-along-offline.html' : 'dist/index.html';
 const url = opt('--url', pathToFileURL(resolve(defaultFile)).href);
-const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : 'evidence/m1.png'));
+const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : 'evidence/m1.png'));
 const [w, h] = opt('--size', '1366x768').split('x').map(Number);
 
 // Stale-build guard (M4 fix r2): a file:// page must carry the fingerprint of the current source
@@ -267,9 +272,53 @@ try {
       keptAfterReload: plan.keptAfterReload,
       goneAfterClear: plan.goneAfterClear,
     };
-  } else {
+  } else if (!OEM) {
     mkdirSync(dirname(out), { recursive: true });
     await page.screenshot({ path: out });
+  }
+
+  // ---- NASA trajectory panel (C1), every mode: a gap in km at a row time, with the orbit numbers' age.
+  const oem = await page.evaluate(() => {
+    const el = document.getElementById('oem-gap');
+    return {
+      text: el?.textContent ?? '',
+      gapKm: el?.dataset.gapKm ?? null,
+      rowTime: el?.dataset.rowTime ?? null,
+      measured: document.getElementById('oem-measured')?.textContent ?? '',
+      growth: document.getElementById('oem-growth')?.textContent ?? '',
+      chartPoints: Number(document.getElementById('oem-chart')?.dataset.points ?? 0),
+      credit: /ISS trajectory ephemeris \(OEM\), NASA Johnson Space Center/.test(document.getElementById('credits-body')?.textContent ?? ''),
+    };
+  });
+  {
+    const km = /our position and NASA's are (\d+(?:\.\d+)?) km apart/.exec(oem.text);
+    const shownAge = /orbit numbers (-?\d+(?:\.\d+)?) h old/.exec(oem.text);
+    const shownTime = /^At (\d{2}:\d{2}) UTC/.exec(oem.text);
+    oem.kmShown = km ? Number(km[1]) : null;
+    oem.ageShownH = shownAge ? Number(shownAge[1]) : null;
+    oem.checks = {
+      kmNumber: oem.kmShown !== null && Number.isFinite(oem.kmShown),
+      rowTimeShown: !!shownTime && !!oem.rowTime && oem.rowTime.slice(11, 16) === shownTime[1],
+      ageShown: oem.ageShownH !== null,
+      noAccurateTo: !/accurate to/i.test(oem.text + oem.measured + oem.growth),
+      measuredLine: /^Measured at this age: about \d+(\.\d) km apart/.test(oem.measured),
+      chart: oem.chartPoints >= 2,
+      credit: oem.credit,
+    };
+    if (OEM) {
+      // The age recomputed here from the TLE the mocked CelesTrak reply serves (src/data/iss.tle), by
+      // reading its epoch columns directly (not the page's code): age = row time - epoch.
+      const l1 = readFileSync(resolve('src/data/iss.tle'), 'utf8').split(/\r?\n/).find((l) => l.startsWith('1 '));
+      const yy = Number(l1.slice(18, 20));
+      const doy = Number(l1.slice(20, 32));
+      const epochMs = Date.UTC(yy < 57 ? 2000 + yy : 1900 + yy, 0, 1) + (doy - 1) * 86_400_000;
+      oem.ageRecomputedH = oem.rowTime ? (Date.parse(oem.rowTime) - epochMs) / 3_600_000 : null;
+      oem.checks.ageMatches = oem.ageRecomputedH !== null && oem.ageShownH !== null && Math.abs(oem.ageRecomputedH - oem.ageShownH) <= 0.1;
+      oem.checks.rowNotAfterNow = !!oem.rowTime && Date.parse(oem.rowTime) <= Date.now() && Date.now() - Date.parse(oem.rowTime) < 5 * 60_000;
+      mkdirSync(dirname(out), { recursive: true });
+      await page.locator('#oem-panel').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: out });
+    }
   }
 
   const latNumeric = /^-?\d+(\.\d+)?$/.test(second.lat ?? '');
@@ -302,6 +351,7 @@ try {
     offlineLabelOk,
     nasaChecks,
     plan,
+    oem,
     gibsTiles: { total: gibsResponses.length, status200: tiles200.length, sample: gibsResponses.slice(0, 3) },
     consoleErrors,
     pageErrors,
@@ -322,13 +372,16 @@ try {
     info.trackPaths < 2 ||
     !offlineLabelOk ||
     Object.values(nasaChecks).includes(false) ||
-    (PLAN && Object.values(plan.checks).includes(false));
+    (PLAN && Object.values(plan.checks).includes(false)) ||
+    Object.values(oem.checks).includes(false);
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
     failed
       ? 'SMOKE FAIL'
       : `SMOKE PASS: #lat ${second.lat}, marker moved, ${info.trackPaths} track paths, 0 console errors${offlineNote}; ` +
           `map label "${info.gibsLabel}"${NET ? `, ${tiles200.length} GIBS tile(s) HTTP 200` : ''}; ${info.eventsListed} event line(s); photo ${info.photo}` +
+          `; NASA trajectory: ${oem.kmShown} km apart at ${oem.rowTime?.slice(11, 16)} UTC, orbit numbers ${oem.ageShownH} h old` +
+          (OEM ? ` (recomputed ${oem.ageRecomputedH?.toFixed(2)} h)` : '') +
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : ''),
   );
 } finally {

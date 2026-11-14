@@ -24,6 +24,7 @@ npm run snapshot   # refresh the saved data in src/data/ (needs the network; one
 npm run snapshot -- --only nasa  # refresh only the NASA files (Blue Marble tiles, EONET, photos)
 npm run snapshot -- --only weather  # save one real Open-Meteo reply as tests/fixtures/openmeteo-ypsilanti.json
 npm run snapshot -- --only news     # save one real Exa search reply as tests/fixtures/exa-station-news.json
+npm run snapshot -- --only oem      # NASA's ISS trajectory: src/data/iss-oem.json + the fixture pair in tests/fixtures/
 ```
 
 ## Checks
@@ -36,9 +37,11 @@ node scripts/smoke.mjs        # headless Chrome on dist/index.html from file://,
 node scripts/smoke.mjs --net --out evidence/m4.png  # real network; also presses "Check against reference"
 node scripts/smoke.mjs --offline  # network off, on docs/iss-ride-along-offline.html
 node scripts/smoke.mjs --plan     # network mocked; presses Plan my sighting (no key), the trip example, then a keyed run -> evidence/a1.png
+node scripts/smoke.mjs --oem      # network mocked; the NASA trajectory panel (gap, row time, age recomputed) -> evidence/c1.png
 node scripts/check-agent.mjs --provider openai   # the planner's live check; with no key it prints SKIPPED no key
 node scripts/make-offline.mjs # copy dist/index.html to docs/; checks size and no http(s) tags
 node scripts/check-live.mjs   # our position for "now" vs wheretheiss.at; prints SKIPPED offline without network
+node scripts/check-oem.mjs    # our math vs NASA's trajectory at 0/12/24/36/72 h, and with no conversion; writes src/data/oem-agreement.json
 node scripts/record-demo.mjs  # backup demo capture -> docs/demo-backup.mp4 (needs ffmpeg and AC power)
 node scripts/check-docs.mjs   # every file and function named in CODE_TOUR.md exists; docs under 120 lines
 ```
