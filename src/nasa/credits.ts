@@ -19,3 +19,9 @@ export const CREDIT_CITIES =
   'Cities: Natural Earth populated places (naturalearthdata.com, public domain), the largest 150 by population';
 export const CREDIT_HEAVENS_ABOVE =
   "Pass check: Heavens-Above (heavens-above.com) pass list for Ypsilanti, saved once by hand on 2026-11-14 for our test; the page is not scraped or contacted.";
+
+/** C1: NASA's ISS trajectory file. `created` is the file's own CREATION_DATE (UTC). */
+export const creditOem = (created: string) =>
+  `ISS trajectory ephemeris (OEM), NASA Johnson Space Center, Flight Operations Directorate (originator NASA/JSC/FOD/TOPO), file created ${created.slice(0, 16).replace('T', ' ')} UTC. A prediction from NASA's model, not a measurement.`;
+export const CREDIT_ERFA =
+  'Frame conversion: the IAU 1980 nutation table (106 terms) is copied from ERFA (derived from the IAU SOFA library), BSD 3-clause licence; notice in docs/THIRD_PARTY_NOTICES.md.';

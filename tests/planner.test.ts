@@ -1,6 +1,7 @@
 // A1 "Plan my sighting": tests (a)-(k) of PLAN.md A1's acceptance. No network: every service is
 // answered from tests/fixtures/ or a hand-made table (planner-helpers.ts).
 import { execFileSync } from 'node:child_process';
+import agreementJson from '../src/data/oem-agreement.json';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -431,6 +432,20 @@ describe('A1 (j) an engine burn in the news', () => {
         if (after && mode === 'ai') expect(ctx.trace.find((t) => t.tool === 'orbitDataAge')!.by).toBe('loop');
       }
     }
+  });
+
+  it('C1 step 8: orbitDataAge and the "pass times may have shifted" line quote the gap measured against NASA at this age', async () => {
+    const c = await decisionClouds();
+    const ageH = (NOW.getTime() - EPOCH.getTime()) / 3_600_000;
+    const table = agreementJson.byAge as [number, number][];
+    const nearest = table.reduce((b, p) => (Math.abs(p[0] - ageH) < Math.abs(b[0] - ageH) ? p : b));
+    const want = `about ${nearest[1].toFixed(1)} km apart from NASA's own trajectory`;
+    const { fetch } = mockFetch({ openMeteo: c.openMeteo, exa: burnNews('2026-11-14T10:00:00.000Z'), model: scripted(geminiSimple.replies) });
+    const ctx = ctxWith(fetch);
+    const r = await runFixedPlan(ctx, DEFAULTS);
+    expect(r.card.orbitLine).toContain(want);
+    const row = ctx.trace.find((t) => t.tool === 'orbitDataAge')!;
+    expect(row.summary).toContain(want);
   });
 });
 

@@ -108,3 +108,13 @@ code { font-family: ui-monospace, Consolas, monospace; }
 .key-pass { background: #ff5fa2; }
 .planner [hidden] { display: none; }
 .news-box a { color: #7fdbff; }
+
+/* C1: our math vs NASA's own trajectory */
+.oem { border-top: 1px solid #23304d; margin-top: 0.8rem; padding-top: 0.6rem; }
+.oem h3 { font-size: 0.95rem; margin: 0 0 0.35rem; }
+.oem-gap { font-size: 0.92rem; margin: 0 0 0.3rem; }
+.oem-gap strong { font-size: 1.15rem; color: #3ecf8e; }
+.oem-chart { width: 100%; max-width: 320px; height: auto; display: block; margin: 0.2rem 0; }
+.oem-chart .axis { stroke: #3a4a6d; stroke-width: 1; }
+.oem-chart .line { fill: none; stroke: #7fdbff; stroke-width: 2; }
+.oem-chart text { fill: #c8d3ea; font-size: 9px; }

@@ -1,4 +1,5 @@
-// ISS Ride-Along: the live tracker (M1) with NASA layers (M4) and the pass predictor (M5). Every second
+// ISS Ride-Along: the live tracker (M1) with NASA layers (M4), the pass predictor (M5) and the check
+// against NASA's own trajectory (C1, src/oem-ui.ts). Every second
 // the page runs SGP4 (satellite.js) on the station's orbit elements and moves the marker; a button
 // compares our answer with wheretheiss.at; src/nasa/layers.ts draws what the station is flying over;
 // src/passes-ui.ts lists when it can be seen from a chosen place.
@@ -16,6 +17,7 @@ import { belowPanelHtml, initNasaLayers, WORLD } from './nasa/layers';
 import { initPassPanel, passPanelHtml } from './passes-ui';
 import { initPlanner, plannerPanelHtml } from './ui/plannerPanel';
 import { fmtClock, fmtDay } from './agent/format';
+import { initOemPanel, oemPanelHtml } from './oem-ui';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -46,6 +48,7 @@ app.innerHTML = `
       <p id="data-age" class="age"></p>
       <button id="check-ref" type="button">Check against reference</button>
       <p id="ref-result" class="ref-result" aria-live="polite"></p>
+      ${oemPanelHtml}
       <p class="small">Orbit data: CelesTrak (US Space Force data, not NASA). Reference: wheretheiss.at
         (not NASA). Not affiliated with or endorsed by NASA.</p>
     </aside>
@@ -137,6 +140,7 @@ function tick() {
 tick();
 drawTrack(new Date());
 const passPanel = initPassPanel(() => elements.satrec);
+const oemPanel = initOemPanel(() => elements.satrec);
 setInterval(tick, 1000);
 setInterval(() => drawTrack(new Date()), 60_000);
 
@@ -173,6 +177,7 @@ function refreshOnce() {
     tick();
     drawTrack(new Date());
     passPanel.refresh();
+    oemPanel.refresh();
   });
 }
 if (navigator.onLine === false) window.addEventListener('online', refreshOnce, { once: true });

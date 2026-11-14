@@ -6,6 +6,7 @@ import { NO_NEWS_TEXT } from '../news/exaMcp';
 import { compass } from '../orbit/passes';
 import { fmtClock } from './format';
 import { NO_PASS_TEXT } from './score';
+import { measuredLine } from '../orbit/oemAgreement';
 import { FIXED_QUERY, findCity, orbitDataAge, passTexts, placeLabel, planLeg, roughForecast, showPass, stationNews, zoneOf, type PassInfo, type RunContext } from './tools';
 
 export interface Controls {
@@ -71,10 +72,13 @@ export function buildCard(ctx: RunContext, info: PassInfo | null, why: string, b
 export function orbitNewsLine(ctx: RunContext): string | null {
   const n = ctx.news;
   const epochText = `${ctx.epoch.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+  // C1: the gap measured against NASA's trajectory at the orbit numbers' current age.
+  const measured = measuredLine((ctx.now().getTime() - ctx.epoch.getTime()) / 3_600_000);
   if (n?.burn) {
     return (
       `A web item dated after our orbit numbers mentions an engine burn (${n.burn.title}, ${n.burn.published!.toISOString().slice(0, 10)}; not checked by us). ` +
-      `Pass times may have shifted since ${epochText}; plan again on the day of the pass.`
+      `Pass times may have shifted since ${epochText}; plan again on the day of the pass.` +
+      (measured ? ` Before any burn, our math was ${measured}.` : '')
     );
   }
   if (!n || !n.ok) return 'This prediction assumes no engine burn since the orbit numbers were issued.';

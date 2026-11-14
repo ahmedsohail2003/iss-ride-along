@@ -8,6 +8,7 @@ import { compass, predictForPlace, type VisiblePass } from '../orbit/passes';
 import { cloudAt, fetchForecast, ROUGH_AFTER_HOURS, type CloudForecast } from '../weather/openMeteo';
 import { searchStationNews, FIXED_QUERY, type NewsResult } from '../news/exaMcp';
 import { findCityCandidates, type AgentPlace } from './places';
+import { measuredLine } from '../orbit/oemAgreement';
 import { deg, endOfLocalDay, fmtClock, fmtDay, localDate, nextDates, pct } from './format';
 import { normaliseHM, pickBest, scorePass, type Scored, type Window } from './score';
 
@@ -271,8 +272,10 @@ export async function orbitDataAge(ctx: RunContext, by: By) {
   return traced(ctx, 'orbitDataAge', by, '', async () => {
     ctx.ageCalled = true;
     const hours = (ctx.now().getTime() - ctx.epoch.getTime()) / 3_600_000;
-    const value = { orbitNumbersFrom: `${ctx.epoch.toISOString().slice(0, 16).replace('T', ' ')} UTC`, ageHours: hours.toFixed(1) };
-    return { value, summary: `orbit numbers from ${value.orbitNumbersFrom}, ${value.ageHours} h old` };
+    const measured = measuredLine(hours); // C1: the gap measured against NASA's trajectory at this age
+    const value: Record<string, string> = { orbitNumbersFrom: `${ctx.epoch.toISOString().slice(0, 16).replace('T', ' ')} UTC`, ageHours: hours.toFixed(1) };
+    if (measured) value.measured = measured;
+    return { value, summary: `orbit numbers from ${value.orbitNumbersFrom}, ${value.ageHours} h old${measured ? `; ${measured}` : ''}` };
   });
 }
 
