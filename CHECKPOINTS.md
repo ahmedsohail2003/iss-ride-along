@@ -1,6 +1,39 @@
 # Checkpoints (newest first)
 
-Suggestions go in the team's Discord group chat. Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
+Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
+
+## Checkpoint 3 — Saturday Nov 14, 5:45 PM EST
+
+**Time left:** about 6 hours to the Devpost draft (midnight tonight), 16 hours to our feature freeze (9:30 AM Sunday), 18 hours to the final Devpost deadline (12:00 PM Sunday).
+
+**The big change: we enter a main track.** The event's Devpost page says "Enter one main track, then opt in to any partner, academic and MLH prizes that fit your project." Beyond the Horizon is a partner track, so it stays as an opt-in on top. Our main track is **Future of Intelligence** (the AI track). Denim and Quinn caught this. The same page gives the five things the judges score: does it work, technical challenge ("real use of the track's technology"), originality and impact, design and usability ("a stranger can use it in a minute"), and learning and growth ("the team picked up a new tool, language or field").
+
+**New since checkpoint 2 (both passed an independent check):**
+- **What the station is flying over, from NASA data.** The map shows NASA's daily satellite image with its date ("daily satellite image, 2026-11-13, not a live camera"). A circle shows how much of Earth the station can see (4,595 km across at 438 km altitude in the check run). Under it: NASA's live list of natural events (in the check run, 38 open events reported in the last 30 days: 25 wildfires, 11 sea and lake ice, 2 severe storms), with the nearest one named, and an astronaut photo taken near that spot with its NASA credit. A credits panel says where every piece comes from.
+- **When can I see it.** Pick a city (Ypsilanti is the default; 150 more, or type a latitude and longitude) and get every visible pass for the next 5 days: the time, where to look and how high. A pass counts as visible only when the station is at least 10 degrees above your horizon, the Sun is at least 6 degrees below it (so your sky is dark), and the station itself is still in sunlight. Checked for Ypsilanti against Heavens-Above (a well-known pass prediction site): 8 of 8 passes matched, with start times within 1.3 seconds, end times within 4.8 seconds and peak height within 0.57 degrees.
+- 47 of 47 automated tests pass (re-run at 5:35 PM).
+
+**Try it:** open https://ahmedsohail2003.github.io/iss-ride-along/ , scroll to "When can I see it?", leave Ypsilanti selected and read the next pass. Then open the credits panel at the bottom.
+
+**Being built next, in this order:**
+1. **Plan my sighting (the AI part, for the main track).** You type your week the way you would say it, for example "Ypsilanti until Monday, then Chicago Tuesday to Thursday, kids in bed by 8:30". An AI agent (an AI model that chooses which tools to run, step by step) runs our own pass math and a cloud forecast for each part of the trip, does its own live web search about the station, picks the one pass worth going outside for and moves the map to it. Every step is shown on screen and every number is checked against our own math. Without a key the page still runs a simpler fixed plan for one city.
+2. **Our orbit math checked against NASA mission control's own trajectory file**, with the gap shown on the page.
+3. The submission text, the presenter pack and the 2-minute demo script (tonight), then a first screen a stranger can use in a minute, a calendar file for the chosen pass, day and night on the map, a small game, and accessibility.
+
+**Study (5 to 10 min, optional this time):** [docs/STUDY_CARDS.md](docs/STUDY_CARDS.md), cards 1 and 2. Do the "Say it" line and the three judge questions out loud, then write "card done" and your weakest question in the group chat or your Google Doc. The next two cards (the planner, and the NASA check) are the ones everyone needs. You can also tell your own AI: "Read https://github.com/ahmedsohail2003/iss-ride-along/blob/main/AGENTS.md and quiz me on checkpoint 3."
+
+**Need from you tonight:**
+- Quinn or Denim, by 8:00 PM: ask an organiser or the OpenAI and Exa mentors (1) whether a Future of Intelligence entry must use OpenAI's models or whether Exa search plus Gemini counts, (2) whether there are OpenAI credits for hackers, (3) what the track's prizes are. Post the answers only.
+- By 9:00 PM: Denim claims the Exa credit and makes an Exa key on his own account; whoever owns the demo laptop makes a free Gemini key at aistudio.google.com on their own Google account. Keys stay in your own password manager and are typed into the page's settings box on the demo laptop once the planner is live. Never post a key or a code in the chat, a doc or the repo.
+- Everyone, by 10:00 PM: which laptop is the demo laptop; is this your first hackathon, yes or no; and check your own sentence under "Who did what" in [DEVPOST_DRAFT.md](DEVPOST_DRAFT.md).
+- Denim, by 10:00 PM: make the Devpost draft at https://hack-the-nest.devpost.com/ from [DEVPOST_DRAFT.md](DEVPOST_DRAFT.md), invite the rest of us, and write "draft in" in the chat. Quinn is the backup at 10:45 PM.
+
+**Your feedback on checkpoint 2:**
+- Denim and Quinn (we need a main track): adopted, see the top of this entry.
+- Quinn ("If the tracking data is found from CelesTrak, then how are we meeting the requirements for the Beyond The Horizon track?"): the orbit numbers are US Space Force tracking data published by CelesTrak, and the page says so. The NASA parts are the imagery, live events and astronaut photos above, and next the check against NASA mission control's trajectory file. Beyond the Horizon's extra criterion is "meaningful use of the partner's tool or data".
+- Armeis (code breakdown doc): the part about how the page gets published was mostly right; the corrections are in the chat (we use no React or Tailwind, and the tests check our position against saved samples from a separate tracker). The flight-booking idea is still a different project; a small space-weather panel stays a "later, if there is time" candidate.
+
+**Correction to checkpoint 1:** it said the live difference was 0.74 km and that the station moves about 7.6 km every second. The live-check script measured 0.729 km and 7.67 km per second (HOW_IT_WORKS.md). Use those.
 
 ## Checkpoint 2 — Saturday Nov 14, 3:40 PM EST
 
