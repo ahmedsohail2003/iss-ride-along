@@ -7,6 +7,10 @@
 // Option: --only nasa  refresh only the NASA layers (step 5: Blue Marble zoom 1-2 tiles, the EONET
 // snapshot, the curated photos and thumbnails) and keep every other file and its entry in
 // snapshot-meta.json as it is (so the orbit test fixtures do not change).
+// Option: --only weather  save one real Open-Meteo cloud forecast for Ypsilanti as
+// tests/fixtures/openmeteo-ypsilanti.json (with its fetch time); nothing in src/data changes.
+// Option: --only news  save one real Exa search reply (keyless hosted MCP endpoint) as
+// tests/fixtures/exa-station-news.json (with its fetch time and the search text); nothing in src/data changes.
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +37,11 @@ const SAMPLE_SPACING_S = 600; // 10 samples, 10 minutes apart, span 90 minutes (
 const argv = process.argv.slice(2);
 const orbitFrom = argv.includes('--orbit-from') ? resolve(argv[argv.indexOf('--orbit-from') + 1]) : null;
 const only = argv.includes('--only') ? argv[argv.indexOf('--only') + 1] : null;
-if (only && only !== 'nasa') throw new Error(`--only accepts "nasa", got ${only}`);
+if (only && !['nasa', 'weather', 'news'].includes(only)) throw new Error(`--only accepts "nasa", "weather" or "news", got ${only}`);
+if (only === 'weather' || only === 'news') {
+  await (only === 'weather' ? weatherFixture() : newsFixture());
+  process.exit(0);
+}
 
 const metaPath = join(dataDir, 'snapshot-meta.json');
 const meta =
@@ -235,4 +243,46 @@ async function nasaLayers() {
     count: photos.length,
     rule: 'curated by hand; NASA-credited Earth views from the ISS; place and lat/lon set from the title (approximate)',
   });
+}
+
+// ---- A1 test fixtures (tests/fixtures/), one real request each.
+function saveFixture(name, obj) {
+  const p = join(root, 'tests', 'fixtures', name);
+  writeFileSync(p, `${JSON.stringify(obj, null, 1)}\n`);
+  console.log(`  saved tests/fixtures/${name} (${statSync(p).size} bytes)`);
+}
+
+async function weatherFixture() {
+  const url =
+    'https://api.open-meteo.com/v1/forecast?latitude=42.24&longitude=-83.61&hourly=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high&timezone=auto&timeformat=unixtime&forecast_days=6';
+  const res = await get(url);
+  saveFixture('openmeteo-ypsilanti.json', { source: url, fetchedAt: new Date().toISOString(), reply: await res.json() });
+}
+
+async function newsFixture() {
+  const url = 'https://mcp.exa.ai/mcp';
+  const query = 'International Space Station ISS news this week: reboost, engine burn, docking, spacewalk';
+  const body = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: {
+      name: 'web_search_exa',
+      arguments: {
+        query,
+        numResults: 10,
+        objective: 'Newest posts about the International Space Station orbit, engine burns, reboosts, dockings and spacewalks, with their publication dates.',
+      },
+    },
+  };
+  const t0 = Date.now();
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status} (not retried)`);
+  console.log(`200 ${Date.now() - t0} ms ${url} (keyless)`);
+  saveFixture('exa-station-news.json', { source: `${url} tools/call web_search_exa, no key`, fetchedAt: new Date().toISOString(), query, reply: await res.text() });
 }
