@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
-import { parseEonet } from '../src/nasa/eonet';
+import { EONET_URL, eonetRawCount, parseEonet } from '../src/nasa/eonet';
 import { gibsProbeUrl, gibsTemplate, pickGibsDay, utcDay, type ProbeResult } from '../src/nasa/gibs';
 import { NASA_ONLY_CREDIT, photoCreditLine, type CuratedPhoto } from '../src/nasa/photos';
 import { CREDIT_GIBS, CREDIT_NOT_NASA } from '../src/nasa/credits';
@@ -20,6 +20,14 @@ describe('EONET parser', () => {
   test('returns at least 1 event from the saved snapshot', () => {
     console.log(`EONET snapshot: ${eonetRaw.events.length} raw events -> ${events.length} parsed`);
     expect(events.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('the page counts a whole set: no count limit, and the snapshot is the same request as the live one', () => {
+    // M4 fix r1: limit=50 cut the open list to 50, so the on-screen total and "none in view" were wrong.
+    expect(EONET_URL).not.toMatch(/[?&]limit=/);
+    expect(EONET_URL).toMatch(/[?&]status=open(&|$)/);
+    expect(meta.files['eonet-open.json'].source).toBe(EONET_URL);
+    expect(eonetRawCount(eonetRaw)).toBe(meta.files['eonet-open.json'].eventCount);
   });
 
   test('reads GeoJSON [lon, lat] into lat and lon in the right order (every event, newest point)', () => {

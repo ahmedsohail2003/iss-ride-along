@@ -8,7 +8,7 @@ import eonetSnapshot from '../data/eonet-open.json';
 import photosData from '../data/photos.json';
 import meta from '../data/snapshot-meta.json';
 import { footprintRadiusKm, splitByFootprint, type WithDistance } from './footprint';
-import { fetchEonet, parseEonet, type EonetEvent } from './eonet';
+import { EONET_SET, eonetRawCount, fetchEonet, parseEonet, type EonetEvent } from './eonet';
 import { GIBS_LAYER, GIBS_MAX_NATIVE_ZOOM, gibsTemplate, pickGibsDay, probeGibs } from './gibs';
 import { photoCreditLine, photoDay, type CuratedPhoto } from './photos';
 import * as C from './credits';
@@ -145,6 +145,7 @@ export function initNasaLayers(map: L.Map): NasaLayers {
   // ---- Events: the saved copy now, one live request when online.
   const snapMeta = meta.files['eonet-open.json'];
   let events: EonetEvent[] = parseEonet(eonetSnapshot);
+  let rawEventCount = eonetRawCount(eonetSnapshot);
   let eventsSource = `Saved copy from ${utcMinute(new Date(snapMeta.retrievedAt))} (built into this page).`;
   const markers = new Map<string, L.CircleMarker>();
 
@@ -169,7 +170,8 @@ export function initNasaLayers(map: L.Map): NasaLayers {
     if (!live) {
       eventsSource += ' The live list could not be loaded.';
     } else {
-      events = live;
+      events = live.events;
+      rawEventCount = live.rawCount;
       eventsSource = `Live from NASA EONET, fetched ${utcMinute(new Date())}.`;
       drawEventMarkers();
       lastInView = '';
@@ -214,19 +216,22 @@ export function initNasaLayers(map: L.Map): NasaLayers {
     const list = $('events-list');
     status.dataset.inView = String(ev.inView.length);
     if (ev.inView.length) {
-      status.textContent = `${ev.inView.length} open natural event${ev.inView.length === 1 ? '' : 's'} in the station's view right now:`;
+      status.textContent = `${ev.inView.length} of the ${events.length} ${EONET_SET} ${ev.inView.length === 1 ? 'is' : 'are'} in the station's view right now:`;
       const shown = ev.inView.slice(0, 6);
       list.innerHTML =
         shown.map((d) => `<li>${eventLine(d)}</li>`).join('') +
         (ev.inView.length > shown.length ? `<li class="small">and ${ev.inView.length - shown.length} more</li>` : '');
     } else if (ev.nearest) {
-      status.textContent = 'No open natural events in the station\'s view right now. Nearest one:';
+      status.textContent = `None of the ${events.length} ${EONET_SET} is in the station's view right now. Nearest one:`;
       list.innerHTML = `<li>${eventLine(ev.nearest)}</li>`;
     } else {
-      status.textContent = 'NASA EONET lists no open events right now.';
+      status.textContent = `NASA EONET lists no ${EONET_SET}.`;
       list.innerHTML = '';
     }
-    $('events-source').textContent = `${eventsSource} ${events.length} open events (${categorySummary()}).`;
+    const skipped = rawEventCount - events.length;
+    $('events-source').textContent =
+      `${eventsSource} All ${events.length} ${EONET_SET} (${categorySummary()})` +
+      (skipped > 0 ? `; ${skipped} more had no usable position.` : '.');
 
     const ph = splitByFootprint(photos, lat, lon, altKm);
     const pick = ph.inView[0] ?? ph.nearest;

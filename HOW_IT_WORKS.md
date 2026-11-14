@@ -48,8 +48,10 @@ Nothing else is downloaded. There is no server, no account and no API key.
   saved samples).
 - **Satellite image.** The page asks GIBS for yesterday's daily mosaic (UTC) and uses it if GIBS's
   `Layer-Time-Actual` reply header confirms that day, else two days ago. The date is printed under the map.
-- **Events.** The page asks EONET for the newest 50 open events (saved copy, Nov 14: 46 US wildfires,
-  2 tropical storms, 2 sea-ice events; more than 50 events were open). The page lists
+- **Events.** The page asks EONET for every open event reported in the last 30 days, with no count
+  limit, and prints how many there are (saved copy, Nov 14: 38 events, 25 US wildfires, 2 tropical
+  cyclones, 11 sea-ice events). EONET leaves some events open for years without a new report (7,244 open
+  in all that day, the oldest last reported 9,081 days earlier), so older ones are left out. The page lists
   the ones inside the circle with category, date, reporting agency and distance; if none are, it says
   so and names the nearest one.
 - **Photos.** The library has no coordinates, so each photo's place was set by hand from its title.

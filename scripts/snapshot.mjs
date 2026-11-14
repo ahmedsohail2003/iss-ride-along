@@ -176,8 +176,10 @@ async function nasaLayers() {
     }
   }
 
-  // 5b. NASA EONET v3 open natural events (the page fetches the same URL live and falls back to this)
-  const eonetUrl = 'https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=50';
+  // 5b. NASA EONET v3 open natural events reported in the last 30 days, no count limit (the page
+  //     fetches the same URL live and falls back to this; it must equal EONET_URL in src/nasa/eonet.ts,
+  //     which tests/nasa.test.ts checks)
+  const eonetUrl = 'https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=30';
   const eonet = await (await get(eonetUrl)).json(); // served as application/rss+xml, body is JSON
   if (!Array.isArray(eonet.events)) throw new Error('unexpected EONET payload');
   save('eonet-open.json', JSON.stringify(eonet) + '\n', eonetUrl, {

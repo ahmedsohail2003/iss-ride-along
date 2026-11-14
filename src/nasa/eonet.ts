@@ -3,7 +3,16 @@
 // scripts/snapshot.mjs. GeoJSON order is [longitude, latitude]; the parser turns it into named
 // lat / lon fields so nothing downstream can swap them.
 
-export const EONET_URL = 'https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=50';
+// Which events: every open event with a report in the last EONET_DAYS days, with no count limit, so
+// the count the page prints is the whole of that set. Not "all open events": EONET leaves some
+// events open for years without a new report (Nov 14, 2026, 4:14 PM EST: 7,244 open, 7,175 of them
+// wildfires, the oldest last reported 9,081 days earlier; a 5.0 MB reply). The old `limit=50` cut
+// that list to 50 in EONET's own order, so the page's total and its "none in view" were only true of
+// those 50. scripts/snapshot.mjs saves this same URL (tests/nasa.test.ts checks they match).
+export const EONET_DAYS = 30;
+export const EONET_URL = `https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=${EONET_DAYS}`;
+/** The set the page counts, in words, for every on-screen line about events. */
+export const EONET_SET = `open natural events reported in the last ${EONET_DAYS} days`;
 const TIMEOUT_MS = 10_000;
 
 export interface EonetEvent {
@@ -88,8 +97,20 @@ export function parseEonet(json: unknown): EonetEvent[] {
   return out;
 }
 
+/** How many events the reply lists before parsing (parseEonet skips entries with no usable position). */
+export function eonetRawCount(json: unknown): number {
+  const events = (json as { events?: unknown[] } | null)?.events;
+  return Array.isArray(events) ? events.length : 0;
+}
+
+export interface EonetList {
+  events: EonetEvent[];
+  /** Events in the reply, including any the parser skipped. */
+  rawCount: number;
+}
+
 /** One live EONET request; null on any failure (the page then keeps the saved copy). */
-export async function fetchEonet(): Promise<EonetEvent[] | null> {
+export async function fetchEonet(): Promise<EonetList | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
@@ -97,7 +118,7 @@ export async function fetchEonet(): Promise<EonetEvent[] | null> {
     if (!res.ok) return null;
     // EONET labels the reply application/rss+xml although the body is JSON.
     const json = JSON.parse(await res.text());
-    return Array.isArray(json?.events) ? parseEonet(json) : null;
+    return Array.isArray(json?.events) ? { events: parseEonet(json), rawCount: eonetRawCount(json) } : null;
   } catch {
     return null;
   } finally {
