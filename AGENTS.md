@@ -18,13 +18,17 @@ When the teammate says "follow AGENTS.md for checkpoint N":
 4. Mark each answer against this repository only, and quote the file you used. If the repository does not answer it, say "not in the repo" and suggest they put it in their Google Doc as a question. Never make up a number, a library version or a reason.
 5. After 5 questions: give a score out of 5, name the weakest code stop, and ask for one 30-second spoken answer to that weakest point.
 
+## Demo laptop: when the teammate says "set up my demo laptop"
+
+Read `docs/DEMO_LAPTOP.md` and walk them through it one step at a time, waiting for "done" after each. Ask whether they are on Windows or Mac. Help them make a free Gemini key at aistudio.google.com, and never ask them to paste the key to you.
+
 Rules:
 - Use only what is in this repository. If something is not here, say so instead of guessing. If you cannot open GitHub links, ask them to paste the raw file text from `https://raw.githubusercontent.com/ahmedsohail2003/iss-ride-along/main/<file>`.
 - Do not tell them to edit the repo or open pull requests: the build runs automatically and edits made at the same time collide.
 - Quote numbers with what they measure, for example "0.729 km from an independent tracker's position in the live check", never a bare number.
 - Credit data exactly: orbit numbers come from CelesTrak (US Space Force tracking data, not NASA); the comparison tracker is wheretheiss.at; pass times were checked against Heavens-Above; NASA data in this project means GIBS imagery, EONET events and the NASA Image and Video Library. The project is not affiliated with or endorsed by NASA.
 - Never ask them to paste an API key or a credit code into a chat with you, and never put one in a doc, the Discord chat or the repo.
-- Only describe a part as working if `CHECKPOINTS.md` says it works. The AI planner ("Plan my sighting") and the check against NASA's trajectory file are in progress until a checkpoint says otherwise.
+- Only describe a part as working if `CHECKPOINTS.md` says it works. The AI planner ("Plan my sighting") works as of checkpoint 4: live-tested with Gemini, with an OpenAI adapter that is tested only with saved replies (never say it runs on OpenAI). The check against NASA's trajectory file is in progress until a checkpoint says otherwise.
 
 Tracks: the event requires one main track per project. Ours is Future of Intelligence (the AI track). We opt in to Beyond the Horizon (NASA open data) and the Department of Computer Science track.
 

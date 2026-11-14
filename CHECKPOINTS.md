@@ -2,6 +2,37 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 4 — Saturday Nov 14, 6:45 PM EST
+
+**Time left:** about 5 hours to the Devpost draft (midnight tonight), 15 hours to our feature freeze (9:30 AM Sunday), 17 hours to the final Devpost deadline (12:00 PM Sunday).
+
+**New: Plan my sighting, the AI part for our main track, is live.**
+- At the top of the page there is one box: "Where will you be, and when are you free?" You type your week the way you would say it, for example "Ypsilanti until Monday, then Chicago Tuesday to Thursday, kids in bed by 8:30".
+- An AI agent (an AI model that chooses which tools to run, step by step) splits that into parts, runs our own pass math and a cloud forecast for each part, does its own live web search about the station, picks one pass and moves the map to it. A "Steps" list shows every tool it ran and what came back.
+- **The AI only chooses. Every number on the result card is written by our own engine**, and an audit marks any number in the AI's sentences that no tool gave.
+- **With no key it still works:** the button runs a fixed plan with no AI for one place, using the same scoring rule.
+- Checked: 68 of 68 automated tests pass. Four live runs on Google's Gemini (model `gemini-4-hydrogen`) each chose a pass the rule allows, with 0 unverified numbers, in 7 to 11 seconds and 4 model calls. The independent check then ran the trip sentence once more at 6:22 PM: it picked Sunday Nov 15 at 6:45 PM in Ypsilanti (36% cloud forecast) in 13.2 seconds.
+- What is true about each AI service: Gemini is live-tested. There is an OpenAI adapter behind the same code that is tested only with saved replies, not live. The web search is Exa, live-tested without a key. The cloud forecast is Open-Meteo.
+
+**Try it:** open https://ahmedsohail2003.github.io/iss-ride-along/ and press "Plan my sighting" (with no key you get the fixed plan). To see the AI: open "Settings: AI keys" under the planner, paste your own Gemini key, tick "keep until this tab is closed", then press the trip example. Setup for the demo laptop is in [docs/DEMO_LAPTOP.md](docs/DEMO_LAPTOP.md).
+
+**Study (required this time, 5 to 10 min):** [docs/STUDY_CARDS.md](docs/STUDY_CARDS.md), card 3. It teaches you to read one planner run aloud, which is the first thing a judge will watch. Say the "Say it" line, answer the three judge questions out loud, then write "card done" and your weakest question in the group chat or your Google Doc.
+
+**Devpost:** the project is created under Ahmed's account (name, tagline, main track Future of Intelligence, opt-ins Beyond the Horizon, the Computer Science track and Best Beginner, the repo link, the AI tools answers). The team invite link is in the Discord chat only. Still open there: Denim and Armeis add their schools; the story step needs the demo video link, so its text waits in [DEVPOST_DRAFT.md](DEVPOST_DRAFT.md) until Sunday morning; the final Submit comes after the video.
+
+**Being built next:** our orbit math checked against NASA mission control's own trajectory file, then the submission text and README, the presenter pack, and the 2-minute demo script (by about 10:30 PM).
+
+**Need from you tonight:**
+- The demo laptop's owner: make a free Gemini key at aistudio.google.com on your own Google account, type it into "Settings: AI keys" on the live page, tick "keep until this tab is closed", press the trip example, and post a screenshot of the result and the Steps list in the chat **with the settings box closed**. Say "demo laptop: me".
+- Everyone: join the Devpost project with the link in the chat. Denim and Armeis: add your school under "Additional info".
+- Everyone: "card done" for card 3.
+- Anyone on site: does the event app (the one with our table number) also need the project entered tonight? The packet says "Draft on Devpost and the event app".
+
+**Your feedback since checkpoint 3:**
+- Denim asked the organiser: "it is not necessary to use OpenAI's models, Exa search plus Gemini counts perfectly well". Adopted: the planner runs on Gemini with Exa search, and no OpenAI key is needed.
+- Denim: this is the first hackathon for Denim, Quinn and Armeis. Adopted: Best Beginner is ticked on Devpost.
+- The demo laptop is one of yours (Ahmed's laptop is not at the venue). You decide which.
+
 ## Checkpoint 3 — Saturday Nov 14, 5:45 PM EST
 
 **Time left:** about 6 hours to the Devpost draft (midnight tonight), 16 hours to our feature freeze (9:30 AM Sunday), 18 hours to the final Devpost deadline (12:00 PM Sunday).
