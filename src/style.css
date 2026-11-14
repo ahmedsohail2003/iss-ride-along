@@ -106,3 +106,5 @@ code { font-family: ui-monospace, Consolas, monospace; }
 .trace-bad strong { color: #ff6b6b; }
 .plan-settings label { display: inline-block; margin: 0.2rem 0.6rem 0.2rem 0; }
 .key-pass { background: #ff5fa2; }
+.planner [hidden] { display: none; }
+.news-box a { color: #7fdbff; }

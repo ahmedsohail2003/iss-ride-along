@@ -7,7 +7,7 @@ export const SESSION_KEY = 'iss-ride-along-keys';
 
 /** Status words (PLAN rule 3), the same words as in the README and SUBMISSION.md. */
 export const STATUS: Record<KeyName, string> = {
-  gemini: 'tested with saved replies, not live-tested',
+  gemini: 'live-tested (gemini-4-hydrogen, Nov 14, 2026)',
   openai: 'tested with saved replies, not live-tested',
   exa: 'live-tested without a key; the keyed call is not live-tested',
 };
