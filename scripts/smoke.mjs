@@ -16,6 +16,8 @@
 // Offline mode: the browser context is offline and every non-file request is aborted as
 // "internet disconnected" (CelesTrak included), so the page must run on the orbit data built into it;
 // it also requires the age label to say so.
+// Stale-build guard: a file:// page whose <meta name="iss-source-hash"> does not match the current
+// source (scripts/source-hash.mjs) fails at once; rebuild first.
 // RAM rule (PLAN.md section 3): runs at 0.8 GB free or more; below that it waits 60 s, retries once,
 // then prints DEFERRED and exits 0 (not a failure).
 import { chromium } from 'playwright-core';
@@ -23,6 +25,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { freemem } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { builtHash, sourceHash } from './source-hash.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -39,6 +42,22 @@ const defaultFile = OFFLINE ? 'docs/iss-ride-along-offline.html' : 'dist/index.h
 const url = opt('--url', pathToFileURL(resolve(defaultFile)).href);
 const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : 'evidence/m1.png'));
 const [w, h] = opt('--size', '1366x768').split('x').map(Number);
+
+// Stale-build guard (M4 fix r2): a file:// page must carry the fingerprint of the current source
+// (scripts/source-hash.mjs). Checked before Chrome starts, so a stale page costs no browser run.
+if (url.startsWith('file:')) {
+  const page = new URL(url);
+  const built = builtHash(readFileSync(page, 'utf8'));
+  const now = sourceHash();
+  if (built !== now) {
+    console.log(
+      `SMOKE FAIL: ${page.pathname.split('/').pop()} was built from different source ` +
+        `(page ${built ?? 'has no source hash'}, source now ${now}); run npm run build` +
+        (OFFLINE ? ' and npm run offline' : '') + ' first',
+    );
+    process.exit(1);
+  }
+}
 
 const MIN_FREE_GB = 0.8;
 const gb = () => freemem() / 1024 ** 3;
@@ -175,6 +194,8 @@ try {
     gibsLabelOk: OFFLINE ? /Blue Marble/.test(info.gibsLabel) : dayLabelOk,
     gibsTile200: !NET || tiles200.length > 0,
     eventsShown: info.eventsListed > 0 && info.eventsStatus.length > 0,
+    // M4 fix r1/r2: both event lines name the set they count (open events reported in the last N days).
+    eventsSetNamed: /open natural events reported in the last \d+ days/.test(info.eventsStatus) && /(Saved copy from|Live from NASA EONET).* All \d+ open natural events reported in the last \d+ days/.test(info.eventsSource),
     photoShown: info.photo !== null && info.photoLoaded > 0 && /Photo: NASA, Image and Video Library, iss/.test(info.photoCaption),
     creditsOk: info.creditsHasGibs,
   };
