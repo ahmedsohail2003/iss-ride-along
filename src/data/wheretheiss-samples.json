@@ -1,0 +1,101 @@
+{
+  "note": "Reference positions from wheretheiss.at (not NASA). altitude km, velocity km/h, timestamp unix s.",
+  "tle": {
+    "header": "ISS (ZARYA)",
+    "line1": "1 25544U 98067A   26317.91612726  .00008668  00000+0  16320-3 0  9995",
+    "line2": "2 25544  51.6324 279.1461 0007381  22.6178 337.5134 15.49359724594966",
+    "tle_timestamp": 1794607153
+  },
+  "samples": [
+    {
+      "timestamp": 1794680219,
+      "latitude": 30.47679158438,
+      "longitude": -25.549496449913,
+      "altitude": 415.30801776967,
+      "velocity": 27607.589757601,
+      "visibility": "daylight",
+      "footprint": 4483.5153125375
+    },
+    {
+      "timestamp": 1794680819,
+      "latitude": 50.469103005074,
+      "longitude": 16.858210419188,
+      "altitude": 421.30296291146,
+      "velocity": 27599.225187514,
+      "visibility": "eclipsed",
+      "footprint": 4514.086419444
+    },
+    {
+      "timestamp": 1794681419,
+      "latitude": 44.081503466554,
+      "longitude": 72.090004022082,
+      "altitude": 423.03008082552,
+      "velocity": 27586.96654164,
+      "visibility": "eclipsed",
+      "footprint": 4522.8471371523
+    },
+    {
+      "timestamp": 1794682019,
+      "latitude": 18.262855149352,
+      "longitude": 104.16858112339,
+      "altitude": 422.00231661642,
+      "velocity": 27572.912321291,
+      "visibility": "eclipsed",
+      "footprint": 4517.6363522799
+    },
+    {
+      "timestamp": 1794682619,
+      "latitude": -12.007607648313,
+      "longitude": 126.32474323665,
+      "altitude": 426.54897035755,
+      "velocity": 27551.880029179,
+      "visibility": "eclipsed",
+      "footprint": 4540.6327328303
+    },
+    {
+      "timestamp": 1794683219,
+      "latitude": -39.512177498642,
+      "longitude": 154.62969630684,
+      "altitude": 435.77493054025,
+      "velocity": 27531.534423727,
+      "visibility": "daylight",
+      "footprint": 4586.8639566288
+    },
+    {
+      "timestamp": 1794683819,
+      "latitude": -51.712092289717,
+      "longitude": -154.18048870608,
+      "altitude": 438.277181631,
+      "velocity": 27531.369218933,
+      "visibility": "daylight",
+      "footprint": 4599.3046445727
+    },
+    {
+      "timestamp": 1794684419,
+      "latitude": -36.239705645157,
+      "longitude": -106.18033780729,
+      "altitude": 428.66744331192,
+      "velocity": 27557.717317093,
+      "visibility": "daylight",
+      "footprint": 4551.2992487164
+    },
+    {
+      "timestamp": 1794685019,
+      "latitude": -7.812262003546,
+      "longitude": -79.680417179824,
+      "altitude": 416.56435524172,
+      "velocity": 27591.198832344,
+      "visibility": "daylight",
+      "footprint": 4489.9429770167
+    },
+    {
+      "timestamp": 1794685619,
+      "latitude": 22.391085452166,
+      "longitude": -57.09529066669,
+      "altitude": 414.06872013502,
+      "velocity": 27607.315527083,
+      "visibility": "daylight",
+      "footprint": 4477.1638276176
+    }
+  ]
+}
