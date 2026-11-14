@@ -27,3 +27,6 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Smoke-test screenshots (copies go to ../.autopilot/evidence/)
+evidence/

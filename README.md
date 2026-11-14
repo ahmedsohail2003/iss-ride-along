@@ -21,6 +21,28 @@ npm run snapshot # refresh the saved data in src/data/ (needs the network)
 
 Node 22 was used. `npm run snapshot` makes one request per source and never retries.
 
+Checks (they use the Chrome already installed on the machine through playwright-core; no browser download):
+
+```
+node scripts/smoke.mjs        # opens dist/index.html from file:// in headless Chrome, saves evidence/m1.png
+node scripts/check-live.mjs   # our position for "now" vs wheretheiss.at (prints SKIPPED offline without network)
+node scripts/record-demo.mjs  # backup demo capture -> docs/demo-backup.mp4 (needs ffmpeg; runs on AC power)
+```
+
+## What works so far
+
+- A world map with the station's position, moved every second, and its path over the last orbit
+  (solid) and the next orbit (dashed).
+- Latitude, longitude, altitude (km) and orbital speed (km/h; the speed through space, not over the ground).
+- An "orbit data age" label: green under 1 day old, amber 1-3 days, red over 3 days.
+- Orbit elements: one CelesTrak fetch per page load (skipped if this device saved a copy in the last
+  2 hours), else the copy saved on the device, else the copy built into the page. The newest wins.
+- "Check against reference": one request to wheretheiss.at, then the distance between its position
+  and ours for the same second. Both run their own code on public orbit data, so this checks our
+  math, not the station's true position.
+- `npm test` compares our position, altitude and speed with 10 saved wheretheiss.at samples,
+  propagated from the same element set that tracker used (limits: 2 km, 0.1 km, 1 km/h).
+
 ## Data used so far (saved in `src/data/`, sources and retrieval times in `snapshot-meta.json`)
 
 | File | What it is | Source |
