@@ -6,10 +6,8 @@ checked against an independent tracker: in the saved test, our position agreed w
 to within 0.0003 km on 10 of 10 samples. The whole page builds into one HTML file that also opens
 without internet.
 
-Status (Sat Nov 14, 4 PM EST): the live tracker and the NASA layers work (a dated NASA satellite
-image under the station, NASA natural events inside its view, curated NASA astronaut photos). The
-"when can I see it" predictor and the game are planned and not built yet; this page is updated as
-each one ships.
+Status (Sat Nov 14, 5:30 PM EST): the live tracker, the NASA layers (a dated NASA satellite image, NASA natural events
+in the station's view, curated NASA astronaut photos) and the "when can I see it" pass predictor work. The game is planned and not built yet.
 
 ## In one minute
 
@@ -36,6 +34,7 @@ distance between the two answers.
 | The station's view (circle) | computed: horizon radius from altitude (see below) | km | our geometry |
 | Natural events in view | fetched list (one request per page load, else the saved copy); which ones are in view and how far is computed | km, dates in UTC | NASA EONET |
 | Astronaut photo | built in (12 thumbnails chosen by hand, labelled curated); which one is in view is computed | - | NASA Image and Video Library |
+| Visible passes for a city (next 5 days) | computed in the browser | local time, compass points, degrees above the horizon | TLE from CelesTrak; cities from Natural Earth |
 
 Nothing else is downloaded. There is no server, no account and no API key.
 
@@ -57,6 +56,15 @@ Nothing else is downloaded. There is no server, no account and no API key.
 - **Photos.** The library has no coordinates, so each photo's place was set by hand from its title.
   Only photos whose own NASA description credits NASA are used (ESA, JAXA and CSA photos were left
   out). No NASA logo or insignia is used.
+
+## When can I see it (visible passes)
+
+- The page looks 5 days ahead for times when the station is at least 10° above your horizon, your sky
+  is dark (Sun 6° or more below the horizon) and the station is in sunlight (satellite.js `shadowFraction`
+  under 1): 20 s steps, each start and end narrowed to 0.5 s, peak by golden-section search; 5 days took 21 ms in Node.
+- Against Heavens-Above's Ypsilanti list for Nov 14-18, saved by hand with the same TLE (`tests/passes.test.ts`): 8 of 8
+  passes, starts within 1.3 s, ends within 4.8 s, peak within 0.6° (limits 5 s, 15 s, 3°). Far north or south (Alert,
+  82.5° N) it says why the list is empty. Times are Ypsilanti's for Ypsilanti, otherwise the visitor's own time zone.
 
 ## What the reference check means
 
@@ -88,7 +96,7 @@ the station. The difference also grows when the two sides use TLEs of different 
 - **Vite 8.3.8 + vite-plugin-singlefile 2.3.4**: build the site into one self-contained `index.html`
   that teammates can open on their own laptops.
 - **TypeScript 7.0.2**: JavaScript with type checks; `npm run build` fails on a type error.
-- **Vitest 5.1.0**: runs the 32 unit tests in about a second, with no network.
+- **Vitest 5.1.0**: runs the 47 unit tests in about a second, with no network.
 - **playwright-core 1.65.1**: drives the Chrome already on the laptop for the screenshot and video
   scripts (no browser download).
 

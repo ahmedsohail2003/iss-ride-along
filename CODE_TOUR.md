@@ -1,4 +1,4 @@
-# Code tour (7 stops)
+# Code tour (8 stops)
 
 For anyone presenting ISS Ride-Along. A judge may say "walk me through this": each stop has the file,
 the functions to point at, what they do, and a one-sentence answer to say out loud. Read it top to
@@ -28,8 +28,8 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
   epoch to any time), through the satellite.js library. It turns the result into latitude, longitude,
   altitude in km and speed in km/s. The speed is the speed through space, not over the ground.
 - `greatCircleKm()` is the haversine formula: the distance between two points on the Earth's surface.
-- `isSunlitCylinder()` tests whether the station is in Earth's shadow. It is tested but not on the
-  page yet; the planned pass predictor needs it (the station is only visible while sunlit).
+- `isSunlitCylinder()` is a simple Earth-shadow test, kept for its tests; the pass predictor (stop 8)
+  uses satellite.js's `shadowFraction()` instead, which also handles the half-shadow at the edge.
 - `satellite-lite.ts` imports only the plain JavaScript parts of satellite.js, because its optional
   WebAssembly part broke the one-file build.
 - Say: "This file is pure math with no internet and no screen, which is why we can test it on its own."
@@ -85,7 +85,7 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
 
 ## Stop 7: how we know it works
 
-- Files: `tests/position.test.ts`, `tests/track.test.ts`, `tests/orbit.test.ts`, `tests/geometry.test.ts`, `tests/nasa.test.ts`, `scripts/check-live.mjs`, `scripts/smoke.mjs`
+- Files: `tests/position.test.ts`, `tests/track.test.ts`, `tests/orbit.test.ts`, `tests/geometry.test.ts`, `tests/nasa.test.ts`, `tests/passes.test.ts`, `scripts/check-live.mjs`, `scripts/smoke.mjs`
 - Functions: `stateAt()` (the copy in `scripts/check-live.mjs`)
 - `tests/position.test.ts` compares our position, altitude and speed with 10 saved wheretheiss.at
   positions, using the same TLE that tracker used. Limits: 2 km, 0.1 km, 1 km/h. Measured: at most
@@ -95,5 +95,18 @@ bottom once; it follows one second of the page's life, from orbit numbers to the
 - `tests/geometry.test.ts` checks the view circle against wheretheiss.at's own figure (4,596 km across
   at 437.66 km; ours 4,593.5 km). `tests/nasa.test.ts` checks the EONET coordinate order, the GIBS date
   rule and that every photo's credit is NASA only.
-- Say: "`npm test` runs 32 checks in about a second, and the position test is the one that proves the
+- `tests/passes.test.ts` checks the pass list against Heavens-Above (stop 8) and a polar city.
+- Say: "`npm test` runs 47 checks in about a second, and the position test is the one that proves the
   math: 10 of 10 samples within 1 metre of the reference."
+
+## Stop 8: when can I see it (visible passes)
+
+- Files: `src/orbit/passes.ts`, `src/passes-ui.ts`, `tests/fixtures/passes-ypsilanti-2026-11-14.json`
+- Functions: `findVisiblePasses()`, `isVisibleAt()`, `predictForPlace()`, `agreementWith()`, `initPassPanel()`
+- `isVisibleAt()` is the rule: station 10° or more above your horizon, Sun 6° or more below it, station
+  in sunlight. `findVisiblePasses()` checks it every 20 s over 5 days, narrows each start and end to
+  0.5 s, and finds the highest point. `predictForPlace()` adds a plain sentence when the list is empty.
+- `agreementWith()` re-runs the search on Heavens-Above's saved list for Ypsilanti; the page prints the
+  result. `initPassPanel()` reads the city box or typed coordinates and writes the table.
+- Say: "For Ypsilanti we found the same 8 passes Heavens-Above lists, with start times within about a
+  second; the line under the table is computed on the page every time it loads."
