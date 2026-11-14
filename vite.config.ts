@@ -19,5 +19,8 @@ export default defineConfig({
   ],
   test: {
     include: ['tests/**/*.test.ts'],
+    // Print console output from passing tests too (Vitest 5 hides it by default): M5's acceptance
+    // asks for the 5-day pass-search time to be logged on every run.
+    silent: false,
   },
 });

@@ -1,0 +1,29 @@
+{
+  "about": "Visible ISS passes over Ypsilanti, Michigan, as listed by Heavens-Above. Typed in by hand from the 8-row table in .autopilot/research/track-orbit-math-passes-prior-art.md section 4 (the Heavens-Above column only). The Heavens-Above page itself was not copied and is never scraped by the tests.",
+  "source": "https://heavens-above.com/PassSummary.aspx?satid=25544&lat=42.24&lng=-83.61&loc=Ypsilanti&alt=220&tz=EST",
+  "retrieved": "2026-11-14, one fetch during the research run of 12:36-12:55 PM EST (the exact minute was not recorded)",
+  "timeZone": "EST (UTC-5); every time below is Eastern Standard Time",
+  "observer": { "name": "Ypsilanti, Michigan", "latDeg": 42.24, "lonDeg": -83.61, "heightM": 220 },
+  "window": {
+    "note": "Heavens-Above lists visible passes for 10 days; the 8 rows here are all of its rows for Nov 14-18. The test searches the same span: from the start of the research run to midnight at the end of Nov 18 (EST).",
+    "startUtc": "2026-11-14T17:36:00Z",
+    "endUtc": "2026-11-19T05:00:00Z"
+  },
+  "rules": "Heavens-Above lists a pass from the moment it is visible above 10 degrees (or leaves Earth's shadow) to the moment it drops below 10 degrees (or enters the shadow); its highest point is the highest visible point, in whole degrees.",
+  "tle": {
+    "file": ".autopilot/spike/iss.tle (same text as src/data/iss.tle)",
+    "epochUtc": "2026-11-14T04:10:44.607Z",
+    "line1": "1 25544U 98067A   26318.17412740  .00009423  00000+0  17665-3 0  9991",
+    "line2": "2 25544  51.6324 277.8691 0007368  23.7540 336.3788 15.49365732595000"
+  },
+  "passes": [
+    { "date": "2026-11-14", "start": "17:56:28", "peakElDeg": 63, "end": "18:02:38", "mag": -3.7 },
+    { "date": "2026-11-14", "start": "19:33:54", "peakElDeg": 21, "end": "19:35:35", "mag": -1.4 },
+    { "date": "2026-11-15", "start": "18:45:44", "peakElDeg": 34, "end": "18:49:46", "mag": -2.5 },
+    { "date": "2026-11-16", "start": "17:57:40", "peakElDeg": 49, "end": "18:03:53", "mag": -3.1 },
+    { "date": "2026-11-16", "start": "19:35:52", "peakElDeg": 14, "end": "19:36:49", "mag": -0.9 },
+    { "date": "2026-11-17", "start": "18:47:36", "peakElDeg": 21, "end": "18:50:53", "mag": -1.9 },
+    { "date": "2026-11-18", "start": "17:59:19", "peakElDeg": 26, "end": "18:04:54", "mag": -2.1 },
+    { "date": "2026-11-18", "start": "19:37:35", "peakElDeg": 11, "end": "19:37:50", "mag": -0.7 }
+  ]
+}
