@@ -14,6 +14,8 @@ import { initialElements, refreshElements, type Elements } from './elements';
 import { fetchReference } from './reference';
 import { belowPanelHtml, initNasaLayers, WORLD } from './nasa/layers';
 import { initPassPanel, passPanelHtml } from './passes-ui';
+import { initPlanner, plannerPanelHtml } from './ui/plannerPanel';
+import { fmtClock, fmtDay } from './agent/format';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -29,6 +31,7 @@ app.innerHTML = `
         <span class="key key-next"></span> next orbit
         <span class="key key-view"></span> station's view
         · <span id="gibs-date"></span>
+        <span id="pass-key" hidden><span class="key key-pass"></span> <span id="pass-key-text"></span></span>
       </p>
     </section>
     <aside class="panel">
@@ -47,6 +50,7 @@ app.innerHTML = `
         (not NASA). Not affiliated with or endorsed by NASA.</p>
     </aside>
   </main>
+  ${plannerPanelHtml}
   ${passPanelHtml}
   ${belowPanelHtml}
 `;
@@ -135,6 +139,30 @@ drawTrack(new Date());
 const passPanel = initPassPanel(() => elements.satrec);
 setInterval(tick, 1000);
 setInterval(() => drawTrack(new Date()), 60_000);
+
+// ---- "Plan my sighting" (A1): the chosen pass is drawn on the map (its arc and the point under the
+// station at its highest moment) and the map moves there.
+const passArc = L.polyline([], { color: '#ff5fa2', weight: 5, opacity: 0.95, className: 'pass-arc' }).addTo(map);
+const passPeak = L.circleMarker([0, 0], { radius: 7, color: '#ff5fa2', fillOpacity: 0.9, className: 'pass-peak' });
+initPlanner({
+  getSatrec: () => elements.satrec,
+  getEpoch: () => elements.epoch,
+  onShow: (info, ctx) => {
+    const p = info.pass;
+    const mins = (p.end.getTime() - p.start.getTime()) / 60_000;
+    passArc.setLatLngs(groundTrack(elements.satrec, p.start, 0, mins, 5));
+    const s = stateAt(elements.satrec, p.peak);
+    if (s) {
+      passPeak.setLatLng([s.latDeg, s.lonDeg]).addTo(map);
+      map.setView([s.latDeg, s.lonDeg], Math.max(map.getZoom(), 3));
+    }
+    const tz = info.place.timeZone ?? ctx.viewerTimeZone;
+    $('pass-key').hidden = false;
+    $('pass-key-text').textContent =
+      `chosen pass, ${fmtDay(p.peak, tz)} ${fmtClock(p.peak, tz)} at its highest`;
+    document.body.dataset.passShown = info.id;
+  },
+});
 
 // One live fetch per page load. When the browser reports no network (Wi-Fi off, the double-clicked
 // offline copy) the page skips it and makes no request at all, then tries once if the connection returns.

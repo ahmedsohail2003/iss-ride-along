@@ -82,3 +82,27 @@ code { font-family: ui-monospace, Consolas, monospace; }
 .passes th, .passes td { text-align: left; padding: 0.35rem 0.6rem 0.35rem 0; border-bottom: 1px solid #23304d; vertical-align: top; }
 .passes th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; }
 .passes td .small { opacity: 0.8; }
+
+/* ---- Plan my sighting (A1) */
+.planner .plan-form { display: flex; flex-direction: column; gap: 0.5rem; }
+.planner .plan-form .grow input { width: 100%; box-sizing: border-box; font-size: 1rem; padding: 0.4rem; }
+.planner .examples { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.planner .example { font-size: 0.85rem; }
+.planner .plain-controls { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; border: 1px solid #33415c; padding: 0.4rem 0.6rem; }
+.planner .nights { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.planner #plan-go { align-self: flex-start; font-weight: 600; }
+.plan-note { min-height: 1.2em; }
+.plan-card { border: 2px solid #ff5fa2; border-radius: 6px; padding: 0.6rem 0.8rem; margin: 0.5rem 0; }
+.plan-card h3 { margin: 0.2rem 0 0.4rem; }
+.plan-fallback { color: #ffd166; font-weight: 600; }
+.plan-orbit { color: #ffd166; }
+.countdown { font-size: 1.1rem; font-weight: 600; }
+.audit { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 4px; background: #1d4d2c; }
+.audit-bad { background: #6b1d1d; }
+.unverified { background: #6b1d1d; outline: 1px solid #ff6b6b; }
+.plan-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.8rem; }
+.plan-cols ol, .plan-cols ul { padding-left: 1.2rem; }
+.trace-row code { font-size: 0.8rem; word-break: break-word; }
+.trace-bad strong { color: #ff6b6b; }
+.plan-settings label { display: inline-block; margin: 0.2rem 0.6rem 0.2rem 0; }
+.key-pass { background: #ff5fa2; }
