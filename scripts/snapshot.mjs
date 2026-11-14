@@ -11,6 +11,10 @@
 // tests/fixtures/openmeteo-ypsilanti.json (with its fetch time); nothing in src/data changes.
 // Option: --only news  save one real Exa search reply (keyless hosted MCP endpoint) as
 // tests/fixtures/exa-station-news.json (with its fetch time and the search text); nothing in src/data changes.
+// Option: --only oem  (C1) download NASA's ISS trajectory file (OEM, J2000), save the rows from 12 h
+// before now to 4 days after as src/data/iss-oem.json, record URL, retrieval time and CREATION_DATE in
+// snapshot-meta.json, and save the untrimmed file plus the orbit numbers built into the page at that
+// moment (src/data/iss.tle) as the test fixture pair tests/fixtures/ISS.OEM_J2K_EPH.txt + oem-tle.txt.
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,7 +41,8 @@ const SAMPLE_SPACING_S = 600; // 10 samples, 10 minutes apart, span 90 minutes (
 const argv = process.argv.slice(2);
 const orbitFrom = argv.includes('--orbit-from') ? resolve(argv[argv.indexOf('--orbit-from') + 1]) : null;
 const only = argv.includes('--only') ? argv[argv.indexOf('--only') + 1] : null;
-if (only && !['nasa', 'weather', 'news'].includes(only)) throw new Error(`--only accepts "nasa", "weather" or "news", got ${only}`);
+if (only && !['nasa', 'weather', 'news', 'oem'].includes(only))
+  throw new Error(`--only accepts "nasa", "weather", "news" or "oem", got ${only}`);
 if (only === 'weather' || only === 'news') {
   await (only === 'weather' ? weatherFixture() : newsFixture());
   process.exit(0);
@@ -76,6 +81,12 @@ function tleEpochIso(line1) {
   return new Date(Date.UTC(year, 0, 1) + (doy - 1) * 86400000).toISOString();
 }
 
+if (only === 'oem') {
+  await nasaOem();
+  writeFileSync(metaPath, JSON.stringify(meta, null, 2) + '\n');
+  console.log('  updated src/data/snapshot-meta.json');
+  process.exit(0);
+}
 if (!only) await orbitAndReference();
 await nasaLayers();
 writeFileSync(metaPath, JSON.stringify(meta, null, 2) + '\n');
@@ -285,4 +296,60 @@ async function newsFixture() {
   if (!res.ok) throw new Error(`${url} -> HTTP ${res.status} (not retried)`);
   console.log(`200 ${Date.now() - t0} ms ${url} (keyless)`);
   saveFixture('exa-station-news.json', { source: `${url} tools/call web_search_exa, no key`, fetchedAt: new Date().toISOString(), query, reply: await res.text() });
+}
+
+// ---- C1: NASA's ISS trajectory (OEM). One request. The S3 file sends no CORS header, so the page
+// cannot fetch it live; it is built in. Parsed by the page's own parser (src/orbit/oem.ts).
+async function nasaOem() {
+  const url = 'https://nasa-public-data.s3.amazonaws.com/iss-coords/current/ISS_OEM/ISS.OEM_J2K_EPH.txt';
+  const res = await get(url);
+  const lastModified = res.headers.get('last-modified');
+  const text = await res.text();
+  const retrievedAt = new Date().toISOString();
+  const { loadTs } = await import('./load-ts.mjs');
+  const { mods, close } = await loadTs(['/src/orbit/oem.ts']);
+  const oem = mods[0].parseOem(text);
+  await close();
+  const fixDir = join(root, 'tests', 'fixtures');
+  writeFileSync(join(fixDir, 'ISS.OEM_J2K_EPH.txt'), text);
+  const tle = readFileSync(join(dataDir, 'iss.tle'), 'utf8');
+  writeFileSync(join(fixDir, 'oem-tle.txt'), tle);
+  writeFileSync(
+    join(fixDir, 'oem-fixture-meta.json'),
+    JSON.stringify(
+      {
+        oem: { source: url, retrievedAt, lastModified, CREATION_DATE: oem.CREATION_DATE, rows: oem.rowCount, bytes: Buffer.byteLength(text) },
+        tle: { file: 'oem-tle.txt', copiedFrom: 'src/data/iss.tle (the orbit numbers built into the page at snapshot time)', ...meta.files['iss.tle'] },
+      },
+      null,
+      1,
+    ) + '\n',
+  );
+  console.log(`  saved tests/fixtures/ISS.OEM_J2K_EPH.txt (${Buffer.byteLength(text)} bytes, ${oem.rowCount} rows) and oem-tle.txt`);
+  const now = Date.parse(retrievedAt);
+  const from = now - 12 * 3600_000;
+  const to = now + 4 * 86400_000;
+  const r4 = (v) => Math.round(v * 1e4) / 1e4;
+  const rows = oem.rows.filter((r) => r.t >= from && r.t <= to).map((r) => [r.t, r4(r.x), r4(r.y), r4(r.z)]);
+  const out = {
+    about: "NASA's predicted ISS trajectory (positions only, km, EME2000/J2000, UTC row times as ms since 1970), rows from 12 h before retrieval to 4 days after",
+    source: url,
+    retrievedAt,
+    lastModified,
+    CREATION_DATE: oem.CREATION_DATE,
+    ORIGINATOR: oem.ORIGINATOR,
+    REF_FRAME: oem.REF_FRAME,
+    TIME_SYSTEM: oem.TIME_SYSTEM,
+    rowsInFile: oem.rowCount,
+    rows,
+  };
+  save('iss-oem.json', JSON.stringify(out) + '\n', url, {
+    CREATION_DATE: oem.CREATION_DATE,
+    ORIGINATOR: oem.ORIGINATOR,
+    REF_FRAME: oem.REF_FRAME,
+    lastModified,
+    rowsKept: rows.length,
+    rowsInFile: oem.rowCount,
+    rule: 'rows from 12 h before retrieval to 4 days after; positions rounded to 0.1 m',
+  });
 }

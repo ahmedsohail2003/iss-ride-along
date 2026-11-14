@@ -191,6 +191,17 @@
       "retrievedAt": "2026-11-14T21:17:00.263Z",
       "count": 12,
       "rule": "curated by hand; NASA-credited Earth views from the ISS; place and lat/lon set from the title (approximate)"
+    },
+    "iss-oem.json": {
+      "source": "https://nasa-public-data.s3.amazonaws.com/iss-coords/current/ISS_OEM/ISS.OEM_J2K_EPH.txt",
+      "retrievedAt": "2026-11-14T23:48:22.995Z",
+      "CREATION_DATE": "2026-11-13T15:58:19.167",
+      "ORIGINATOR": "NASA/JSC/FOD/TOPO",
+      "REF_FRAME": "EME2000",
+      "lastModified": "Fri, 13 Nov 2026 16:50:27 GMT",
+      "rowsKept": 1620,
+      "rowsInFile": 5403,
+      "rule": "rows from 12 h before retrieval to 4 days after; positions rounded to 0.1 m"
     }
   }
 }
