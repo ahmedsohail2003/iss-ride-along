@@ -1,6 +1,7 @@
-// ISS Ride-Along: the live tracker (M1) with NASA layers (M4). Every second the page runs SGP4
-// (satellite.js) on the station's orbit elements and moves the marker; a button compares our answer
-// with wheretheiss.at; src/nasa/layers.ts draws what the station is flying over.
+// ISS Ride-Along: the live tracker (M1) with NASA layers (M4) and the pass predictor (M5). Every second
+// the page runs SGP4 (satellite.js) on the station's orbit elements and moves the marker; a button
+// compares our answer with wheretheiss.at; src/nasa/layers.ts draws what the station is flying over;
+// src/passes-ui.ts lists when it can be seen from a chosen place.
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import * as L from 'leaflet';
@@ -12,6 +13,7 @@ import { compareWithReference } from './orbit/compare';
 import { initialElements, refreshElements, type Elements } from './elements';
 import { fetchReference } from './reference';
 import { belowPanelHtml, initNasaLayers, WORLD } from './nasa/layers';
+import { initPassPanel, passPanelHtml } from './passes-ui';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -45,6 +47,7 @@ app.innerHTML = `
         (not NASA). Not affiliated with or endorsed by NASA.</p>
     </aside>
   </main>
+  ${passPanelHtml}
   ${belowPanelHtml}
 `;
 
@@ -129,6 +132,7 @@ function tick() {
 
 tick();
 drawTrack(new Date());
+const passPanel = initPassPanel(() => elements.satrec);
 setInterval(tick, 1000);
 setInterval(() => drawTrack(new Date()), 60_000);
 
@@ -140,6 +144,7 @@ function refreshOnce() {
     elements = fresh;
     tick();
     drawTrack(new Date());
+    passPanel.refresh();
   });
 }
 if (navigator.onLine === false) window.addEventListener('online', refreshOnce, { once: true });

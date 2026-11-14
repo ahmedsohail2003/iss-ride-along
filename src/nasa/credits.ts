@@ -15,3 +15,7 @@ export const CREDIT_CELESTRAK =
 export const CREDIT_WHERETHEISS = 'Reference positions: Where the ISS at? API (wheretheiss.at). Not NASA data.';
 export const CREDIT_NOT_NASA =
   'ISS Ride-Along is a Hack the Nest 2026 hackathon project. Not affiliated with or endorsed by NASA. No NASA logo or insignia is used.';
+export const CREDIT_CITIES =
+  'Cities: Natural Earth populated places (naturalearthdata.com, public domain), the largest 150 by population';
+export const CREDIT_HEAVENS_ABOVE =
+  "Pass check: Heavens-Above (heavens-above.com) pass list for Ypsilanti, saved once by hand on 2026-11-14 for our test; the page is not scraped or contacted.";
