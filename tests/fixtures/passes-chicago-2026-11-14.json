@@ -1,0 +1,87 @@
+{
+ "about": "Visible ISS passes over Chicago generated once by our own pass engine (src/orbit/passes.ts, M5) from the same orbit numbers as passes-ypsilanti-2026-11-14.json. Not a reference list: the trip test uses it to pin the engine output for the second city.",
+ "generatedBy": "node scripts/make-pass-fixture.mjs chicago",
+ "generatedAt": "2026-11-14T23:03:08.443Z",
+ "observer": {
+  "name": "Chicago, United States of America",
+  "latDeg": 41.8319,
+  "lonDeg": -87.752,
+  "heightM": 0,
+  "timeZone": "America/Chicago"
+ },
+ "window": {
+  "startUtc": "2026-11-14T17:36:00Z",
+  "endUtc": "2026-11-20T06:00:00Z"
+ },
+ "tle": {
+  "file": ".autopilot/spike/iss.tle (same text as src/data/iss.tle)",
+  "epochUtc": "2026-11-14T04:10:44.607Z",
+  "line1": "1 25544U 98067A   26318.17412740  .00009423  00000+0  17665-3 0  9991",
+  "line2": "2 25544  51.6324 277.8691 0007368  23.7540 336.3788 15.49365732595000"
+ },
+ "passes": [
+  {
+   "startUtc": "2026-11-14T23:00:56.562Z",
+   "peakUtc": "2026-11-14T23:00:56.562Z",
+   "endUtc": "2026-11-14T23:02:15.937Z",
+   "peakElDeg": 20.98,
+   "startAz": "ENE"
+  },
+  {
+   "startUtc": "2026-11-15T00:32:58.750Z",
+   "peakUtc": "2026-11-15T00:35:39.687Z",
+   "endUtc": "2026-11-15T00:35:39.687Z",
+   "peakElDeg": 28.32,
+   "startAz": "W"
+  },
+  {
+   "startUtc": "2026-11-15T23:44:51.250Z",
+   "peakUtc": "2026-11-15T23:48:01.674Z",
+   "endUtc": "2026-11-15T23:49:50.625Z",
+   "peakElDeg": 40.37,
+   "startAz": "W"
+  },
+  {
+   "startUtc": "2026-11-16T22:59:22.500Z",
+   "peakUtc": "2026-11-16T23:00:08.678Z",
+   "endUtc": "2026-11-16T23:03:27.812Z",
+   "peakElDeg": 63.21,
+   "startAz": "W"
+  },
+  {
+   "startUtc": "2026-11-17T00:34:58.437Z",
+   "peakUtc": "2026-11-17T00:36:53.750Z",
+   "endUtc": "2026-11-17T00:36:53.750Z",
+   "peakElDeg": 18.01,
+   "startAz": "WNW"
+  },
+  {
+   "startUtc": "2026-11-17T23:46:40.312Z",
+   "peakUtc": "2026-11-17T23:49:23.198Z",
+   "endUtc": "2026-11-17T23:50:57.500Z",
+   "peakElDeg": 22.5,
+   "startAz": "WNW"
+  },
+  {
+   "startUtc": "2026-11-18T22:58:23.750Z",
+   "peakUtc": "2026-11-18T23:01:22.000Z",
+   "endUtc": "2026-11-18T23:04:20.937Z",
+   "peakElDeg": 29.1,
+   "startAz": "W"
+  },
+  {
+   "startUtc": "2026-11-19T00:36:51.562Z",
+   "peakUtc": "2026-11-19T00:37:54.687Z",
+   "endUtc": "2026-11-19T00:37:54.687Z",
+   "peakElDeg": 13.75,
+   "startAz": "NW"
+  },
+  {
+   "startUtc": "2026-11-19T23:48:35.312Z",
+   "peakUtc": "2026-11-19T23:50:49.031Z",
+   "endUtc": "2026-11-19T23:51:54.062Z",
+   "peakElDeg": 16.44,
+   "startAz": "NW"
+  }
+ ]
+}

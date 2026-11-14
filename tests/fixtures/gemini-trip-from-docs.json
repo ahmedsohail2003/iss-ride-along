@@ -1,0 +1,18 @@
+{
+ "recorded": "from docs, not live",
+ "about": "Hand-built Gemini generateContent replies for the trip sentence (test i): both places in one turn, both legs and the search in the next, then the pass, then two sentences.",
+ "sentence": "Ypsilanti until Monday, then Chicago Tuesday to Thursday, kids in bed by 8:30",
+ "replies": [
+  {"candidates": [{"content": {"role": "model", "parts": [
+   {"functionCall": {"id": "call_t1", "name": "findCity", "args": {"name": "Ypsilanti"}}},
+   {"functionCall": {"id": "call_t2", "name": "findCity", "args": {"name": "Chicago"}}}
+  ]}, "finishReason": "STOP"}]},
+  {"candidates": [{"content": {"role": "model", "parts": [
+   {"functionCall": {"id": "call_t3", "name": "planLeg", "args": {"placeId": "ypsilanti", "nights": ["2026-11-14", "2026-11-15", "2026-11-16"], "latest": "20:30"}}},
+   {"functionCall": {"id": "call_t4", "name": "planLeg", "args": {"placeId": "chicago", "nights": ["2026-11-17", "2026-11-18", "2026-11-19"], "latest": "20:30"}}},
+   {"functionCall": {"id": "call_t5", "name": "stationNews", "args": {"query": "International Space Station reboost or docking news this week"}}}
+  ]}, "finishReason": "STOP"}]},
+  {"candidates": [{"content": {"role": "model", "parts": [{"functionCall": {"id": "call_t6", "name": "showPass", "args": {"passId": "chicago-7", "why": "Wed, Nov 18 at 4:58 PM in Chicago has the highest score of your trip: 29° high with cloud 0%."}}}]}, "finishReason": "STOP"}]},
+  {"candidates": [{"content": {"role": "model", "parts": [{"text": "Ypsilanti is forecast at cloud 100% on all of your nights there, so Chicago is your chance."}]}, "finishReason": "STOP"}]}
+ ]
+}

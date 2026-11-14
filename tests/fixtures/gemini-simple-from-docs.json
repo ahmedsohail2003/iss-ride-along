@@ -1,0 +1,14 @@
+{
+ "recorded": "from docs, not live",
+ "about": "Hand-built Gemini generateContent replies for the simple sentence. Shape: candidates[0].content.parts[].functionCall {name, args, id} and a final text part, as in the generateContent reply this laptop's key got on 2026-11-14 (a one-call probe, not saved) and Google's function-calling docs; the docs page's own curl examples use the newer /interactions endpoint.",
+ "sentence": "Ypsilanti, before 8:30 PM, any night this week",
+ "replies": [
+  {"candidates": [{"content": {"role": "model", "parts": [{"functionCall": {"id": "call_s1", "name": "findCity", "args": {"name": "Ypsilanti"}}}]}, "finishReason": "STOP"}]},
+  {"candidates": [{"content": {"role": "model", "parts": [
+   {"functionCall": {"id": "call_s2", "name": "planLeg", "args": {"placeId": "ypsilanti", "nights": ["2026-11-14", "2026-11-15", "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19"], "earliest": "", "latest": "20:30"}}},
+   {"functionCall": {"id": "call_s3", "name": "stationNews", "args": {"query": "ISS space station news this week reboost docking spacewalk"}}}
+  ]}, "finishReason": "STOP"}]},
+  {"candidates": [{"content": {"role": "model", "parts": [{"functionCall": {"id": "call_s4", "name": "showPass", "args": {"passId": "ypsilanti-3", "why": "Sun, Nov 15 at 6:45 PM is the only pass with a mostly clear sky (cloud 36%), and it climbs to 34°."}}}]}, "finishReason": "STOP"}]},
+  {"candidates": [{"content": {"role": "model", "parts": [{"text": "Every other pass before 8:30 PM this week is forecast at cloud 100%."}]}, "finishReason": "STOP"}]}
+ ]
+}

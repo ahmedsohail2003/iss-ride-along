@@ -1,0 +1,16 @@
+{
+ "recorded": "from docs, not live",
+ "about": "Hand-built OpenAI Responses API replies (POST /v1/responses) for the simple sentence, written from OpenAI's function-calling guide (https://developers.openai.com/api/docs/guides/function-calling): output items of type function_call with call_id, name and arguments as a JSON string; the final reply is a message item with output_text. Never sent to or received from OpenAI.",
+ "sentence": "Ypsilanti, before 8:30 PM, any night this week",
+ "replies": [
+  {"id": "resp_doc1", "object": "response", "status": "completed", "model": "gpt-6.1-terra", "output": [
+   {"type": "function_call", "id": "fc_doc1", "call_id": "call_doc1", "name": "findCity", "arguments": "{\"name\":\"Ypsilanti\"}", "status": "completed"}]},
+  {"id": "resp_doc2", "object": "response", "status": "completed", "model": "gpt-6.1-terra", "output": [
+   {"type": "function_call", "id": "fc_doc2", "call_id": "call_doc2", "name": "planLeg", "arguments": "{\"placeId\":\"ypsilanti\",\"nights\":[\"2026-11-14\",\"2026-11-15\",\"2026-11-16\",\"2026-11-17\",\"2026-11-18\",\"2026-11-19\"],\"earliest\":\"\",\"latest\":\"20:30\"}", "status": "completed"},
+   {"type": "function_call", "id": "fc_doc3", "call_id": "call_doc3", "name": "stationNews", "arguments": "{\"query\":\"ISS news this week: reboost, docking, spacewalk\"}", "status": "completed"}]},
+  {"id": "resp_doc3", "object": "response", "status": "completed", "model": "gpt-6.1-terra", "output": [
+   {"type": "function_call", "id": "fc_doc4", "call_id": "call_doc4", "name": "showPass", "arguments": "{\"passId\":\"ypsilanti-3\",\"why\":\"Sun, Nov 15 at 6:45 PM is the only allowed pass with cloud 36%; every other one is cloud 100%.\"}", "status": "completed"}]},
+  {"id": "resp_doc4", "object": "response", "status": "completed", "model": "gpt-6.1-terra", "output": [
+   {"type": "message", "id": "msg_doc4", "status": "completed", "role": "assistant", "content": [{"type": "output_text", "text": "Go out on Sun, Nov 15 at 6:45 PM; it climbs to 34°.", "annotations": []}]}]}
+ ]
+}
