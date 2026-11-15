@@ -32,22 +32,23 @@ Full list with versions: [HOW_IT_WORKS.md](../HOW_IT_WORKS.md) "Each tool in one
 
 ## The 90-second click path
 
-On the demo laptop, with the live page https://ahmedsohail2003.github.io/iss-ride-along/ open. The first three rows are done before judges arrive (docs/DEMO_LAPTOP.md, step 4). `node scripts/smoke.mjs --path` reads this table and does each row on the built page: it finds the element, checks it shows the quoted words, does the action, and waits for the "then you see" element.
+On the demo laptop, with the live page https://ahmedsohail2003.github.io/iss-ride-along/ open. The first four rows are done before judges arrive (docs/DEMO_LAPTOP.md, step 4). `node scripts/smoke.mjs --path` reads this table and does each row on the built page: it finds the element, checks it shows the quoted words, does the action, and waits for the "then you see" element.
 
 | Step | When | Do | Where on screen | Then you see | Say |
 |---|---|---|---|---|---|
-| 1 | before | `click` | `#plan-settings summary` "Settings: AI keys" | `#key-gemini` | (nothing; setup) |
-| 2 | before | `key` | `#key-gemini` | — | (paste your own Gemini key from your password manager) |
-| 3 | before | `tick` | `#key-keep` | — | (keep until this tab is closed; then close the settings box) |
-| 4 | 0:00 | `look` | `#planner-h` "Where will you be, and when are you free?" | — | The pitch, in your own words. |
-| 5 | 0:10 | `click` | `button.example[data-example="trip"]` "Ypsilanti until Monday" | `#plan-sentence` | "This is a real week: two cities and a bedtime." |
-| 6 | 0:15 | `click` | `#plan-go` "Plan my sighting" | `#plan-card` | "The AI only chooses. Every number on the card comes from our own engine." |
-| 7 | 0:25 | `look` | `#plan-trace` | `#plan-trace li` | Read three Steps rows aloud: which tool ran and what came back (card 3). |
-| 8 | 0:50 | `look` | `#lat` | — | "Every second the browser works out where the station is, from its published orbit numbers." |
-| 9 | 1:00 | `click` | `#check-ref` "Check against reference" | `#ref-km` | Read the km: "that is how far our answer is from an independent tracker for the same second." |
-| 10 | 1:10 | `look` | `#oem-panel` "Our math vs NASA's own trajectory" | `#oem-gap` | "Within 12 hours of our orbit numbers' time, NASA's file and ours are 1.03 km apart at most." |
-| 11 | 1:20 | `click` | `#credits summary` "Credits and data sources" | `#credits-body` | "Every NASA source is dated and credited. Not affiliated with or endorsed by NASA." |
-| 12 | 1:25 | `look` | `#passes-h` "When can I see it?" | — | "For Ypsilanti we found the same 8 passes Heavens-Above lists." Then: "What would you like to see?" |
+| 1 | before | `click` | `#tab-btn-settings` "Settings" (the tab row under the first screen) | `#plan-settings` | (nothing; setup) |
+| 2 | before | `click` | `#plan-settings summary` "Settings: AI keys" | `#key-gemini` | (nothing; setup) |
+| 3 | before | `key` | `#key-gemini` | — | (paste your own Gemini key from your password manager) |
+| 4 | before | `tick` | `#key-keep` | — | (keep until this tab is closed; then close the settings box) |
+| 5 | 0:00 | `look` | `#planner-h` "Where will you be, and when are you free?" | — | The pitch, in your own words. |
+| 6 | 0:10 | `click` | `button.example[data-example="trip"]` "Ypsilanti until Monday" | `#plan-sentence` | "This is a real week: two cities and a bedtime." |
+| 7 | 0:15 | `click` | `#plan-go` "Plan my sighting" | `#plan-card` | "The AI only chooses. Every number on the card comes from our own engine." |
+| 8 | 0:25 | `look` | `#plan-trace` | `#plan-trace li` | Read three Steps rows aloud: which tool ran and what came back (card 3). |
+| 9 | 0:50 | `look` | `#lat` | — | "Every second the browser works out where the station is, from its published orbit numbers." |
+| 10 | 1:00 | `click` | `#check-ref` "Check against reference" | `#ref-km` | Read the km: "that is how far our answer is from an independent tracker for the same second." |
+| 11 | 1:10 | `look` | `#oem-panel` "Our math vs NASA's own trajectory" | `#oem-gap` | "Within 12 hours of our orbit numbers' time, NASA's file and ours are 1.03 km apart at most." |
+| 12 | 1:20 | `click` | `#credits summary` "Credits and data sources" | `#credits-body` | "Every NASA source is dated and credited. Not affiliated with or endorsed by NASA." |
+| 13 | 1:25 | `look` | `#passes-h` "When can I see it?" | — | "For Ypsilanti we found the same 8 passes Heavens-Above lists." Then: "What would you like to see?" |
 
 ## 10 judge questions (answer out loud first, then read the answer)
 

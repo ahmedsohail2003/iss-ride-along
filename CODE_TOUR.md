@@ -51,9 +51,9 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
 
 ## Stop 5: the page itself
 
-- File: `src/main.ts`
-- Functions: `tick()`, `drawTrack()`, `renderAge()`
-- Leaflet, a map library, draws the map. `initNasaLayers()` (stop 6) adds the NASA layers to it.
+- Files: `src/main.ts`, `src/ui/warnings.ts`, `src/ui/tabs.ts`
+- Functions: `tick()`, `drawTrack()`, `renderAge()`, `warnSource()`, `initTabs()`
+- Leaflet, a map library, draws the map. `initNasaLayers()` (stop 6) adds the NASA layers to it. First screen (M7): map, planner box, next-pass line, "How accurate is this?"; the rest in tabs; a source that fails calls `warnSource()`.
 - `tick()` runs every second: it calls `stateAt()` for "now", updates the numbers and moves the marker.
   `drawTrack()` redraws the two orbit lines every minute. `renderAge()` writes the data-age label.
 - Say: "Every second the browser recomputes the station's position itself; nothing is streamed from a server."

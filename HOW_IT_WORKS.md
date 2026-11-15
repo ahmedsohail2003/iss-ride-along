@@ -5,7 +5,7 @@ the visitor's own browser from the station's published orbit numbers and checked
 (wheretheiss.at, within 0.0003 km on 10 of 10 saved samples) and against NASA mission control's own predicted trajectory
 (0.37 km apart on median within 12 hours of the orbit numbers' time). The page builds into one HTML file.
 
-Status (Sat Nov 14, 7:00 PM EST): tracker, NASA layers, pass predictor, planner and NASA trajectory check built; no game yet.
+Status (Sat Nov 14, 8:30 PM EST): tracker, NASA layers, pass predictor, planner, NASA trajectory check and the M7 first screen built (planner box, next-pass line, "How accurate is this?"; the rest in tabs; a source that cannot be reached shows a warning naming it); no game yet.
 
 ## In one minute
 
@@ -33,7 +33,7 @@ position, altitude and speed every second, and the path one orbit back and ahead
 | Cloud for each pass hour, station news | fetched only when "Plan my sighting" is pressed | %, dates | Open-Meteo (no key), Exa web search (no key) |
 | "X km apart" from NASA's trajectory | computed at NASA's latest row time, against the built-in copy of NASA's file | km, hours | NASA JSC trajectory file (OEM) |
 
-There is no server and no account. The only key is one a visitor may type into the planner's settings.
+There is no server and no account. The only key is one a visitor may type into the Settings tab. The page shows this table too ("Accuracy and sources" tab).
 
 ## The NASA layers
 

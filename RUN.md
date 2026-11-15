@@ -33,7 +33,9 @@ They use the Chrome already installed on the laptop through playwright-core (no 
 `smoke.mjs` and `record-demo.mjs` open `dist/index.html`, so run `npm run build` first.
 
 ```
-node scripts/smoke.mjs        # headless Chrome on dist/index.html from file://, network mocked
+node scripts/smoke.mjs        # headless Chrome on dist/index.html from file://, network mocked; M7 first screen: planner and next-pass line in view, "Detroit" + Enter, every tab
+node scripts/smoke.mjs --size 390x844 --out evidence/m7-390x844.png  # the same at phone size
+node scripts/smoke.mjs --block celestrak.org  # M7: that source refused (or gibs.earthdata.nasa.gov, eonet.gsfc.nasa.gov, api.wheretheiss.at, api.open-meteo.com, geocoding-api.open-meteo.com, mcp.exa.ai, generativelanguage.googleapis.com); needs a named warning
 node scripts/smoke.mjs --net --out evidence/m4.png  # real network; also presses "Check against reference"
 node scripts/smoke.mjs --offline  # network off, on docs/iss-ride-along-offline.html
 node scripts/smoke.mjs --plan     # network mocked; presses Plan my sighting (no key), the trip example, then a keyed run -> evidence/a1.png

@@ -7,7 +7,7 @@ One of Quinn's, Denim's or Armeis's laptops is the demo laptop at the table on S
 1. Open https://ahmedsohail2003.github.io/iss-ride-along/ in Chrome and bookmark it.
 2. Open [CODE_TOUR.md](../CODE_TOUR.md) on GitHub in a second tab, for when a judge asks to see the code.
 3. Make a free Gemini key at https://aistudio.google.com on your own Google account. Save it in your password manager. Never put a key in the chat, a doc or the repo.
-4. On the live page, find "Plan my sighting" and open "Settings: AI keys" under it. Paste the key into "Gemini key" and tick "keep until this tab is closed". The button now reads "Plan my sighting (AI: Gemini)".
+4. On the live page, click the "Settings" tab (in the row of tabs under the first screen) and open "Settings: AI keys". Paste the key into "Gemini key" and tick "keep until this tab is closed". The button "Plan my sighting" at the top now reads "Plan my sighting (AI: Gemini)".
 5. Press the trip example ("Ypsilanti until Monday, then Chicago Tuesday to Thursday, kids in bed by 8:30"). In about 10 seconds you should get a result card and a Steps list. Close the settings box, take a screenshot and post it in the team chat.
 6. Optional: an Exa key from the hacker credit goes in "Exa key (optional)". The web search also works without one.
 7. Download the backup copy of the page, [iss-ride-along-offline.html](iss-ride-along-offline.html), and check it opens with a double-click. Have a second device (a phone is fine) with the live page open as a spare.

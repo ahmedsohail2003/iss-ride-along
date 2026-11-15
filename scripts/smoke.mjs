@@ -18,6 +18,18 @@
 //                                               quoted words, the action works, the "then you see" element
 //                                               appears; evidence/m9-path.png
 //   node scripts/smoke.mjs --url <url> --out evidence/x.png --size 390x844
+//   node scripts/smoke.mjs --block <host>       M7: every source mocked except <host>, whose requests are refused
+//                                               (connection refused). Presses "Check against reference" and plans
+//                                               for "Detroit" ("Ann Arbor" when the place search is blocked; with
+//                                               the test key when the AI provider is blocked). Pass = the page
+//                                               loads, the marker moves, a visible warning names that source, and
+//                                               no other source warns; 0 uncaught errors. Console lines about the
+//                                               refused requests themselves are expected and listed, not counted.
+//
+// M7 first-screen checks (default mode, any --size): no horizontal scroll; the planner box and the
+// next-pass line inside the first screen; "Detroit" typed in the planner box plus Enter puts a pass
+// line with a time and a compass word in #next-pass within 2 s; every tab opens its own panel.
+// The planner's services are mocked as in --plan, so the default run makes no real request.
 //
 // Default (mocked) mode: the CelesTrak request is answered with the TLE saved in src/data/, the NASA
 // EONET request with src/data/eonet-open.json, every NASA GIBS tile with the built-in Blue Marble
@@ -50,6 +62,24 @@ const OFFLINE = args.includes('--offline');
 const PLAN = args.includes('--plan');
 const OEM = args.includes('--oem');
 const PATH = args.includes('--path');
+// M7: the 8 live sources, by the host each one's URL constant names in src/.
+const BLOCKABLE = {
+  'celestrak.org': { key: 'celestrak', name: 'CelesTrak' },
+  'gibs.earthdata.nasa.gov': { key: 'gibs', name: 'NASA GIBS' },
+  'eonet.gsfc.nasa.gov': { key: 'eonet', name: 'NASA EONET' },
+  'api.wheretheiss.at': { key: 'wheretheiss', name: 'wheretheiss.at' },
+  'api.open-meteo.com': { key: 'forecast', name: 'Open-Meteo forecast' },
+  'geocoding-api.open-meteo.com': { key: 'places', name: 'Open-Meteo place search' },
+  'mcp.exa.ai': { key: 'exa', name: 'Exa' },
+  'generativelanguage.googleapis.com': { key: 'ai', name: 'Gemini' },
+};
+const BLOCK = opt('--block', null);
+if (args.includes('--block') && !BLOCKABLE[BLOCK]) {
+  console.log(`SMOKE FAIL: --block needs one of: ${Object.keys(BLOCKABLE).join(', ')}`);
+  process.exit(1);
+}
+// The M7 first-screen checks run in the default mode (no other mode flag).
+const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK;
 // --path: the click path rows from the presenter pack (M9). Columns: Step | When | Do | Where on screen |
 // Then you see | Say. "Do" is `look`, `click`, `key` (type the test key) or `tick`; "Where" is a backticked
 // CSS selector, optionally followed by the quoted words the element must show.
@@ -83,7 +113,7 @@ if (NET && OFFLINE) {
 }
 const defaultFile = OFFLINE ? 'docs/iss-ride-along-offline.html' : 'dist/index.html';
 const url = opt('--url', pathToFileURL(resolve(defaultFile)).href);
-const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : PATH ? 'evidence/m9-path.png' : 'evidence/m1.png'));
+const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : PATH ? 'evidence/m9-path.png' : BLOCK ? `evidence/m7-block-${BLOCK}.png` : 'evidence/m1.png'));
 const [w, h] = opt('--size', '1366x768').split('x').map(Number);
 
 // Stale-build guard (M4 fix r2): a file:// page must carry the fingerprint of the current source
@@ -117,7 +147,7 @@ const tle = readFileSync(resolve('src/data/iss.tle'), 'utf8');
 const eonetSnapshot = readFileSync(resolve('src/data/eonet-open.json'), 'utf8');
 const blueMarbleTile = readFileSync(resolve('src/data/bluemarble-z0.jpg'));
 // --plan: the planner's services answered from the saved real replies in tests/fixtures/.
-const planFixtures = PLAN || PATH
+const planFixtures = PLAN || PATH || FIRST || BLOCK
   ? {
       openMeteo: JSON.stringify(JSON.parse(readFileSync(resolve('tests/fixtures/openmeteo-ypsilanti.json'), 'utf8')).reply),
       exa: JSON.parse(readFileSync(resolve('tests/fixtures/exa-station-news.json'), 'utf8')).reply,
@@ -138,7 +168,25 @@ let failed = false;
 try {
   const context = await browser.newContext({ viewport: { width: w, height: h }, offline: OFFLINE });
   const page = await context.newPage();
-  page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()));
+  // M7: unhandled promise rejections are counted as uncaught errors too.
+  await page.addInitScript(() => {
+    window.__unhandled = [];
+    window.addEventListener('unhandledrejection', (e) => window.__unhandled.push(String(e.reason)));
+  });
+  // M7 --block of the AI provider: the test key in this tab's sessionStorage (where "keep until this
+  // tab is closed" puts it), so "Plan my sighting" calls Gemini, whose host is refused.
+  if (BLOCK === 'generativelanguage.googleapis.com')
+    await page.addInitScript((k) => sessionStorage.setItem('iss-ride-along-keys', JSON.stringify({ gemini: k })), planFixtures.testKey);
+  const blockedConsole = [];
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    let host = '';
+    try {
+      host = new URL(m.location().url).hostname;
+    } catch {}
+    if (BLOCK && host === BLOCK && /Failed to load resource/.test(m.text())) blockedConsole.push(m.text());
+    else consoleErrors.push(m.text());
+  });
   page.on('pageerror', (e) => pageErrors.push(String(e)));
   page.on('response', (r) => {
     const m = GIBS_TILE.exec(r.url());
@@ -158,12 +206,16 @@ try {
       requests.network.push(u);
       return route.continue();
     }
-    if (PATH && u.startsWith('https://api.wheretheiss.at/')) {
+    if (BLOCK && new URL(u).hostname === BLOCK) {
+      requests.refusedBlock = (requests.refusedBlock ?? 0) + 1;
+      return route.abort('connectionrefused');
+    }
+    if ((PATH || BLOCK || FIRST) && u.startsWith('https://api.wheretheiss.at/')) {
       planRequests.wheretheiss = (planRequests.wheretheiss ?? 0) + 1;
       const sample = JSON.parse(readFileSync(resolve('src/data/wheretheiss-samples.json'), 'utf8')).samples[0];
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(sample) });
     }
-    const MOCK_PLAN = PLAN || PATH;
+    const MOCK_PLAN = PLAN || PATH || FIRST || BLOCK;
     if (MOCK_PLAN && u.startsWith('https://api.open-meteo.com/')) {
       planRequests.openMeteo++;
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: planFixtures.openMeteo });
@@ -285,6 +337,7 @@ try {
     plan.tripNote = await page.textContent('#plan-note');
     // Keys: a run with the typed test key (Gemini mocked), the tick box, a reload, then sessionStorage cleared.
     const k = planFixtures.testKey;
+    await page.click('#tab-btn-settings'); // M7: the AI keys box is in the Settings tab
     await page.click('#plan-settings summary');
     await page.fill('#key-gemini', k);
     await page.check('#key-keep');
@@ -316,10 +369,129 @@ try {
       keptAfterReload: plan.keptAfterReload,
       goneAfterClear: plan.goneAfterClear,
     };
-  } else if (!OEM && !PATH) {
+  } else if (!OEM && !PATH && !BLOCK && !FIRST) {
     mkdirSync(dirname(out), { recursive: true });
     await page.screenshot({ path: out });
   }
+
+  // ---- M7 first screen (default mode): what a stranger sees before scrolling, then "Detroit" + Enter.
+  let first7 = null;
+  if (FIRST) {
+    first7 = await page.evaluate(() => {
+      const box = (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) };
+      };
+      return {
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        scrollY: window.scrollY,
+        planner: box('section.planner[aria-labelledby="planner-h"]'),
+        nextPass: box('#next-pass'),
+        nextPassText: document.getElementById('next-pass')?.textContent ?? '',
+      };
+    });
+    const inside = (b) => !!b && b.top >= 0 && b.left >= 0 && b.bottom <= first7.viewport.h && b.right <= first7.viewport.w;
+    first7.plannerInside = first7.scrollY === 0 && inside(first7.planner);
+    first7.nextPassInside = first7.scrollY === 0 && inside(first7.nextPass);
+    mkdirSync(dirname(out), { recursive: true });
+    await page.screenshot({ path: out.replace(/\.png$/, '-load.png') });
+    // "Detroit" + Enter: the next-pass line must name Detroit, a clock time and a compass word within 2 s.
+    await page.fill('#plan-sentence', 'Detroit');
+    const t0 = Date.now();
+    await page.press('#plan-sentence', 'Enter');
+    first7.detroitOk = await page
+      .waitForFunction(
+        () => {
+          const t = document.getElementById('next-pass')?.textContent ?? '';
+          return /from Detroit/.test(t) && /\d{1,2}:\d{2}\s?(AM|PM)/.test(t) && /look [a-z-]+ \((N|NNE|NE|ENE|E|ESE|SE|SSE|S|SSW|SW|WSW|W|WNW|NW|NNW)\)/.test(t);
+        },
+        null,
+        { timeout: 2000, polling: 50 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    first7.detroitMs = Date.now() - t0;
+    first7.detroitText = await page.textContent('#next-pass');
+    first7.detroitVisible = await page.isVisible('#next-pass');
+    // let the fixed plan finish (mocked services) before the screenshot
+    await page.waitForFunction(() => !!document.body.dataset.planKind, null, { timeout: 15_000 }).catch(() => {});
+    first7.planNote = await page.textContent('#plan-note');
+    first7.planHeadline = await page.textContent('#plan-headline');
+    first7.warnings = await page.$$eval('#source-warnings li', (ls) => ls.map((l) => l.textContent));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: out });
+    // Every tab opens its own panel and hides the others.
+    first7.tabs = [];
+    for (const id of await page.$$eval('.tabs [role="tab"]', (bs) => bs.map((b) => b.dataset.tab))) {
+      await page.click(`#tab-btn-${id}`);
+      first7.tabs.push(
+        await page.evaluate((tid) => {
+          const panels = [...document.querySelectorAll('[role="tabpanel"]')];
+          const mine = document.getElementById(`tab-${tid}`);
+          return {
+            id: tid,
+            label: document.getElementById(`tab-btn-${tid}`)?.textContent,
+            open: !!mine && !mine.hidden && mine.getBoundingClientRect().height > 20,
+            othersHidden: panels.filter((p) => p !== mine).every((p) => p.hidden),
+            selected: document.getElementById(`tab-btn-${tid}`)?.getAttribute('aria-selected') === 'true',
+          };
+        }, id),
+      );
+    }
+    first7.hScrollEnd = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    first7.checks = {
+      noHorizontalScroll: !info.hScroll && !first7.hScrollEnd,
+      plannerInFirstScreen: first7.plannerInside,
+      nextPassInFirstScreen: first7.nextPassInside,
+      detroitWithin2s: first7.detroitOk && first7.detroitMs <= 2000 && first7.detroitVisible,
+      everyTabOpens: first7.tabs.length >= 4 && first7.tabs.every((t) => t.open && t.othersHidden && t.selected),
+      noWarnings: first7.warnings.length === 0,
+    };
+  }
+
+  // ---- M7 --block <host>: one source refused; the page must carry on and say so by name.
+  let block7 = null;
+  if (BLOCK) {
+    const src = BLOCKABLE[BLOCK];
+    block7 = { host: BLOCK, source: src.name };
+    await page.click('#check-ref');
+    await page.waitForFunction(() => !/Asking/.test(document.getElementById('ref-result')?.textContent ?? 'Asking'), null, { timeout: 15_000 });
+    block7.refResult = await page.textContent('#ref-result');
+    const town = BLOCK === 'geocoding-api.open-meteo.com' ? 'Ann Arbor' : 'Detroit';
+    await page.fill('#plan-sentence', town);
+    await page.press('#plan-sentence', 'Enter');
+    await page.waitForFunction(() => !!document.body.dataset.planKind, null, { timeout: 40_000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    block7.town = town;
+    block7.planNote = await page.textContent('#plan-note');
+    block7.planHeadline = await page.textContent('#plan-headline');
+    block7.nextPass = await page.textContent('#next-pass');
+    // still moving after the failure: the latitude changes within 3 s of this point
+    const latNow = (await read()).lat;
+    const movesAfter = await page
+      .waitForFunction((l) => document.getElementById('lat')?.textContent !== l, latNow, { timeout: 3000, polling: 100 })
+      .then(() => true)
+      .catch(() => false);
+    block7.markerMoves = (first.marker !== second.marker || first.lat !== second.lat) && movesAfter;
+    block7.warnings = await page.$$eval('#source-warnings li', (ls) => ls.map((l) => ({ source: l.dataset.source, text: l.textContent })));
+    block7.warningVisible = await page.isVisible(`#source-warnings li[data-source="${src.key}"]`);
+    block7.unhandled = await page.evaluate(() => window.__unhandled);
+    block7.consoleLinesFromRefusedRequests = blockedConsole.length;
+    const mine = block7.warnings.find((w) => w.source === src.key);
+    block7.checks = {
+      requestRefused: (requests.refusedBlock ?? 0) > 0,
+      markerMoves: block7.markerMoves,
+      warningNamesSource: !!mine && mine.text.includes(src.name) && block7.warningVisible,
+      noOtherWarning: block7.warnings.every((w) => w.source === src.key),
+      noUncaught: pageErrors.length === 0 && block7.unhandled.length === 0,
+    };
+    mkdirSync(dirname(out), { recursive: true });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: out });
+  }
+
 
   // ---- --path: the presenter pack's 90-second click path (M9), row by row.
   let clickRun = null;
@@ -418,7 +590,7 @@ try {
   const tiles200 = gibsResponses.filter((r) => r.status === 200 && r.kind === 'image');
   const dayLabelOk = /daily satellite image, \d{4}-\d{2}-\d{2}, not a live camera/.test(info.gibsLabel);
   const nasaChecks = {
-    gibsLabelOk: OFFLINE ? /Blue Marble/.test(info.gibsLabel) : dayLabelOk,
+    gibsLabelOk: OFFLINE ? /Blue Marble/.test(info.gibsLabel) : BLOCK === 'gibs.earthdata.nasa.gov' ? /Blue Marble.*NASA GIBS could not be reached/.test(info.gibsLabel) : dayLabelOk,
     gibsTile200: !NET || tiles200.length > 0,
     eventsShown: info.eventsListed > 0 && info.eventsStatus.length > 0,
     // M4 fix r1/r2: both event lines name the set they count (open events reported in the last N days).
@@ -441,6 +613,9 @@ try {
     nasaChecks,
     plan,
     clickRun,
+    first7,
+    block7,
+    blockedConsole,
     oem,
     gibsTiles: { total: gibsResponses.length, status200: tiles200.length, sample: gibsResponses.slice(0, 3) },
     consoleErrors,
@@ -464,6 +639,8 @@ try {
     Object.values(nasaChecks).includes(false) ||
     (PLAN && Object.values(plan.checks).includes(false)) ||
     (PATH && clickRun.problems.length > 0) ||
+    (FIRST && Object.values(first7.checks).includes(false)) ||
+    (BLOCK && Object.values(block7.checks).includes(false)) ||
     Object.values(oem.checks).includes(false);
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
@@ -474,7 +651,9 @@ try {
           `; NASA trajectory: ${oem.kmShown} km apart at ${oem.rowTime?.slice(11, 16)} UTC, orbit numbers ${oem.ageShownH} h old` +
           (OEM ? ` (recomputed ${oem.ageRecomputedH?.toFixed(2)} h)` : '') +
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : '') +
-          (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s` : ''),
+          (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s` : '') +
+          (FIRST ? `; first screen ${w}x${h}: no horizontal scroll, planner box and next-pass line inside, "Detroit" + Enter -> "${first7.detroitText}" in ${first7.detroitMs} ms, ${first7.tabs.length} tabs open (${first7.tabs.map((t) => t.label).join(', ')})` : '') +
+          (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : ''),
   );
 } finally {
   await browser.close();
