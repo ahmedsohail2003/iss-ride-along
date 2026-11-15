@@ -22,6 +22,8 @@
 //                                               does every row: the element exists, is visible and shows the
 //                                               quoted words, the action works, the "then you see" element
 //                                               appears; evidence/m9-path.png
+//   P1 (default mode): after "Detroit" + Enter, "Plan my sighting" is pressed too; the Place control and the
+//   passes table (its caption, rows and City box) must then name Detroit.
 //   node scripts/smoke.mjs --url <url> --out evidence/x.png --size 390x844
 //   node scripts/smoke.mjs --block <host>       M7: every source mocked except <host>, whose requests are refused
 //                                               (connection refused). Presses "Check against reference" and plans
@@ -485,6 +487,20 @@ try {
     first7.planNote = await page.textContent('#plan-note');
     first7.planHeadline = await page.textContent('#plan-headline');
     first7.warnings = await page.$$eval('#source-warnings li', (ls) => ls.map((l) => l.textContent));
+    // P1: press "Plan my sighting" as well; the Place control and the passes table must then name Detroit.
+    await page.evaluate(() => delete document.body.dataset.planKind);
+    await page.click('#plan-go');
+    await page
+      .waitForFunction(() => !!document.body.dataset.planKind && !document.getElementById('plan-go').disabled, null, { timeout: 15_000 })
+      .catch(() => {});
+    first7.placeAfter = await page.evaluate(() => ({
+      placeControl: document.getElementById('plan-place')?.value ?? '',
+      tableCaption: document.getElementById('passes-caption')?.textContent ?? '',
+      tableShown: !document.getElementById('passes-table')?.hidden,
+      tableRows: document.querySelectorAll('#passes-body tr').length,
+      cityBox: document.getElementById('city')?.value ?? '',
+      planLines: [...document.querySelectorAll('#plan-lines li')].map((l) => l.textContent),
+    }));
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: out });
     // Every tab opens its own panel and hides the others.
@@ -513,6 +529,8 @@ try {
       detroitWithin2s: first7.detroitOk && first7.detroitMs <= 2000 && first7.detroitVisible,
       everyTabOpens: first7.tabs.length >= 4 && first7.tabs.every((t) => t.open && t.othersHidden && t.selected),
       noWarnings: first7.warnings.length === 0,
+      placeControlReadsDetroit: /^Detroit\b/.test(first7.placeAfter.placeControl),
+      passesTableNamesDetroit: /Detroit/.test(first7.placeAfter.tableCaption) && first7.placeAfter.tableShown && first7.placeAfter.tableRows > 0 && /Detroit/.test(first7.placeAfter.cityBox),
     };
   }
 
@@ -720,7 +738,7 @@ try {
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : '') +
           (OUTPUTS ? `; outputs: download "${outputs.download}" (${outputs.ics.bytes} bytes, 1 VEVENT, TRIGGER:-PT10M, CRLF, longest line ${outputs.ics.longestLineBytes} bytes, DTSTART ${outputs.ics.dtstart}), print view: sheet shown with ${outputs.print.sheetLines} lines and ${outputs.print.questions.length} questions, map and its controls hidden, sheet "${outputs.sheetAudit}"` : '') +
           (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s` : '') +
-          (FIRST ? `; first screen ${w}x${h}: no horizontal scroll, planner box and next-pass line inside, "Detroit" + Enter -> "${first7.detroitText}" in ${first7.detroitMs} ms, ${first7.tabs.length} tabs open (${first7.tabs.map((t) => t.label).join(', ')})` : '') +
+          (FIRST ? `; first screen ${w}x${h}: no horizontal scroll, planner box and next-pass line inside, "Detroit" + Enter -> "${first7.detroitText}" in ${first7.detroitMs} ms, ${first7.tabs.length} tabs open (${first7.tabs.map((t) => t.label).join(', ')}); after "Plan my sighting": Place control "${first7.placeAfter.placeControl}", passes table "${first7.placeAfter.tableCaption}" (${first7.placeAfter.tableRows} rows), City box "${first7.placeAfter.cityBox}"` : '') +
           (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : ''),
   );
 } finally {

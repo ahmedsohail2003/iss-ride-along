@@ -58,7 +58,7 @@ There is no server and no account. The only key is one a visitor may type into t
   it into legs, calls our tools and picks one pass. Tools: `findCity`, `planLeg` (our pass engine, Open-Meteo cloud at each
   peak, the fixed score), `stationNews` (Exa web search, last 7 days), `orbitDataAge` (with the NASA-measured gap), `showPass`, and `makeCalendarFile` / `writeBriefing` (a calendar file and a one-page sheet, handed over only on your click).
 - **The fixed rule** (both modes): a pass counts if it starts on your nights inside your times; score = (peak ÷ 90) ×
-  (1 − cloud ÷ 100), unknown cloud = 50%; under 0.05 everywhere means "no pass worth going out for in your window".
+  (1 − cloud ÷ 100), unknown cloud = 50%; under 0.05 everywhere means "no pass worth going out for in your window". When the pick is not the first screen's "Next time" pass, the card adds one engine-written "Why not the next pass" line (outside your nights or times, more cloud, or lower peak).
 - **Numbers.** Every number on the card is written by the engine. The audit checks each number in the model's words
   against the tools' texts and your sentence; anything else is marked "not from our engine". Web text never feeds a number.
 - **Limits.** At most 6 model calls, 15 s per reply, 30 s per plan; any failure, or no key, gives the fixed plan with the reason.

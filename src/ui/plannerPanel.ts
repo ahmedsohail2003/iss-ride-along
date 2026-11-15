@@ -368,7 +368,11 @@ export function initPlanner(h: PlannerHooks) {
       showResult(r, ctx);
       showOutputs(ctx, r.card.kind === 'pass' ? r.card.passId : null);
       const where = ctx.shown?.place ?? [...ctx.places.values()][0];
-      if (where) h.onPlace?.(where);
+      if (where) {
+        // P1: the Place control and the passes table follow the place that was just planned.
+        $<HTMLInputElement>('plan-place').value = where.name;
+        h.onPlace?.(where);
+      }
       warnFromRun(r, ctx, p);
       recordPlanRun('audit' in r && r.audit ? { checked: r.audit.tokens.length, unverified: r.audit.unverified } : null);
     } catch (err) {

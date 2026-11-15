@@ -86,6 +86,8 @@ export function buildCard(ctx: RunContext, info: PassInfo | null, why: string, b
       : `Cloud ${t.cloud} for that hour (Open-Meteo, fetched ${fmtClock(f!.fetchedAt, tz)}).`,
   ];
   if (roughForecast(ctx, info)) lines.push('That is more than 72 hours ahead: the cloud forecast this far ahead is rough.');
+  const notNext = whyNotNextLine(ctx, info);
+  if (notNext) lines.push(notNext);
   lines.push('Never look at the Sun.');
   return {
     kind: 'pass',
@@ -96,6 +98,46 @@ export function buildCard(ctx: RunContext, info: PassInfo | null, why: string, b
     passId: info.id,
     startMs: info.pass.start.getTime(),
   };
+}
+
+export const WHY_NOT_NEXT = 'Why not the next pass';
+
+/** P1: the earliest upcoming visible pass for this place (the one the first screen's "Next time" line names). */
+export function earliestPassFor(ctx: RunContext, place: PassInfo['place']): PassInfo | null {
+  let first: PassInfo | null = null;
+  for (const i of ctx.passes.values()) if (i.place.id === place.id && (!first || i.pass.start < first.pass.start)) first = i;
+  return first;
+}
+
+/**
+ * P1: when the chosen pass is not the earliest one, one line saying why, built by the engine from the
+ * fixed score's own parts of the two passes (outside the nights or times, cloud, peak height), in the
+ * card's own number texts. Null when the chosen pass is the earliest, or the earliest was never scored.
+ */
+export function whyNotNextLine(ctx: RunContext, info: PassInfo): string | null {
+  const next = earliestPassFor(ctx, info.place);
+  if (!next || next.id === info.id || !next.scored || !info.scored) return null;
+  const n = passTexts(ctx, next);
+  const c = passTexts(ctx, info);
+  const head = `${WHY_NOT_NEXT}, ${n.night} at ${n.start}:`;
+  if (!next.scored.allowed) {
+    const outside = next.scored.reasons.filter((r) => /^(not on your nights|before your earliest time|after your latest time)$/.test(r));
+    return `${head} it is outside your nights or times (${outside.join(', ')}); this one is inside them.`;
+  }
+  const cloudText = (i: PassInfo, t: ReturnType<typeof passTexts>) => (i.cloud === null ? 'unknown cloud (counted as 50%)' : `${t.cloud} cloud`);
+  const parts: string[] = [];
+  const mine: string[] = [];
+  if (next.scored.cloudUsed > info.scored.cloudUsed) {
+    parts.push(`has ${cloudText(next, n)}`);
+    mine.push(`has ${cloudText(info, c)}`);
+  }
+  if (next.pass.peakElDeg < info.pass.peakElDeg && n.peak !== c.peak) {
+    parts.push(`climbs only to ${n.peak}`);
+    mine.push(`climbs to ${c.peak}`);
+  }
+  if (parts.length) return `${head} it ${parts.join(' and ')}; this one ${mine.join(' and ')}.`;
+  // Neither part is worse (an AI pick against the fixed rule): give the two fixed scores.
+  return `${head} it scores ${next.scored.score.toFixed(2)} on the fixed rule; this one scores ${info.scored.score.toFixed(2)}.`;
 }
 
 export function orbitNewsLine(ctx: RunContext): string | null {

@@ -79,6 +79,7 @@ export const passPanelHtml = `
     <p id="passes-status" class="passes-status" aria-live="polite"></p>
     <div class="table-wrap">
       <table id="passes-table" hidden>
+        <caption id="passes-caption"></caption>
         <thead><tr><th>Day</th><th>Appears</th><th>Highest</th><th>Disappears</th><th>Length</th></tr></thead>
         <tbody id="passes-body"></tbody>
       </table>
@@ -146,7 +147,10 @@ export function initPassPanel(getSatrec: () => SatRec): PassPanel {
     np.dataset.place = p.name;
     if (line.pass) np.dataset.start = line.pass.start.toISOString();
     else delete np.dataset.start;
+    // P1: a place planned from the first screen joins the list, so the City box and the table name it.
+    if (!byLabel.has(p.name) && !/°/.test(p.name) && p.name !== 'your location') byLabel.set(p.name, p);
     cityIn.value = byLabel.has(p.name) ? p.name : '';
+    $('passes-caption').textContent = `Visible passes from ${p.name}`;
     latIn.value = p.latDeg.toFixed(2);
     lonIn.value = p.lonDeg.toFixed(2);
     const tz = p.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;

@@ -264,6 +264,8 @@ export async function planLeg(ctx: RunContext, args: { placeId?: string; nights?
       allowed: i.scored!.allowed,
       reasons: i.scored!.reasons,
     })),
+    // P1: the earliest pass from now (the first screen's "Next time" line), when it is not on these nights.
+    ...(all[0] && !onNights.includes(all[0]) ? { nextPassFromNow: { ...passTexts(ctx, all[0]), allowed: all[0].scored!.allowed, reasons: all[0].scored!.reasons } } : {}),
     bestInThisLeg: pick.best?.id ?? null,
     note: pick.best ? 'Higher score is better (height times clear sky).' : 'No pass worth going out for in this leg.',
   };

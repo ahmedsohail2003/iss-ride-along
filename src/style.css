@@ -197,3 +197,4 @@ button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align
   body[data-sheet] #brief-sheet { display: block !important; margin: 0; padding: 0; max-width: none; border-radius: 0; }
   .no-print { display: none !important; }
 }
+#passes-table caption { text-align: left; font-weight: 600; padding-bottom: 0.25rem; }
