@@ -83,7 +83,7 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
 
 - Files: `src/agent/loop.ts`, `src/agent/tools.ts`, `src/agent/audit.ts`, `src/agent/providers.ts`, `src/agent/fixedPlan.ts`, `src/agent/score.ts`
 - Functions: `runAgent()`, `runTool()`, `planLeg()`, `showPass()`, `audit()`, `runFixedPlan()`, `scorePass()`
-- `runAgent()` sends your sentence and 5 tool descriptions to the model, runs each tool it asks for with `runTool()`, and repeats (at most 6 calls, 30 s); any failure ends in `runFixedPlan()` with the reason shown.
+- `runAgent()` sends your sentence and 5 tool descriptions to the model, runs each tool it asks for with `runTool()`, and repeats (at most 6 calls; 30 s by default, 2 minutes on the page); any failure ends in `runFixedPlan()` with the reason shown.
 - `planLeg()` runs our pass engine, the cloud forecast and `scorePass()` for one place and its nights. `showPass()` refuses any pass id the engine did not return. `audit()` marks every number in the model's words that no tool gave.
 - Say: "The AI only chooses; every number on the card comes from our engine, and the badge counts any it made up."
 

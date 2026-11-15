@@ -41,7 +41,7 @@ If a judge asks "so how accurate are you?": "About a kilometre from NASA's own p
 | 1:15-1:35 | Armeis | Point at the shaded night side, then tick "Daily satellite photo (with clouds)" (`#daily-toggle`), point at its date (`#gibs-date`), untick it (the page changes to the flat map when you tick it; that is meant to happen); then the events (`#events-list`), the photo (`#photo-card`), the credits (`#credits`) | "The clear map is NASA's Blue Marble; the shaded half is night. This switch shows NASA's photo of the day. Under the station: NASA's open natural events, an astronaut photo." |
 | 1:35-2:00 | everyone | Hands off the laptop | Who built it and how; one line each from your own "What I learned" box. Then: "What would you like to see?" |
 
-Live trip runs took 11.0, 13.2 and 15.4 seconds (4 AI calls each). If the run is cut off at 30 seconds, say "that is the plan for one city without AI" and go on to beat 2.
+Live trip runs took 11.0, 13.2 and 15.4 seconds (4 AI calls each). If the run is cut off (the limit is now 2 minutes), say "that is the plan for one city without AI" and go on to beat 2.
 
 ## The honest line (say it without looking)
 
@@ -52,7 +52,7 @@ Live trip runs took 11.0, 13.2 and 15.4 seconds (4 AI calls each). If the run is
 - **Globe misbehaves or does not appear:** press "Flat page" (`#view-flat`) or open the spare address. After beat 3, press "3D" (`#view-3d`) before the next judge.
 - **Page will not load:** reload → the spare device → a teammate's phone hotspot (ask first) → the backup video `docs/demo-backup.mp4` (147 seconds, recorded 5:05 AM Sunday on the 3D globe, no sound: talk over it; it shows every part) → last, the offline file `docs/iss-ride-along-offline.html` (an older build without the planner).
 - **Planner key gone after a reload:** it stays if "keep until this tab is closed" was ticked. Otherwise type it again from the password manager, between judges, screen turned away, never read aloud. Only then: "Plan my sighting" with no key gives the fixed plan: "this is the plan for one city without AI; the trip sentence needs the AI."
-- **AI slow:** one slow reply is asked again by itself ("asked again" in the Steps list); if that fails too, the page cuts over by 30 seconds and says why: press the trip example again. **Web search down:** the plan still runs and says so.
+- **AI slow:** one slow reply is asked again by itself ("asked again" in the Steps list); if that fails too, the page cuts over by 2 minutes and says why: press the trip example again. **Web search down:** the plan still runs and says so.
 
 ## Openings for the partner judges (20 seconds, before the demo)
 

@@ -7,7 +7,14 @@ import { NO_NEWS_TEXT } from '../news/exaMcp';
 import { CREDIT_OPEN_METEO } from '../weather/openMeteo';
 import { runFixedPlan, type Card, type Controls, type PlanResult } from '../agent/fixedPlan';
 import { nextDates, weekdayOf } from '../agent/format';
-import { runAgent, type AgentResult } from '../agent/loop';
+import { LIMITS, runAgent, type AgentResult } from '../agent/loop';
+
+/**
+ * The limits the page gives the AI run: 60 seconds for one reply and 2 minutes for the whole plan (the
+ * loop's own default, which its tests run, is 15 and 30 seconds). Raised at 11:40 AM Sunday at the team's
+ * request: on the venue's network the top Gemini model needed more than 30 seconds for the trip example.
+ */
+export const PAGE_LIMITS = { ...LIMITS, replyMs: 60_000, runMs: 120_000 };
 import { isMoneyQuestion, MONEY_LINE } from '../agent/money';
 import { GEMINI_MODELS, geminiAuto, newModelBook, openai, OPENAI_MODEL } from '../agent/providers';
 import { newContext, SEARCH_DAYS, type PassInfo, type RunContext, type TraceRow } from '../agent/tools';
@@ -387,13 +394,14 @@ export function initPlanner(h: PlannerHooks) {
     try {
       let r: PlanResult | AgentResult;
       if (p && text) {
-        $('plan-note').textContent = 'Planning with the AI (at most 6 AI calls, 30 seconds)...';
+        $('plan-note').textContent = 'Planning with the AI (at most 6 AI calls, 2 minutes)...';
         const provider = p === 'gemini' ? geminiAuto(store.get('gemini'), (...a) => fetch(...a), book, store.geminiModel() || null) : openai(store.get('openai'), OPENAI_MODEL, (...a) => fetch(...a));
         const ar = await runAgent({
           sentence: text,
           provider,
           ctx,
           controls: controls(lonePlace),
+          limits: PAGE_LIMITS,
           onModelCall: () => {
             aiCalls++;
             $('ai-calls').textContent = `AI calls this session: ${aiCalls}`;
