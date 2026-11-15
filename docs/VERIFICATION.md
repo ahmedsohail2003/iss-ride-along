@@ -32,7 +32,8 @@ NASA,
 G4 the full re-check of both views, the refreshed presenter files and the re-recorded video,
 B4 the DEV post draft (docs/DEV_POST.md, not published),
 T1 the final Devpost text, the README's test table and the kit,
-G5 a dotted Earth (the Photo / Dots switch), labels on the globe, a grid backdrop and a rim of light.
+G5 a dotted Earth (the Photo / Dots switch), labels on the globe, a grid backdrop and a rim of light,
+G6 RoBuff's type and interface (Geist, a two-tone headline, the card look, a Code link).
 
 - M0 VERIFIED 14:12 ET — fresh-shell re-run 2:10-2:12 PM: npm test 5/5 passed; build exit 0, dist/index.html 23,866 bytes single-file, 0 external script/link; src/data TLE/OMM/10 samples/150 cities/256x256 tile/snapshot-meta present; git clean, commit 3bfbfb5 by Ahmed, no trailers; headless Chrome file:// shows title, lat -48.38 lon 175.33, 0 console errors, 0 non-file requests (evidence/m0-r0.png). Notes: findPasses test not ported (logged deviation, M5); orbit data from 12:36 PM fetch (CelesTrak unreachable 2:07 PM).
 
@@ -101,3 +102,5 @@ G5 a dotted Earth (the Photo / Dots switch), labels on the globe, a grid backdro
 - T1 VERIFIED 06:09 ET - fresh-shell verify 6:02-6:10 AM Sun at HEAD 0ad36c6 (git clean before/after): check-docs DOCS PASS in workspace and clean export; negative copies (accurate to, in progress, we wrote the code, unlogged number, G1 renamed) each FAIL exit 1; npm test 193/193 matching README table; recomputed OEM, position, 8/8 passes, 1627 stars, 6 scenes, video 147.36 s; story 889 words (871 without teammates' lines, limit 900); honesty lines present; secrets scan 0; no src changes since e13ab05. Minor non-blocking: '6 verification runs' lacks denominator, README line 124 old C1 wording, no B4 line in docs/VERIFICATION.md.
 
 - G5 VERIFIED 08:11 ET — re-run from fresh shell on HEAD ff23360 (clean), 8:01-8:10 AM: tsc 0, 198/198 tests, dist 2,752,862 B; dots smoke PASS at 1366x768 and 390x844 (land brighter than sea, 0 errors), labels match #alt/#speed, flat + a11y PASS (axe 0 violations), all earlier smokes PASS, real-chip dots median 4.2 ms, DOCS PASS, secrets clean, no deps/checks loosened; note: 202 axe incomplete contrast items over grid (not violations).
+
+- G6 VERIFIED 09:27 ET — fresh shell at HEAD e526ef7, 9:07-9:26 AM: tsc 0, npm test 204/204 (25 files), build 2,828,865 B (<3,100,000), 15 smoke runs SMOKE PASS (14 G6 checks true flat/3D at 1366 and 390, 0 font-host requests, planner top unchanged vs 6472101), a11y 0 critical/0 serious both views, fps median 16.7 ms on Iris Xe (battery-locked 60 Hz, same as 6472101), DOCS PASS and secret scan 0 here and in export, screenshots g6-r0.png and g6-r0-phone.png; nothing pushed or committed.

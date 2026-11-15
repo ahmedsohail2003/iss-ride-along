@@ -14,7 +14,7 @@ Final version, Sun Nov 15, 5:15 AM EST, the 3D refresh (before it: 12:30 AM; ver
 - **The "3D / Flat page" switch** above the globe (`#view-3d`, `#view-flat`): the flat page is one press away, and pressing "3D" brings the globe back.
 - **The scroll story below the tool** (`#story`): six short scenes that turn the globe as you scroll, shown in the 3D view only.
 - **Optional: the Photo / Dots switch** on the globe (`#style-photo`, `#style-dots`): the same Earth drawn as a cloud of dots, with small labels on the globe; nothing in the script changes.
-- **New type and cards:** the type and the cards were restyled at about 10 AM (Geist, a two-tone headline above the globe, rounder cards, a "Code" link in the header); every click and line is unchanged.
+- **New type and cards:** the type and the cards were restyled at about 9:40 AM (Geist, a two-tone headline above the globe, rounder cards, a "Code" link in the header); every click and line is unchanged.
 
 ## 1. The table
 
@@ -77,7 +77,7 @@ Then the 2-minute script. What these judges look for: NASA data used correctly (
 
 Rehearse three questions for them (answers in section 4): "why an agent and not an if-statement?", "what stops it making numbers up?", "what happens with no key or a failed search?".
 
-**EMU Computer Science track.** Lead with the orbit engine and the tests: 198 automated tests in 24 files (198 of 198 passed at 8:15 AM Sunday), run again by GitHub Actions on every push before the live page updates (`README.md`, "How we test"). One test to name: the Forecast lab's no-peeking test (`tests/altdata.test.ts`) catches a version that is allowed to look at future years; exactly 2 tests fail on it. Then a 60-second code walk: each of you shows your own stop in [CODE_TOUR.md](../CODE_TOUR.md) (Denim stop 9, `src/agent/loop.ts`; Quinn stop 10, `src/orbit/frames.ts`; Armeis stop 5 or 6).
+**EMU Computer Science track.** Lead with the orbit engine and the tests: 204 automated tests in 25 files (204 of 204 passed at 9:35 AM Sunday), run again by GitHub Actions on every push before the live page updates (`README.md`, "How we test"). One test to name: the Forecast lab's no-peeking test (`tests/altdata.test.ts`) catches a version that is allowed to look at future years; exactly 2 tests fail on it. Then a 60-second code walk: each of you shows your own stop in [CODE_TOUR.md](../CODE_TOUR.md) (Denim stop 9, `src/agent/loop.ts`; Quinn stop 10, `src/orbit/frames.ts`; Armeis stop 5 or 6).
 
 **The overall prize.** The 2-minute script as written.
 
@@ -88,7 +88,7 @@ Rehearse three questions for them (answers in section 4): "why an agent and not 
 ## 4. Thirteen likely questions (two sentences each; answer aloud before reading)
 
 1. **Who wrote the code?** Claude Code, an AI coding tool, wrote it (the Fable 5.2 model planned, the Opus 5.5 model wrote the code), directed by our teammate Ahmed, who could not be here for judging. Every part had to pass checks that do not trust the AI, and here is what each of us did: (your own confirmed sentence, PRESENTER_PACK.md question 1).
-2. **How do you know it is right?** We compare it with three outside sources: an independent tracker (10 of 10 saved samples within 1 metre), Heavens-Above's pass list (8 of 8 passes, start times within 1.3 seconds) and NASA's own trajectory (1.03 km apart at most within 12 hours). The numbers are re-run by 198 automated tests on every push.
+2. **How do you know it is right?** We compare it with three outside sources: an independent tracker (10 of 10 saved samples within 1 metre), Heavens-Above's pass list (8 of 8 passes, start times within 1.3 seconds) and NASA's own trajectory (1.03 km apart at most within 12 hours). The numbers are re-run by 204 automated tests on every push.
 3. **Is this NASA's data?** The orbit numbers are not: they come from CelesTrak, which publishes US Space Force tracking data. The NASA parts are the map (GIBS: the cloud-free Blue Marble, and the daily satellite photo behind the switch), the natural events (EONET), the astronaut photos and the ISS trajectory file, each credited, and we are not affiliated with or endorsed by NASA.
 4. **Why an agent and not an if-statement?** The form takes one place and one latest time; the agent takes a week in your own words with several places, runs our engine once per place and picks one pass across them. In our trip test the agent picks a Chicago pass on a night you are in Chicago, while the form picks a Ypsilanti pass for that night.
 5. **What stops it making numbers up?** The AI can only choose among pass ids our engine returned, and every number on the card is written by our code, not the model. The audit then marks any number in the AI's sentences that no tool gave: 0 in 5 of 5 live runs, and in a test with 2 made-up numbers put in, exactly those 2 were marked.

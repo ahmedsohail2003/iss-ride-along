@@ -12,7 +12,7 @@ Final version, Sun Nov 15, 5:15 AM EST, the 3D refresh (before it: 12:30 AM; ver
 - **The "3D / Flat page" switch** (`#view-3d`, `#view-flat`): the flat page is one press away.
 - **The scroll story below the tool** (`#story`): six scenes that turn the globe as you scroll.
 - **Optional: the Photo / Dots switch** on the globe (`#style-photo`, `#style-dots`); nothing in the script changes.
-- **New type and cards:** the type and the cards were restyled at about 10 AM; every click and line is unchanged.
+- **New type and cards:** the type and the cards were restyled at about 9:40 AM; every click and line is unchanged.
  Full plan: [PRESENTING.md](PRESENTING.md). Answers to judge questions: [PRESENTER_PACK.md](PRESENTER_PACK.md).
 
 ## The three numbers (say what each one counts)
