@@ -3,6 +3,7 @@
 // The card always prints the state or country beside the name, so a wrong match is visible.
 import citiesData from '../data/cities.json';
 import { YPSILANTI } from '../passes-ui';
+import { greatCircleKm } from '../orbit/orbit';
 
 export const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 
@@ -62,6 +63,20 @@ export function builtInMatches(query: string): AgentPlace[] {
   const head = slug(query.split(',')[0] ?? '');
   if (!head) return [];
   return BUILT_IN.filter((p) => slug(p.name) === head).slice(0, 3);
+}
+
+/** A2: built-in places within `km` of `p` (straight line), nearest first, `p` itself left out. */
+export function nearbyPlaces(p: AgentPlace, km: number): { place: AgentPlace; km: number; bearingDeg: number }[] {
+  const r = Math.PI / 180;
+  return BUILT_IN.filter((q) => q.id !== p.id)
+    .map((q) => {
+      const dLon = (q.lonDeg - p.lonDeg) * r;
+      const y = Math.sin(dLon) * Math.cos(q.latDeg * r);
+      const x = Math.cos(p.latDeg * r) * Math.sin(q.latDeg * r) - Math.sin(p.latDeg * r) * Math.cos(q.latDeg * r) * Math.cos(dLon);
+      return { place: q, km: greatCircleKm(p.latDeg, p.lonDeg, q.latDeg, q.lonDeg), bearingDeg: ((Math.atan2(y, x) / r) + 360) % 360 };
+    })
+    .filter((d) => d.km > 0.5 && d.km <= km)
+    .sort((a, b) => a.km - b.km);
 }
 
 export function builtInPlace(id: string): AgentPlace | undefined {

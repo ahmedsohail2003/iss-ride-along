@@ -5,9 +5,38 @@
 import { NO_NEWS_TEXT } from '../news/exaMcp';
 import { compass } from '../orbit/passes';
 import { fmtClock } from './format';
-import { NO_PASS_TEXT } from './score';
+import { MIN_SCORE, normaliseHM, NO_PASS_TEXT, scorePass, UNKNOWN_CLOUD } from './score';
+import { nearbyPlaces } from './places';
 import { measuredLine } from '../orbit/oemAgreement';
-import { FIXED_QUERY, findCity, orbitDataAge, passTexts, placeLabel, planLeg, roughForecast, showPass, stationNews, zoneOf, type PassInfo, type RunContext } from './tools';
+import { cloudForecast, FIXED_QUERY, findCity, listVisiblePasses, orbitDataAge, passTexts, placeLabel, planLeg, roughForecast, showPass, stationNews, zoneOf, type By, type PassInfo, type RunContext } from './tools';
+
+/** A2 step 4: when every allowed pass is clouded out, up to 2 built-in places within 100 km are tried. */
+export const NEARBY_KM = 100;
+export const NEARBY_MAX = 2;
+
+/**
+ * A2 step 4, a nearby clear place: listVisiblePasses and cloudForecast for up to 2 built-in places
+ * within 100 km, the same nights and times. One line per place with an allowed pass worth going out
+ * for: the place, its straight-line distance and direction, and engine numbers only (never directions
+ * for driving). The pass is named, not shown on the map.
+ */
+export async function nearbyClear(ctx: RunContext, home: PassInfo['place'], c: Controls, by: By): Promise<string[]> {
+  const lines: string[] = [];
+  for (const n of nearbyPlaces(home, NEARBY_KM).slice(0, NEARBY_MAX)) {
+    ctx.places.set(n.place.id, n.place);
+    const infos = await listVisiblePasses(ctx, n.place.id, by);
+    if (!infos.length) continue;
+    await cloudForecast(ctx, infos, by);
+    const tz = zoneOf(ctx, n.place);
+    const w = { nights: c.nights, earliest: normaliseHM(c.earliest), latest: normaliseHM(c.latest) };
+    for (const i of infos) i.scored = scorePass({ id: i.id, start: i.pass.start, peakElDeg: i.pass.peakElDeg, cloud: i.cloud }, w, tz);
+    const best = infos.filter((i) => i.scored!.allowed && i.scored!.score >= MIN_SCORE).sort((a, b) => b.scored!.score - a.scored!.score)[0];
+    if (!best) continue;
+    const t = passTexts(ctx, best);
+    lines.push(`Nearby: ${placeLabel(n.place)}, ${Math.round(n.km)} km ${compass(n.bearingDeg)} in a straight line: cloud ${t.cloud} at its pass ${t.night} at ${t.start} (not shown; plan for that place to see it).`);
+  }
+  return lines;
+}
 
 export interface Controls {
   /** Place name for findCity (a built-in name, or any town for the place search). */
@@ -111,7 +140,10 @@ export async function runFixedPlan(ctx: RunContext, c: Controls, fallbackReason:
     return { mode: 'fixed plan', fallbackReason, card: buildCard(ctx, best, ctx.why ?? '') };
   }
   const outside = infos.filter((i) => !i.scored!.allowed && i.scored!.score >= 0.05).sort((a, b) => b.scored!.score - a.scored!.score)[0] ?? null;
-  return { mode: 'fixed plan', fallbackReason, card: buildCard(ctx, null, 'Every allowed pass scores under 0.05.', outside) };
+  const card = buildCard(ctx, null, 'Every allowed pass scores under 0.05.', outside);
+  // A2 step 4: every allowed pass clouded out (cloud 50% or more) -> try up to 2 places within 100 km.
+  if (allowed.length && allowed.every((i) => (i.cloud ?? UNKNOWN_CLOUD) >= 50)) card.lines.push(...(await nearbyClear(ctx, first.placeId ? ctx.places.get(first.placeId)! : allowed[0].place, c, 'fixed plan')));
+  return { mode: 'fixed plan', fallbackReason, card };
 }
 
 export { NO_NEWS_TEXT };
