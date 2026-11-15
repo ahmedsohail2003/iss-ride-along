@@ -15,7 +15,8 @@ M7 the one-screen first screen, A2 the calendar file and briefing, P1 the "why n
 C2 day and night, M6 the game and orbit lab, C3 the plain sentence and accessibility, P2 the clear default
 map, X5 the sky from the station, X5b drag and zoom the sky, X3 the read-aloud voice, X6 the forecast lab,
 M10 the overnight re-test, R1 one retry when the AI is slow, B3 the Best Beginner words, G1 the 3D globe
-behind a switch.
+behind a switch,
+G2 the chosen pass on the globe, the new look and 3D by default where the device can.
 
 - M0 VERIFIED 14:12 ET — fresh-shell re-run 2:10-2:12 PM: npm test 5/5 passed; build exit 0, dist/index.html 23,866 bytes single-file, 0 external script/link; src/data TLE/OMM/10 samples/150 cities/256x256 tile/snapshot-meta present; git clean, commit 3bfbfb5 by Ahmed, no trailers; headless Chrome file:// shows title, lat -48.38 lon 175.33, 0 console errors, 0 non-file requests (evidence/m0-r0.png). Notes: findPasses test not ported (logged deviation, M5); orbit data from 12:36 PM fetch (CelesTrak unreachable 2:07 PM).
 
@@ -70,3 +71,5 @@ behind a switch.
 - B3 VERIFIED 01:21 ET — independent verify at HEAD 21f29df (git clean): check-docs DOCS PASS with no FAIL; 7 of 7 'What we learned' numbers found in PROGRESS.md (own awk/grep recount agrees); who-wrote line word for word from PRESENTER_PACK question 1 naming Claude Code, Fable 5.2, Opus 5.5, Ahmed; 8 of 8 negative tests on a scratch copy behaved (real files unchanged); Quinn, Denim, Armeis lines still [FILL] as PLAN requires (due 10:30 AM Sun); no UI, no build or browser.
 
 - G1 VERIFIED 02:37 ET — fresh-shell verify 2:26-2:36 AM Sun at HEAD f567a51 (git clean before/after; RAM 1.59-1.76 GB, C: 32.7 GB, one headless Chrome): tsc 0; npm test 180/180 (10 new, globe cases a-j); build 2,730,791 B < 3,100,000; 9 smoke runs PASS, 0 page/console errors; axe 0 critical/serious flat and 3D; 28/28 buttons; NASA image signs right at 4 places both sizes; station/subsolar match Node within 0.07 deg; drag, keys, switch, photo and game paths land correctly; 4 fallback cases flat; ids = 140 baseline + 5 globe ids; DOCS PASS, secret scan clean; screenshot evidence/g1-r0.png; deviation: fallback case 3 run with ?view=auto (DEFAULT_VIEW flat).
+
+- G2 VERIFIED 03:50 ET — independent verify r1 3:42-3:50 AM Sun at HEAD 401a41d (git clean before/after; RAM 1.87-1.98 GB, C: 32.3 GB): tsc exit 0; npm test 183/183 (22 files); 3 G2 tests pass (8 passes/356 points worst diff 0 deg vs stateAt, 12 contrast pairs min 6.98, DEFAULT_VIEW 'auto'); build 2,736,300 B < 3,100,000; all 3D smoke runs (plan, 1366/390, path 14/14, a11y axe 0/0/0/0 + 28/28 keys, GIBS blocked, auto 6/6) and flat runs SMOKE PASS, 0 console errors, 0/140 ids missing; marker lag 0-5 ms (r0 cause fixed); DOCS PASS, secret scan exit 0; screenshot .autopilot/evidence/g2-r1.png; logs .autopilot/evidence/g2-r1-*.txt.
