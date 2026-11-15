@@ -2,7 +2,7 @@
 
 **In short:** judging is Sunday 1:15 to 2:15 PM at our table in the Student Center Ballroom. Judges walk up, watch about 2 minutes, ask questions and may come back more than once. This file says what is on the table, the 2-minute script with who says what, a short opening for each kind of judge, 12 likely questions, what to do when something breaks, what to show on a second visit, and the Sunday rehearsal plan. The one-page version to print is [CUE_SHEET.md](CUE_SHEET.md); the longer answers and the 90-second click path are in [PRESENTER_PACK.md](PRESENTER_PACK.md).
 
-Version 1, Sat Nov 14, 8:00 PM EST. Only parts that passed their separate verification run are in it (`node scripts/check-docs.mjs` checks this, every number against the build log, and every file and screen element named here). It is refreshed by 6:30 AM Sunday with whatever else is finished overnight. If a judge asks for something not in this file, say "that is not built yet" and show the next part.
+Version 1, Sat Nov 14, 7:59 PM EST. Only parts that passed their separate verification run are in it (`node scripts/check-docs.mjs` checks this, every number against the build log, and every file and screen element named here). It is refreshed by 6:30 AM Sunday with whatever else is finished overnight. If a judge asks for something not in this file, say "that is not built yet" and show the next part.
 
 ## 1. The table
 

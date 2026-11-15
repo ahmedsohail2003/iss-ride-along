@@ -2,7 +2,7 @@
 
 **ISS Ride-Along:** tell it your week in your own words, and it plans the one space-station pass worth going outside for, and shows where every number came from.
 
-Version 1, Sat Nov 14, 8:00 PM EST. Full plan: [PRESENTING.md](PRESENTING.md). Answers to judge questions: [PRESENTER_PACK.md](PRESENTER_PACK.md).
+Version 1, Sat Nov 14, 7:59 PM EST. Full plan: [PRESENTING.md](PRESENTING.md). Answers to judge questions: [PRESENTER_PACK.md](PRESENTER_PACK.md).
 
 ## The three numbers (say what each one counts)
 
