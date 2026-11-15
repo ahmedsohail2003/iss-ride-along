@@ -117,6 +117,10 @@
 // the flat map with a dated label); --a11y: the count of axe "incomplete" contrast items is printed;
 // --view 3d --block gibs.earthdata.nasa.gov: the globe still shows its built-in image; --view auto (no flag,
 // DEFAULT_VIEW 'auto'): G1's four cases plus the good and the slow branch with stand-ins in this script only.
+// G3: --view 3d --story: the stars and the scroll story (scripts/smoke-globe.mjs storyChecks: data-stars 1627, each
+// scene sets data-scene within 2 s, "now" centred on the station, "daynight" on the day/night line, the height in
+// #scene-now = #alt, the canvas fixed to the window, the median frame gap over a 3-second scroll printed). Flat
+// runs fail if #story is shown; --plan --outputs fails if #globe, #story or the view switch prints.
 // Element ids, every mode: every id in scripts/ids-baseline.json (saved from the build of the commit before
 // G1, first screen and each tab open) must be on the page, or the run fails. --save-ids writes that file
 // (only from a page built from the committed source).
@@ -126,7 +130,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { freemem, tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { armTurnWatch, autoCases, globeChecks, globeKeyboard, globePassChecks, waitForGlobe } from './smoke-globe.mjs';
+import { armTurnWatch, autoCases, globeChecks, globeKeyboard, globePassChecks, storyChecks, waitForGlobe } from './smoke-globe.mjs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { builtHash, sourceHash } from './source-hash.mjs';
@@ -148,10 +152,16 @@ const A11Y = args.includes('--a11y');
 const VOICE = args.includes('--voice');
 // X6 --forecast: the Forecast lab card.
 const FORECAST = args.includes('--forecast');
+// G3 --story (with --view 3d): the scroll story and the stars.
+const STORY = args.includes('--story');
 // G1: which view to open (?view=), and the id baseline.
 const VIEW = opt('--view', 'flat');
 if (!['flat', '3d', 'auto'].includes(VIEW)) {
   console.log('SMOKE FAIL: --view needs flat, 3d or auto');
+  process.exit(1);
+}
+if (STORY && VIEW !== '3d') {
+  console.log('SMOKE FAIL: --story needs --view 3d');
   process.exit(1);
 }
 const SAVE_IDS = args.includes('--save-ids');
@@ -179,7 +189,7 @@ if (args.includes('--block') && !BLOCKABLE[BLOCK]) {
   process.exit(1);
 }
 // The M7 first-screen checks run in the default mode (no other mode flag).
-const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y && !VOICE && !FORECAST;
+const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y && !VOICE && !FORECAST && !STORY;
 // --path: the click path rows from the presenter pack (M9). Columns: Step | When | Do | Where on screen |
 // Then you see | Say. "Do" is `look`, `click`, `key` (type the test key) or `tick`; "Where" is a backticked
 // CSS selector, optionally followed by the quoted words the element must show.
@@ -443,6 +453,22 @@ try {
 
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => /^-?\d+(\.\d+)?$/.test(document.getElementById('lat')?.textContent ?? ''), null, { timeout: 15_000 });
+  // ---- G3 --view 3d --story: its own checks, then exit.
+  if (STORY) {
+    mkdirSync(resolve('evidence'), { recursive: true });
+    const sizeTag = w === 1366 && h === 768 ? '' : `-${w}x${h}`;
+    const story = await storyChecks({ page, evidence: (n) => resolve(`evidence/${n}${sizeTag}.png`) });
+    console.log(JSON.stringify({ url, viewport: `${w}x${h}`, story, consoleErrors, pageErrors }, null, 2));
+    failed = Object.values(story.checks).includes(false) || consoleErrors.length > 0 || pageErrors.length > 0;
+    const r = (id) => story.scenes.find((x) => x.id === id);
+    console.log(
+      failed
+        ? `SMOKE FAIL: --view 3d --story: ${Object.entries(story.checks).filter(([, v]) => !v).map(([k]) => k).join(', ')}${consoleErrors.length ? `; ${consoleErrors.length} console error(s)` : ''}${pageErrors.length ? `; ${pageErrors.length} page error(s)` : ''}`
+        : `SMOKE PASS: --view 3d --story ${w}x${h}: data-stars ${story.stars}; data-scene ${story.scenes.map((x) => `${x.id} in ${x.ms} ms`).join(', ')}; now: centre ${r('now').value.toFixed(2)} deg from the station (${r('now').station.lat}/${r('now').station.lon}), #scene-now height "${r('now').storyAlt}" = #alt "${r('now').altText}"; daynight: centre . Sun = ${r('daynight').value.toFixed(3)}; canvas fixed ${r('now').canvas.w}x${r('now').canvas.h} = window, no transformed ancestor, no sideways scroll; 3-second scroll: ${story.scroll.framesDrawn} frames drawn, median frameMs ${story.scroll.medianFrameMs?.toFixed(1)} ms (renderer software, SwiftShader flags); back at the top the canvas is in its slot; 0 console errors; evidence/g3-story-now${sizeTag}.png, evidence/g3-story-sky${sizeTag}.png`,
+    );
+    await browser.close();
+    process.exit(failed ? 1 : 0);
+  }
   const read = () =>
     page.evaluate(() => ({
       lat: document.getElementById('lat')?.textContent,
@@ -517,6 +543,11 @@ try {
     dailyState: document.body.dataset.daily ?? null,
     dailyDisabled: document.getElementById('daily-toggle')?.disabled ?? null,
     dailyChecked: document.getElementById('daily-toggle')?.checked ?? null,
+    // G3: the story is a 3D-view section; the flat page never shows it
+    storyShown: (() => {
+      const e = document.getElementById('story');
+      return !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0;
+    })(),
   }));
 
   // ---- P2: the cloud-free Blue Marble by default; the dated daily photo one switch away.
@@ -839,6 +870,10 @@ try {
           map: shown(document.getElementById('map')),
           planner: shown(document.getElementById('plan-form')),
           printButton: shown(document.getElementById('sheet-print')),
+          // G3: the globe, the story and the view switch never print
+          globe: shown(document.getElementById('globe')),
+          story: shown(document.getElementById('story')),
+          viewSwitch: shown(document.getElementById('view-switch')),
         };
       });
       await page.screenshot({ path: resolve('evidence/a2.png'), fullPage: true });
@@ -852,6 +887,7 @@ try {
         sheetShowsInPrint: outputs.print.sheet && outputs.print.sheetLines > 0,
         threeQuestionsNoDigits: outputs.print.questions.length === 3 && outputs.print.questions.every((q) => !/\d/.test(q)),
         mapControlsHiddenInPrint: !outputs.print.mapControls && !outputs.print.map && !outputs.print.planner && !outputs.print.printButton,
+        globeStorySwitchHiddenInPrint: !outputs.print.globe && !outputs.print.story && !outputs.print.viewSwitch,
         sheetAudit0: /^audit: 0 unverified numbers$/.test(outputs.sheetAudit ?? ''),
         screenRestored: outputs.screenAgain.map && outputs.screenAgain.mapControls,
       };
@@ -1859,6 +1895,7 @@ try {
     Object.values(x5.checks).includes(false) ||
     Object.values(p2.checks).includes(false) ||
     ids.missing.length > 0 ||
+    (VIEW === 'flat' && info.storyShown) ||
     (globe && Object.values(globe.checks).includes(false));
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
@@ -1885,6 +1922,8 @@ try {
           (VOICE ? `; voice: toggle shown, 1 call ${voice.minute.afterClickS} s after the click with exactly the sentence "${voice.minute.text}", plans: ${voice.plans.map((p) => `${p.newCalls} call "${p.text}"`).join(' / ')}, caption = spoken text, no speechSynthesis -> no toggle; ${voice.totalCalls} calls in all; evidence/x3.png` : '') +
           (FORECAST ? `; forecast lab: the button opened the card in place, [data-skill-yield] ${x6.card.skillYield}, [data-skill-price] ${x6.card.skillPrice}, ${x6.card.images.length} NASA images drawn (${x6.card.images.map((i) => `${i.day} ${i.w}x${i.h} shown ${i.shownW}x${i.shownH}`).join(', ')}), chart lines of ${x6.card.chartPaths.join('/')} points, label at ${x6.card.labelRect.top}-${x6.card.labelRect.bottom} px of a ${x6.card.viewportH} px window with the card at the top and no inner scroll, no price text outside the label, the 4 sources in the credits; "should I buy corn futures?" -> "${x6.money.note}" with 0 AI requests; evidence/x6.png` : '') +
           `; view ${VIEW}: 0 of ${ids.baseline} baseline ids missing (${ids.now} on the page)` +
+          (VIEW === 'flat' ? '; #story hidden' : '') +
+          (OUTPUTS ? '; print: #globe, #story and the view switch not shown' : '') +
           (globe?.image
             ? `; globe (${globe.renderer}, ${globe.drawCalls} draw calls): image R-B ${globe.image.map((r) => `${r.name} ${r.redMinusBlue}`).join(', ')} (sample() agrees), marker ${globe.marker.centred.near} px of STATION_RGB within 3 px of the middle and ${globe.marker.east30.near} within 10 px at +30 deg east (mean x ${globe.marker.east30.meanX?.toFixed(0)} < ${globe.marker.east30.midX}), station ${globe.station2.lat}/${globe.station2.lon} vs #lat/#lon ${globe.station2.textLat}/${globe.station2.textLon}, subsolar ${globe.subsolar.page.lat}/${globe.subsolar.page.lon} vs node ${globe.subsolar.node.lat.toFixed(3)}/${globe.subsolar.node.lon.toFixed(3)}, shade ${globe.shade.subsolar.toFixed(0)} at the subsolar point and ${globe.shade.opposite.toFixed(0)} opposite, day/night pairs ${globe.shade.pairs.map((q) => `${q.day.toFixed(0)}>${q.night.toFixed(0)}`).join(' ')}, ${globe.trackPoints} track points, drag moved the centre ${globe.drag.movedDeg.toFixed(1)} deg with ${globe.drag.framesDuring} frames in ${globe.drag.dragMs} ms, flat page ${globe.flat.tiles} built-in tiles + ${globe.flat.tracks} track lines + night shade, 3D back, daily photo -> flat "${globe.daily.label}"; header.top ${globe.header.h3d.toFixed(2)} px in 3D, ${globe.header.hFlat.toFixed(2)} px flat; Play in 3D -> ${game6?.viewAfterPlay?.view}`
             : '') +

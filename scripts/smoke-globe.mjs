@@ -516,3 +516,131 @@ export async function autoCases({ newPage, baseUrl }) {
   }
   return cases;
 }
+
+/**
+ * G3 --view 3d --story: the stars and the scroll story. data-stars is 1627; scrolling each #scene-<id> into view
+ * sets #globe[data-scene] to that id within 2 s; in "now" centre() comes within 5 degrees of data-station-lat/lon,
+ * and in "daynight" the dot product of centre() with the Sun's direction (from data-subsolar-lat/lon) within 0.15
+ * of zero (each given 3 s more to ease there); the height in #scene-now is the text of #alt; while the story is on
+ * screen the canvas is fixed to the whole window and no ancestor carries a transform; no sideways scroll; after a
+ * scripted 3-second scroll through the story the median frameMs() of the frames it drew is printed; scrolling back
+ * to the top puts the canvas back in its slot.
+ */
+export async function storyChecks({ page, evidence }) {
+  const s = { scenes: [], checks: {} };
+  s.globeShown = await waitForGlobe(page);
+  s.stars = await page.evaluate(() => document.getElementById('globe').dataset.stars);
+  s.ids = await page.$$eval('#story .scene', (es) => es.map((e) => e.id));
+  const ids = ['now', 'orbit', 'daynight', 'view', 'sky', 'real'];
+  const unitOf = (lat, lon) => [Math.cos(lat * D) * Math.cos(lon * D), Math.sin(lat * D), -Math.cos(lat * D) * Math.sin(lon * D)];
+  const state = () =>
+    page.evaluate(() => {
+      const g = document.getElementById('globe');
+      const c = g.querySelector('canvas');
+      const r = c.getBoundingClientRect();
+      const anc = [];
+      for (let e = c.parentElement; e; e = e.parentElement) {
+        const cs = getComputedStyle(e);
+        if (cs.transform !== 'none' || cs.filter !== 'none' || (cs.contain && /paint|layout|strict|content/.test(cs.contain)) || cs.willChange.includes('transform')) anc.push(e.id || e.tagName);
+      }
+      return {
+        scene: g.dataset.scene,
+        centre: window.__iss3d.centre(),
+        station: { lat: Number(g.dataset.stationLat), lon: Number(g.dataset.stationLon) },
+        sun: { lat: Number(g.dataset.subsolarLat), lon: Number(g.dataset.subsolarLon) },
+        storyOn: document.body.classList.contains('story-on'),
+        canvas: { position: getComputedStyle(c).position, w: r.width, h: r.height, top: r.top, left: r.left, pointer: getComputedStyle(c).pointerEvents },
+        win: { w: document.documentElement.clientWidth, h: window.innerHeight },
+        transformedAncestors: anc,
+        hScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        altText: document.getElementById('alt').textContent,
+        storyAlt: document.getElementById('story-alt')?.textContent ?? null,
+        frames: Number(g.dataset.frames),
+      };
+    });
+  for (const id of ids) {
+    const t0 = Date.now();
+    await page.evaluate((i) => document.getElementById(`scene-${i}`).scrollIntoView({ block: 'center' }), id);
+    let st = await state();
+    while (st.scene !== id && Date.now() - t0 < 2000) {
+      await page.waitForTimeout(50);
+      st = await state();
+    }
+    const row = { id, scene: st.scene, ms: Date.now() - t0, storyOn: st.storyOn, canvas: st.canvas, win: st.win, transformedAncestors: st.transformedAncestors, hScroll: st.hScroll };
+    if (id === 'now' || id === 'daynight') {
+      const measure = (x) =>
+        id === 'now' ? sepDeg(x.centre.lat, x.centre.lon, x.station.lat, x.station.lon) : Math.abs(unitOf(x.centre.lat, x.centre.lon).reduce((a, v, k) => a + v * unitOf(x.sun.lat, x.sun.lon)[k], 0));
+      const limit = id === 'now' ? 5 : 0.15;
+      const t1 = Date.now();
+      while (!(st.centre && measure(st) <= limit) && Date.now() - t1 < 3000) {
+        await page.waitForTimeout(100);
+        st = await state();
+      }
+      row.settleMs = Date.now() - t1;
+      row.firstWithin = st.centre ? measure(st) : null;
+      await page.waitForTimeout(1500); // and once more after the camera has had time to settle
+      st = await state();
+      row.value = st.centre ? measure(st) : null;
+      row.centre = st.centre;
+      if (id === 'now') {
+        row.station = st.station;
+        row.altText = st.altText;
+        row.storyAlt = st.storyAlt;
+      } else row.sun = st.sun;
+    }
+    if (id === 'now' || id === 'sky') {
+      if (id === 'sky') await page.waitForTimeout(1500); // let the camera settle for the picture
+      await page.screenshot({ path: evidence(`g3-story-${id}`) });
+    }
+    s.scenes.push(row);
+  }
+  // a scripted 3-second scroll from the top of the story to its end; the gaps between the frames drawn meanwhile
+  const top = await page.evaluate(() => {
+    const r = document.getElementById('story').getBoundingClientRect();
+    return { from: window.scrollY + r.top, to: window.scrollY + r.bottom - window.innerHeight };
+  });
+  await page.evaluate((y) => window.scrollTo(0, y), top.from);
+  await page.waitForTimeout(400);
+  const f0 = (await state()).frames;
+  await page.evaluate(
+    ({ from, to }) =>
+      new Promise((done) => {
+        const t0 = performance.now();
+        const step = (t) => {
+          const k = Math.min(1, (t - t0) / 3000);
+          window.scrollTo(0, from + (to - from) * k);
+          if (k < 1) requestAnimationFrame(step);
+          else done();
+        };
+        requestAnimationFrame(step);
+      }),
+    top,
+  );
+  const f1 = (await state()).frames;
+  const gaps = await page.evaluate(() => window.__iss3d.frameMs());
+  s.scroll = { framesDrawn: f1 - f0, gapsUsed: Math.min(gaps.length, Math.max(0, f1 - f0 - 1)) };
+  const used = gaps.slice(gaps.length - s.scroll.gapsUsed).sort((a, b) => a - b);
+  s.scroll.medianFrameMs = used.length ? used[Math.floor(used.length / 2)] : null;
+  s.scroll.hScroll = (await state()).hScroll;
+  // back to the top: the story is off and the canvas is back in the map's slot
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(600);
+  s.back = await state();
+  const now = s.scenes.find((r) => r.id === 'now');
+  const dn = s.scenes.find((r) => r.id === 'daynight');
+  s.checks = {
+    globeShown: s.globeShown,
+    stars1627: s.stars === '1627',
+    sixScenesInOrder: JSON.stringify(s.ids) === JSON.stringify(ids.map((i) => `scene-${i}`)),
+    eachSceneWithin2s: s.scenes.every((r) => r.scene === r.id && r.ms <= 2000),
+    nowCentreWithin5Deg: now.value !== null && now.value <= 5,
+    daynightDotWithin015: dn.value !== null && dn.value <= 0.15,
+    nowHeightIsAltText: !!now.altText && now.storyAlt === now.altText,
+    canvasFillsWindowInStory: s.scenes.every((r) => r.storyOn && r.canvas.position === 'fixed' && Math.abs(r.canvas.w - r.win.w) <= 1 && Math.abs(r.canvas.h - r.win.h) <= 1 && r.canvas.top === 0 && r.canvas.left === 0 && r.canvas.pointer === 'none'),
+    noTransformedAncestor: s.scenes.every((r) => r.transformedAncestors.length === 0),
+    noSidewaysScroll: s.scenes.every((r) => !r.hScroll) && !s.scroll.hScroll && !s.back.hScroll,
+    scrollDrewFrames: s.scroll.medianFrameMs !== null,
+    backToSlotAtTop: !s.back.storyOn && s.back.scene === '' && s.back.canvas.position !== 'fixed',
+  };
+  return s;
+}
