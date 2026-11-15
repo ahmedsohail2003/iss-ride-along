@@ -10,10 +10,16 @@
 //   the stars      G3: the Sky tab's 1,627 catalogue stars on a far sphere, turned by -gstime (src/globe/stars.ts)
 //   the story      G3: setStory(scene) eases the camera to where src/globe/story.ts sceneAt says; setFull makes
 //                  the canvas fill the window behind #story (src/globe/storyUi.ts)
+//   G5 dots        a second style: ~40,000 Fibonacci points coloured land or sea from the same Blue Marble
+//                  picture (src/globe/dots.ts), on a dark sphere that hides the far side; setStyle switches
+//   G5 labels      #hud-station and #hud-pass (src/globe/hud.ts), placed after each draw next to the marker and
+//                  the chosen town, hidden when that point is on the far side; their text comes from src/main.ts
+//   G5 rim         one slightly larger sphere, bright only near the edge of the disc (the middle keeps its colours)
 // When it draws: every frame while dragged, a key is held or the camera is still easing; otherwise once a
 // second (the station moves about 7.7 km a second); never while the tab is hidden or the flat page is shown.
 // For headless checks it carries data-* values on #globe and a small window.__iss3d (see PLAN.md 4e).
 import {
+  AdditiveBlending,
   BufferGeometry,
   Color,
   Float32BufferAttribute,
@@ -38,6 +44,12 @@ import { cameraFor, circleOnSphere, latLonToVec3, raySphere, vec3ToLatLon, type 
 import type { GlobeHandle } from './view';
 import { STARS_ON, starBuffers, starsTurnRad } from './stars';
 import { sceneAt, type Layers, type SceneId } from './story';
+import { buildDots, DOTS_ON } from './dots';
+import { HUD_ON, makeHud, placeHud } from './hud';
+
+export type GlobeStyle = 'photo' | 'dots';
+/** G5: the rim of light on; one constant switches it off. */
+export const RIM_ON = true;
 
 /** The station marker's one flat colour, used by nothing else in the scene (0 and 255 survive sRGB). */
 export const STATION_RGB: [number, number, number] = [255, 0, 255];
@@ -63,11 +75,13 @@ uniform sampler2D uMap;
 uniform float uHasMap;
 uniform float uWhite;
 uniform float uNight;
+uniform float uDots;
 uniform vec3 uSun;
 varying vec2 vUv;
 varying vec3 vN;
 void main() {
   vec3 img = mix(vec3(0.06, 0.1, 0.22), texture2D(uMap, vUv).rgb, uHasMap);
+  img = mix(img, vec3(0.012, 0.024, 0.05), uDots);
   vec3 base = mix(img, vec3(1.0), uWhite);
   float day = smoothstep(-0.10, 0.10, dot(normalize(vN), uSun));
   float k = mix(1.0, mix(${NIGHT_LEVEL.toFixed(2)}, 1.0, day), uNight);
@@ -85,6 +99,10 @@ export interface Globe extends GlobeHandle {
   setStory(id: SceneId | null): void;
   /** G3: the canvas fills the window (behind #story) instead of the map's slot. */
   setFull(on: boolean): void;
+  /** G5: the photo globe or the dotted Earth. */
+  setStyle(style: GlobeStyle): void;
+  /** G5: the label texts (copied from the page's readouts by the caller), or null to hide a label. */
+  setLabels(station: [string, string] | null, pass: [string, string] | null): void;
 }
 
 export function createGlobe(opts: {
@@ -115,7 +133,8 @@ export function createGlobe(opts: {
       uHasMap: { value: 0 },
       uWhite: { value: 0 },
       uNight: { value: 1 },
-      uSun: { value: new Vector3(1, 0, 0) },
+      uDots: { value: 0 },
+      uSun:{ value: new Vector3(1, 0, 0) },
     },
   });
   const earth = new Mesh(new SphereGeometry(1, 96, 48), earthMat);
@@ -127,6 +146,7 @@ export function createGlobe(opts: {
     texture.needsUpdate = true;
     earthMat.uniforms.uHasMap.value = 1;
     host.dataset.image = 'loaded';
+    if (style === 'dots') ensureDots();
     dirty = true;
   };
   img.onerror = () => (host.dataset.image = 'failed');
@@ -198,6 +218,89 @@ void main() {
   starGroup.add(stars);
   starGroup.visible = STARS_ON;
   scene.add(starGroup);
+
+  // ---- G5: the dotted Earth (one Points object, built from the picture the first time it is shown)
+  const dotGeom = new BufferGeometry();
+  const dotMat = new ShaderMaterial({
+    uniforms: { uSize: { value: 2.6 }, uSun: earthMat.uniforms.uSun, uNight: earthMat.uniforms.uNight },
+    vertexShader: /* glsl */ `
+attribute vec3 aColor;
+uniform float uSize;
+uniform vec3 uSun;
+uniform float uNight;
+varying vec3 vC;
+void main() {
+  float day = smoothstep(-0.10, 0.10, dot(normalize(position), uSun));
+  vC = aColor * mix(1.0, mix(${NIGHT_LEVEL.toFixed(2)}, 1.0, day), uNight);
+  gl_PointSize = uSize;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
+    fragmentShader: /* glsl */ `
+varying vec3 vC;
+void main() {
+  if (length(gl_PointCoord - vec2(0.5)) > 0.5) discard;
+  gl_FragColor = vec4(vC, 1.0);
+}`,
+  });
+  const dots = new Points(dotGeom, dotMat);
+  dots.visible = false;
+  dots.frustumCulled = false;
+  scene.add(dots);
+  let dotsBuilt = false;
+  let style: GlobeStyle = 'photo';
+  host.dataset.style = style;
+  host.dataset.dots = '0';
+  function ensureDots() {
+    if (dotsBuilt || !img.complete || !img.naturalWidth) return;
+    const c = document.createElement('canvas');
+    c.width = 1024;
+    c.height = 512;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    const d = buildDots(ctx.getImageData(0, 0, c.width, c.height));
+    dotGeom.setAttribute('position', new Float32BufferAttribute(d.positions, 3));
+    dotGeom.setAttribute('aColor', new Float32BufferAttribute(d.colors, 3));
+    dotGeom.computeBoundingSphere();
+    dotsBuilt = true;
+    host.dataset.dots = String(d.count);
+    host.dataset.dotsLand = String(d.land);
+  }
+
+  // ---- G5: the rim of light, bright only where the view grazes the sphere (zero at the middle of the disc)
+  const rimMat = new ShaderMaterial({
+    uniforms: { uColor: { value: new Color(0x7fdbff) } },
+    vertexShader: /* glsl */ `
+varying vec3 vN;
+varying vec3 vV;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vN = normalize(normalMatrix * normal);
+  vV = normalize(-mv.xyz);
+  gl_Position = projectionMatrix * mv;
+}`,
+    fragmentShader: /* glsl */ `
+uniform vec3 uColor;
+varying vec3 vN;
+varying vec3 vV;
+void main() {
+  float f = 1.0 - max(dot(normalize(vN), normalize(vV)), 0.0);
+  gl_FragColor = vec4(uColor * pow(f, 3.0) * 0.8, 1.0);
+}`,
+    transparent: true,
+    blending: AdditiveBlending,
+    depthWrite: false,
+  });
+  const rim = new Mesh(new SphereGeometry(1.02, 64, 32), rimMat);
+  rim.visible = RIM_ON;
+  rim.renderOrder = 20;
+  scene.add(rim);
+
+  // ---- G5: the labels on the globe
+  const hudStation = HUD_ON ? makeHud(host, 'hud-station') : null;
+  const hudPass = HUD_ON ? makeHud(host, 'hud-pass') : null;
+  let labelStation: [string, string] | null = null;
+  let labelPass: [string, string] | null = null;
 
   const setLine = (l: Line, pts: Vec3[]) => {
     l.geometry.setAttribute('position', new Float32BufferAttribute(pts.flat(), 3));
@@ -272,7 +375,29 @@ void main() {
   function render() {
     placeCamera();
     starGroup.rotation.y = starsTurnRad(new Date());
+    dotMat.uniforms.uSize.value = renderer.getPixelRatio() * Math.max(1.6, Math.min(6, (2.6 * DIST_START) / cur.dist));
     renderer.render(scene, camera);
+  }
+
+  /** G5: where (lat, lon, alt) is on the canvas in CSS px, or null when the Earth hides it. */
+  function screenOf(lat: number, lon: number, altKm: number): { x: number; y: number } | null {
+    const p = latLonToVec3(lat, lon, altKm);
+    const c: Vec3 = [camera.position.x, camera.position.y, camera.position.z];
+    const d: Vec3 = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
+    const len = Math.hypot(d[0], d[1], d[2]);
+    const hit = raySphere(c, d, 1);
+    if (hit && Math.hypot(hit[0] - c[0], hit[1] - c[1], hit[2] - c[2]) < len - 1e-4) return null;
+    const v = new Vector3(p[0], p[1], p[2]).project(camera);
+    if (v.z > 1) return null;
+    return { x: ((v.x + 1) / 2) * canvas.clientWidth, y: ((1 - v.y) / 2) * canvas.clientHeight };
+  }
+  function placeLabels() {
+    if (!hudStation || !hudPass) return;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const off = full || !!story;
+    placeHud(hudStation, off ? null : labelStation, screenOf(stationAt.lat, stationAt.lon, stationAt.alt), w, h);
+    placeHud(hudPass, off || !cityAt || !city.visible ? null : labelPass, cityAt ? screenOf(cityAt.lat, cityAt.lon, 2) : null, w, h);
   }
 
   function draw(ts: number) {
@@ -289,6 +414,7 @@ void main() {
     ds.subsolarLon = sunAt.lon.toFixed(4);
     ds.trackPoints = String(trackPoints);
     ds.drawCalls = String(renderer.info.render.calls);
+    placeLabels();
     dirty = false;
   }
 
@@ -396,11 +522,12 @@ void main() {
     cur.lon = target.lon = wrapLon(lon);
     u.uWhite.value = white ? 1 : 0;
     u.uNight.value = night ? 1 : 0;
-    const shown = overlays.map((o) => o.visible);
-    overlays.forEach((o) => (o.visible = false));
+    const extra = [...overlays, rim];
+    const shown = extra.map((o) => o.visible);
+    extra.forEach((o) => (o.visible = false));
     render();
     const rgb = readMiddle();
-    overlays.forEach((o, i) => (o.visible = shown[i]));
+    extra.forEach((o, i) => (o.visible = shown[i]));
     u.uWhite.value = keep.white;
     u.uNight.value = keep.night;
     dirty = true;
@@ -490,6 +617,12 @@ void main() {
       });
       starGeom.dispose();
       starMat.dispose();
+      dotGeom.dispose();
+      dotMat.dispose();
+      rim.geometry.dispose();
+      rimMat.dispose();
+      hudStation?.el.remove();
+      hudPass?.el.remove();
       renderer.dispose();
       delete (window as unknown as { __iss3d?: unknown }).__iss3d;
     },
@@ -545,6 +678,19 @@ void main() {
       if (on === full) return;
       full = on;
       resize();
+    },
+    setStyle(s) {
+      style = DOTS_ON ? s : 'photo';
+      if (style === 'dots') ensureDots();
+      dots.visible = style === 'dots';
+      earthMat.uniforms.uDots.value = style === 'dots' ? 1 : 0;
+      host.dataset.style = style;
+      dirty = true;
+    },
+    setLabels(st, ps) {
+      labelStation = st;
+      labelPass = ps;
+      dirty = true;
     },
     setPass(points, place, peak, doTurn) {
       passAt = points;

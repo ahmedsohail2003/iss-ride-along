@@ -84,6 +84,14 @@ engine already produces for the flat map.
 Below the tool, in the 3D view only, a six-scene scroll story turns the globe as you read (the station
 now, one orbit, day and night, what the crew can see, the stars, what is computed and what is fetched).
 
+A "Photo / Dots" switch in the globe's bottom-left corner (`#style-photo`, `#style-dots`; Photo is the default)
+draws the same Earth as 25,910 small dots instead: 40,000 points spread evenly over the sphere (a Fibonacci
+spiral), each one coloured by the Blue Marble pixel under it, every land point kept bright and every second sea
+point kept dim, placed with the same latitude/longitude formula as the photo so the two cannot disagree. In both
+styles a short monospace label sits next to the station (its height and speed copied from the readout) and next
+to the chosen town after a plan (the day and time from the plan card), a faint grid lies behind the page, and a
+soft rim of light runs round the edge of the globe.
+
 **When the flat page opens instead:** the device has no WebGL2, draws in software, is slow (30 frames
 drawn back to back take a median of more than 33 ms each), or asks for reduced motion; or the page was
 not being drawn when it checked (then it checks once more when it is shown). "Play" in the Game tab

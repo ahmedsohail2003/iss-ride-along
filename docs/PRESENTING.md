@@ -13,6 +13,7 @@ Final version, Sun Nov 15, 5:15 AM EST, the 3D refresh (before it: 12:30 AM; ver
 - **The dark look:** black background, white and grey type, a "3D globe" badge in the header.
 - **The "3D / Flat page" switch** above the globe (`#view-3d`, `#view-flat`): the flat page is one press away, and pressing "3D" brings the globe back.
 - **The scroll story below the tool** (`#story`): six short scenes that turn the globe as you scroll, shown in the 3D view only.
+- **Optional: the Photo / Dots switch** on the globe (`#style-photo`, `#style-dots`): the same Earth drawn as a cloud of dots, with small labels on the globe; nothing in the script changes.
 
 ## 1. The table
 

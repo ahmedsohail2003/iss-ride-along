@@ -135,7 +135,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { freemem, tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { armTurnWatch, autoCases, fpsReading, globeChecks, gpuRun, globeKeyboard, globePassChecks, storyChecks, waitForGlobe } from './smoke-globe.mjs';
+import { armTurnWatch, autoCases, dotsChecks, fpsReading, globeChecks, gpuRun, globeKeyboard, globePassChecks, hudChecks, hudPassCheck, storyChecks, waitForGlobe } from './smoke-globe.mjs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { builtHash, sourceHash } from './source-hash.mjs';
@@ -162,6 +162,16 @@ const STORY = args.includes('--story');
 // G4 --fps (with --view 3d): a frame-rate reading while the globe turns (smoke-globe.mjs fpsReading). With the
 // SwiftShader flags like every 3D run, or with --gpu on this laptop's own chip (no flags).
 const FPS = args.includes('--fps');
+// G5 --style dots (with --view 3d): press "Dots" and run the dotted Earth's checks (smoke-globe.mjs dotsChecks),
+// then "Photo" and the four-place photo check again. With --fps: the frame-rate reading with the dots shown.
+const STYLE = opt('--style', null);
+if (args.includes('--style') && (STYLE !== 'dots' || VIEW_ARG() !== '3d')) {
+  console.log('SMOKE FAIL: --style needs dots and --view 3d');
+  process.exit(1);
+}
+function VIEW_ARG() {
+  return opt('--view', 'flat');
+}
 // G1: which view to open (?view=), and the id baseline.
 const VIEW = opt('--view', 'flat');
 if (!['flat', '3d', 'auto'].includes(VIEW)) {
@@ -211,7 +221,7 @@ if (args.includes('--block') && !BLOCKABLE[BLOCK]) {
   process.exit(1);
 }
 // The M7 first-screen checks run in the default mode (no other mode flag).
-const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y && !VOICE && !FORECAST && !STORY && !FPS;
+const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y && !VOICE && !FORECAST && !STORY && !FPS && !STYLE;
 // --path: the click path rows from the presenter pack (M9). Columns: Step | When | Do | Where on screen |
 // Then you see | Say. "Do" is `look`, `click`, `key` (type the test key) or `tick`; "Where" is a backticked
 // CSS selector, optionally followed by the quoted words the element must show.
@@ -493,13 +503,38 @@ try {
   await page.waitForFunction(() => /^-?\d+(\.\d+)?$/.test(document.getElementById('lat')?.textContent ?? ''), null, { timeout: 15_000 });
   // ---- G4 --view 3d --fps: the frame-rate reading, then exit.
   if (FPS) {
+    if (STYLE === 'dots') {
+      await waitForGlobe(page);
+      await page.click('#style-dots');
+      await page.waitForFunction(() => Number(document.getElementById('globe').dataset.dots) > 0, null, { timeout: 10_000 }).catch(() => {});
+    }
     const f = await fpsReading({ page });
+    if (STYLE === 'dots') {
+      f.style = await page.evaluate(() => ({ style: document.getElementById('globe').dataset.style, dots: Number(document.getElementById('globe').dataset.dots) }));
+      f.checks.dotsShown = f.style.style === 'dots' && f.style.dots >= 20_000;
+    }
     console.log(JSON.stringify({ url, viewport: `${w}x${h}`, launch: GPU ? 'no extra flags (real chip)' : SWIFTSHADER.join(' '), fps: f, consoleErrors, pageErrors }, null, 2));
     failed = Object.values(f.checks).includes(false) || consoleErrors.length > 0 || pageErrors.length > 0;
     console.log(
       failed
         ? `SMOKE FAIL: --view 3d --fps: ${Object.entries(f.checks).filter(([, v]) => !v).map(([k]) => k).join(', ')}${consoleErrors.length ? `; ${consoleErrors.length} console error(s)` : ''}${pageErrors.length ? `; ${pageErrors.length} page error(s)` : ''}`
-        : `SMOKE PASS: --view 3d --fps ${w}x${h} (${GPU ? 'no SwiftShader flags' : 'SwiftShader flags'}): data-renderer "${f.renderer}"; ${f.framesDrawn} frames drawn in ${f.wallMs} ms while ArrowRight was held (globe turned ${f.turnedDeg.toFixed(1)} deg); last 120 frameMs(): median ${f.medianMs.toFixed(1)} ms, 95th percentile ${f.p95Ms.toFixed(1)} ms (min ${f.minMs.toFixed(1)}, max ${f.maxMs.toFixed(1)}); 0 console errors`,
+        : `SMOKE PASS: --view 3d --fps ${w}x${h}${STYLE === 'dots' ? ` --style dots (data-style "${f.style.style}", data-dots ${f.style.dots})` : ''} (${GPU ? 'no SwiftShader flags' : 'SwiftShader flags'}): data-renderer "${f.renderer}"; ${f.framesDrawn} frames drawn in ${f.wallMs} ms while ArrowRight was held (globe turned ${f.turnedDeg.toFixed(1)} deg); last 120 frameMs(): median ${f.medianMs.toFixed(1)} ms, 95th percentile ${f.p95Ms.toFixed(1)} ms (min ${f.minMs.toFixed(1)}, max ${f.maxMs.toFixed(1)}); 0 console errors`,
+    );
+    await browser.close();
+    process.exit(failed ? 1 : 0);
+  }
+  // ---- G5 --view 3d --style dots: its own checks, then exit.
+  if (STYLE === 'dots') {
+    mkdirSync(resolve('evidence'), { recursive: true });
+    const sizeTag = w === 1366 && h === 768 ? '' : `-${w}x${h}`;
+    const d = await dotsChecks({ page, evidence: (n) => resolve(`evidence/${n}${sizeTag}.png`) });
+    console.log(JSON.stringify({ url, viewport: `${w}x${h}`, dots: d, consoleErrors, pageErrors }, null, 2));
+    failed = Object.values(d.checks).includes(false) || consoleErrors.length > 0 || pageErrors.length > 0;
+    const pl = (n) => d.places.find((x) => x.name === n)?.mean;
+    console.log(
+      failed
+        ? `SMOKE FAIL: --view 3d --style dots: ${Object.entries(d.checks).filter(([, v]) => !v).map(([k]) => k).join(', ')}${consoleErrors.length ? `; ${consoleErrors.length} console error(s)` : ''}${pageErrors.length ? `; ${pageErrors.length} page error(s)` : ''}`
+        : `SMOKE PASS: --view 3d --style dots ${w}x${h}: data-style "${d.dots.style}", data-dots ${d.dots.dots} (${d.dots.land} land), kept for the tab; middle 9x9 mean brightness Arabia ${pl('Arabia')}, central Australia ${pl('central Australia')} > mid-Atlantic ${pl('mid-Atlantic')}, sea south of Japan ${pl('sea south of Japan')}; dots marker ${d.marker.centred.near} px of STATION_RGB within 3 px of the middle and ${d.marker.east30.near} within 10 px at +30 deg east (mean x ${d.marker.east30.meanX?.toFixed(0)} < ${d.marker.east30.midX}); "Photo" pressed -> data-style "${d.after}", photo R-B ${d.photo.map((x) => `${x.name} ${x.redMinusBlue}`).join(', ')} (sample() agrees), photo marker ${d.photoMarker.centred.near} px within 3 px; 0 console errors; evidence/g5-dots-*${sizeTag}.png`,
     );
     await browser.close();
     process.exit(failed ? 1 : 0);
@@ -565,6 +600,9 @@ try {
     mkdirSync(resolve('evidence'), { recursive: true });
     try {
       globe = await globeChecks({ page, w, h, evidence: (n) => resolve(`evidence/${n}${sizeTag}.png`), subsolarAt: (ms) => mods[0].subsolarPoint(new Date(ms)) });
+      // G5: the station's label on the globe (shown, the readout's digits, near the marker, aria-hidden, no Tab)
+      globe.hud = await hudChecks({ page, evidence: (n) => resolve(`evidence/${n}${sizeTag}.png`) });
+      Object.assign(globe.checks, globe.hud.checks);
     } finally {
       await close();
     }
@@ -594,6 +632,13 @@ try {
     dailyState: document.body.dataset.daily ?? null,
     dailyDisabled: document.getElementById('daily-toggle')?.disabled ?? null,
     dailyChecked: document.getElementById('daily-toggle')?.checked ?? null,
+    // G5: the Photo / Dots switch and the labels on the globe are 3D-view only
+    g5Shown: ['style-switch', 'hud-station', 'hud-pass'].filter((id) => {
+      const e = document.getElementById(id);
+      if (!e) return false;
+      const b = e.getBoundingClientRect();
+      return getComputedStyle(e).display !== 'none' && b.width > 0 && b.height > 0;
+    }),
     // G3: the story is a 3D-view section; the flat page never shows it
     storyShown: (() => {
       const e = document.getElementById('story');
@@ -876,6 +921,8 @@ try {
       }
       mkdirSync(resolve('evidence'), { recursive: true });
       plan.globePass.viewAfter = await page.evaluate(() => ({ view: document.body.dataset.view, why: document.body.dataset.viewWhy }));
+      // G5: the chosen pass's label names the town and the pass time the plan card shows
+      plan.hudPass = await hudPassCheck(page);
       await page.locator('#globe').screenshot({ path: resolve('evidence/g2-pass.png'), timeout: 5000 }).catch((e) => (plan.globePass.shotError = String(e.message).split('\n')[0]));
     }
     mkdirSync(dirname(out), { recursive: true });
@@ -981,6 +1028,7 @@ try {
       // in 3D the Leaflet map is hidden: the pass is checked on the globe instead (plan.globePass)
       passOnMap: VIEW === '3d' ? !!plan.passShown : plan.arcPaths > 0 && !!plan.passShown,
       ...(VIEW === '3d' ? plan.globePass.checks : {}),
+      ...(VIEW === '3d' ? plan.hudPass.checks : {}),
       countdown: /Starts in|Happening now|This pass is over/.test(plan.countdown),
       tripNeedsAi: /this one needs the AI/.test(plan.tripNote ?? ''),
       keyedRun: plan.requests.gemini >= 1 && plan.requests.geminiKeyHeader === plan.requests.gemini && !plan.requests.geminiUrlHasKey,
@@ -1693,6 +1741,13 @@ try {
     } else {
       const flatSets = existsSync(SETS) ? JSON.parse(readFileSync(SETS, 'utf8')) : null;
       const same = (a, b) => !!a && !!b && a.length === b.length && a.every((x, i) => x === b[i]);
+      // G5: the Photo / Dots switch is shown in the 3D view only (by design, like the globe itself), so its two
+      // buttons are compared apart: both must be reached and fire in 3D; every other button must match the flat run.
+      const ONLY_3D = ['#style-dots', '#style-photo'];
+      a11y.styleSwitch = { reached: ONLY_3D.filter((k) => mine.reached.includes(k)), fired: ONLY_3D.filter((k) => mine.fired.includes(k)) };
+      a11y.styleSwitch.ok = a11y.styleSwitch.reached.length === ONLY_3D.length && a11y.styleSwitch.fired.length === ONLY_3D.length;
+      mine.reached = mine.reached.filter((k) => !ONLY_3D.includes(k));
+      mine.fired = mine.fired.filter((k) => !ONLY_3D.includes(k));
       a11y.setCompare = flatSets
         ? { reachedOnlyIn3d: mine.reached.filter((k) => !flatSets.reached.includes(k)), reachedOnlyInFlat: flatSets.reached.filter((k) => !mine.reached.includes(k)), firedOnlyIn3d: mine.fired.filter((k) => !flatSets.fired.includes(k)), firedOnlyInFlat: flatSets.fired.filter((k) => !mine.fired.includes(k)), same: same(mine.reached, flatSets.reached) && same(mine.fired, flatSets.fired) }
         : { same: false, problem: 'run the flat --a11y first (evidence/g1-a11y-buttons-flat.json missing)' };
@@ -1744,6 +1799,7 @@ try {
             arrowKeyTurnsGlobe: a11y.globeKeys.arrowMovedDeg > 1,
             playOpensFlat: game.viewAfterPlay === 'flat',
             sameButtonsAsFlatRun: a11y.setCompare.same === true,
+            styleSwitchReachedAndFiresIn3d: a11y.styleSwitch?.ok === true,
           }
         : { pairInFlatSet: PAIR.every((k) => kb.reached.has(k)) }),
     };
@@ -1955,6 +2011,7 @@ try {
     Object.values(p2.checks).includes(false) ||
     ids.missing.length > 0 ||
     (VIEW === 'flat' && info.storyShown) ||
+    (VIEW === 'flat' && info.g5Shown.length > 0) ||
     (globe && Object.values(globe.checks).includes(false));
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
@@ -1981,10 +2038,11 @@ try {
           (VOICE ? `; voice: toggle shown, 1 call ${voice.minute.afterClickS} s after the click with exactly the sentence "${voice.minute.text}", plans: ${voice.plans.map((p) => `${p.newCalls} call "${p.text}"`).join(' / ')}, caption = spoken text, no speechSynthesis -> no toggle; ${voice.totalCalls} calls in all; evidence/x3.png` : '') +
           (FORECAST ? `; forecast lab: the button opened the card in place, [data-skill-yield] ${x6.card.skillYield}, [data-skill-price] ${x6.card.skillPrice}, ${x6.card.images.length} NASA images drawn (${x6.card.images.map((i) => `${i.day} ${i.w}x${i.h} shown ${i.shownW}x${i.shownH}`).join(', ')}), chart lines of ${x6.card.chartPaths.join('/')} points, label at ${x6.card.labelRect.top}-${x6.card.labelRect.bottom} px of a ${x6.card.viewportH} px window with the card at the top and no inner scroll, no price text outside the label, the 4 sources in the credits; "should I buy corn futures?" -> "${x6.money.note}" with 0 AI requests; evidence/x6.png` : '') +
           `; view ${VIEW}: 0 of ${ids.baseline} baseline ids missing (${ids.now} on the page)` +
-          (VIEW === 'flat' ? '; #story hidden' : '') +
+          (VIEW === 'flat' ? `; #story hidden; #style-switch, #hud-station, #hud-pass not shown (${info.g5Shown.length} shown)` : '') +
           (OUTPUTS ? '; print: #globe, #story and the view switch not shown' : '') +
           (globe?.image
-            ? `; globe (${globe.renderer}, ${globe.drawCalls} draw calls): image R-B ${globe.image.map((r) => `${r.name} ${r.redMinusBlue}`).join(', ')} (sample() agrees), marker ${globe.marker.centred.near} px of STATION_RGB within 3 px of the middle and ${globe.marker.east30.near} within 10 px at +30 deg east (mean x ${globe.marker.east30.meanX?.toFixed(0)} < ${globe.marker.east30.midX}), station ${globe.station2.lat}/${globe.station2.lon} vs #lat/#lon ${globe.station2.textLat}/${globe.station2.textLon}, subsolar ${globe.subsolar.page.lat}/${globe.subsolar.page.lon} vs node ${globe.subsolar.node.lat.toFixed(3)}/${globe.subsolar.node.lon.toFixed(3)}, shade ${globe.shade.subsolar.toFixed(0)} at the subsolar point and ${globe.shade.opposite.toFixed(0)} opposite, day/night pairs ${globe.shade.pairs.map((q) => `${q.day.toFixed(0)}>${q.night.toFixed(0)}`).join(' ')}, ${globe.trackPoints} track points, drag moved the centre ${globe.drag.movedDeg.toFixed(1)} deg with ${globe.drag.framesDuring} frames in ${globe.drag.dragMs} ms, flat page ${globe.flat.tiles} built-in tiles + ${globe.flat.tracks} track lines + night shade, 3D back, daily photo -> flat "${globe.daily.label}"; header.top ${globe.header.h3d.toFixed(2)} px in 3D, ${globe.header.hFlat.toFixed(2)} px flat; Play in 3D -> ${game6?.viewAfterPlay?.view}`
+            ? `; globe (${globe.renderer}, ${globe.drawCalls} draw calls): image R-B ${globe.image.map((r) => `${r.name} ${r.redMinusBlue}`).join(', ')} (sample() agrees), marker ${globe.marker.centred.near} px of STATION_RGB within 3 px of the middle and ${globe.marker.east30.near} within 10 px at +30 deg east (mean x ${globe.marker.east30.meanX?.toFixed(0)} < ${globe.marker.east30.midX}), station ${globe.station2.lat}/${globe.station2.lon} vs #lat/#lon ${globe.station2.textLat}/${globe.station2.textLon}, subsolar ${globe.subsolar.page.lat}/${globe.subsolar.page.lon} vs node ${globe.subsolar.node.lat.toFixed(3)}/${globe.subsolar.node.lon.toFixed(3)}, shade ${globe.shade.subsolar.toFixed(0)} at the subsolar point and ${globe.shade.opposite.toFixed(0)} opposite, day/night pairs ${globe.shade.pairs.map((q) => `${q.day.toFixed(0)}>${q.night.toFixed(0)}`).join(' ')}, ${globe.trackPoints} track points, drag moved the centre ${globe.drag.movedDeg.toFixed(1)} deg with ${globe.drag.framesDuring} frames in ${globe.drag.dragMs} ms, flat page ${globe.flat.tiles} built-in tiles + ${globe.flat.tracks} track lines + night shade, 3D back, daily photo -> flat "${globe.daily.label}"; header.top ${globe.header.h3d.toFixed(2)} px in 3D, ${globe.header.hFlat.toFixed(2)} px flat; Play in 3D -> ${game6?.viewAfterPlay?.view}` +
+              (globe.hud ? `; G5 label "${globe.hud.read.text}" (#alt "${globe.hud.read.alt}", #speed "${globe.hud.read.speed}") ${globe.hud.distPx} px from the marker, aria-hidden, Tab reached it ${globe.hud.tabHits} times in 60, hidden in print and on the flat page` : '')
             : '') +
           (A11Y ? `; view pair last: 3D -> ${a11y.pair.outcome}, Flat page -> map with ${a11y.pair.afterFlat.tiles} built-in tiles` + (VIEW === '3d' ? `; globe ring ${a11y.keyboard.globeRing}px, ArrowLeft turned it ${a11y.globeKeys.arrowMovedDeg.toFixed(1)} deg, same buttons reached and fired as the flat run (${a11y.keyboard.reachedList.length} reached), walk restored 3D ${a11y.keyboard.restored3d} time(s)` : '') : '') +
           (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : '') +

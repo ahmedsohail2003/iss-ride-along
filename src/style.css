@@ -369,3 +369,39 @@ body[data-view="3d"].story-on { background: transparent; }
 body[data-view="3d"].story-on #globe canvas { position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; cursor: default; }
 body[data-view="3d"].story-on .tabs-wrap, body[data-view="3d"].story-on footer { position: relative; background: var(--g-page); }
 @media print { #story { display: none !important; } }
+
+/* G5: the RoBuff finish on the globe, written new at this event (modelled on the look of Ahmed's earlier RoBuff
+   page, nothing copied), 3D view only. The Photo / Dots switch in the globe's bottom-left corner; the labels on
+   the globe (#hud-station, #hud-pass: short monospace lines in capitals with a thin leader line, aria-hidden,
+   never focused, hidden in print); and the backdrop: a faint grid of thin lines, a few specks and a soft dark
+   edge, CSS only. Grid and specks use the line colour, so the dimmest text on them (muted) keeps the contrast
+   tests/globe.test.ts checks for muted on line. Colours only from the --g-* set, like the G2 block. */
+.style-switch { display: none; }
+body[data-view="3d"] .style-switch { position: absolute; z-index: 1050; left: 0.5rem; bottom: 0.5rem; display: flex; gap: 0; border: 1px solid var(--g-text); border-radius: 999px; background: var(--g-page); }
+body[data-view="3d"] .style-switch button { width: auto; padding: 0.25rem 0.7rem; font-size: 0.8rem; font-weight: 600; color: var(--g-text); background: var(--g-page); border-radius: 0; }
+body[data-view="3d"] .style-switch button:first-child { border-radius: 999px 0 0 999px; }
+body[data-view="3d"] .style-switch button:last-child { border-radius: 0 999px 999px 0; }
+body[data-view="3d"] .style-switch button[aria-pressed="true"] { color: var(--g-onLight); background: var(--g-text); }
+body[data-view="3d"] .style-switch button:focus-visible { position: relative; z-index: 1; }
+body[data-view="3d"].story-on .style-switch { display: none; }
+.hud { position: absolute; z-index: 2; left: 0; top: 0; pointer-events: none; display: flex; flex-direction: column; gap: 0.05rem; padding: 0.2rem 0.45rem; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.68rem; line-height: 1.25; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--g-text); background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 4px; }
+.hud[hidden] { display: none; }
+.hud .hud-l1 { color: var(--g-accent); }
+.hud .hud-l2 { color: var(--g-text); }
+.hud::after { content: ''; position: absolute; left: -1px; top: 100%; width: 25px; height: 1px; background: var(--g-muted); transform-origin: 0 0; transform: rotate(135deg); }
+.hud.hud-left::after { left: 100%; transform: rotate(45deg); }
+.hud.hud-below::after { top: -1px; transform: rotate(-135deg); }
+.hud.hud-left.hud-below::after { transform: rotate(-45deg); }
+#hud-pass .hud-l1 { color: var(--g-pass); }
+body[data-view="3d"].story-on .hud { display: none; }
+body[data-view="3d"]:not(.story-on) {
+  background-color: var(--g-page);
+  background-image:
+    radial-gradient(ellipse at 50% 35%, transparent 55%, var(--g-page) 100%),
+    radial-gradient(circle, var(--g-line) 1.2px, transparent 1.6px),
+    linear-gradient(color-mix(in srgb, var(--g-line) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--g-line) 55%, transparent) 1px, transparent 1px);
+  background-size: 100% 100%, 211px 173px, 48px 48px, 48px 48px;
+  background-attachment: fixed;
+}
+@media print { .style-switch, .hud { display: none !important; } }

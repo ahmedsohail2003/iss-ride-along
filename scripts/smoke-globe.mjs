@@ -48,7 +48,8 @@ function findColour(img, rgb, tol, r) {
     }
   const near = all.filter(([x, y]) => Math.hypot(x - cx, y - cy) <= r);
   const meanX = all.length ? all.reduce((s, p) => s + p[0], 0) / all.length : null;
-  return { count: all.length, near: near.length, meanX, midX: cx };
+  const meanY = all.length ? all.reduce((s, p) => s + p[1], 0) / all.length : null;
+  return { count: all.length, near: near.length, meanX, midX: cx, meanY };
 }
 
 const isShown = (page, sel) =>
@@ -102,7 +103,14 @@ export async function pictureChecks({ page, g, evidence, STATION }) {
   }
   C.imageRightWayRound = g.image.every((r) => r.ok);
   C.sampleAgreesInSign = g.image.every((r) => r.sampleAgrees);
+  Object.assign(C, await markerChecks({ page, g, evidence, STATION }));
+  await page.check('#night-toggle');
+  return C;
+}
 
+/** The station-marker check (moved out of pictureChecks unchanged by G5, so the dots style runs the same code). */
+export async function markerChecks({ page, g, evidence, STATION }) {
+  const C = {};
   // The marker where the engine says: turnTo the readout's latitude and longitude, then 30 degrees east.
   const at = await page.evaluate(() => {
     const lat = +document.getElementById('lat').textContent;
@@ -119,8 +127,211 @@ export async function pictureChecks({ page, g, evidence, STATION }) {
   g.marker = { at, centred: m1, east30: m2 };
   C.markerAtMiddle = m1.near > 0;
   C.marker30EastNotMiddleAndLeft = m2.near === 0 && m2.count > 0 && m2.meanX < m2.midX;
-  await page.check('#night-toggle');
   return C;
+}
+
+/** Mean brightness ((r + g + b) / 3) of the (2k+1)x(2k+1) pixels round the middle. */
+function middleMean(img, k = 4) {
+  const cx = Math.floor(img.width / 2), cy = Math.floor(img.height / 2);
+  let sum = 0, n = 0;
+  for (let y = cy - k; y <= cy + k; y++)
+    for (let x = cx - k; x <= cx + k; x++) {
+      const o = (y * img.width + x) * 4;
+      sum += (img.pixels[o] + img.pixels[o + 1] + img.pixels[o + 2]) / 3;
+      n++;
+    }
+  return sum / n;
+}
+
+/**
+ * G5 --view 3d --style dots: press "Dots"; data-style and data-dots; the four places of the picture check, where
+ * the middle 9x9 must be brighter at both land places than at both sea places (a mirrored or shifted dot Earth
+ * fails this); the station-marker check in the dots style; then press "Photo" and run the whole four-place photo
+ * check (pictureChecks, unchanged) again.
+ */
+export async function dotsChecks({ page, evidence }) {
+  const r = { checks: {} };
+  const C = r.checks;
+  C.globeShown = await waitForGlobe(page);
+  const STATION = (await page.evaluate(() => window.__iss3d?.STATION_RGB)) ?? [255, 0, 255];
+  r.before = await page.evaluate(() => ({ style: document.getElementById('globe').dataset.style, photoPressed: document.getElementById('style-photo')?.getAttribute('aria-pressed') }));
+  C.photoByDefault = r.before.style === 'photo' && r.before.photoPressed === 'true';
+  await page.click('#style-dots');
+  await page.waitForFunction(() => Number(document.getElementById('globe').dataset.dots) > 0, null, { timeout: 10_000 }).catch(() => {});
+  r.dots = await page.evaluate(() => {
+    const ds = document.getElementById('globe').dataset;
+    return { style: ds.style, dots: Number(ds.dots), land: Number(ds.dotsLand), dotsPressed: document.getElementById('style-dots').getAttribute('aria-pressed'), saved: sessionStorage.getItem('iss-ride-along-style') };
+  });
+  C.dataStyleDots = r.dots.style === 'dots' && r.dots.dotsPressed === 'true';
+  C.dataDotsAtLeast20000 = r.dots.dots >= 20_000;
+  C.choiceKeptForTab = r.dots.saved === 'dots';
+  await page.uncheck('#night-toggle');
+  r.places = [];
+  for (const p of [
+    { name: 'Arabia', tag: 'arabia', lat: 23, lon: 45, land: true },
+    { name: 'central Australia', tag: 'australia', lat: -25, lon: 135, land: true },
+    { name: 'mid-Atlantic', tag: 'atlantic', lat: 23, lon: -45, land: false },
+    { name: 'sea south of Japan', tag: 'japan-sea', lat: 25, lon: 135, land: false },
+  ]) {
+    await page.evaluate(([a, b]) => window.__iss3d.turnTo(a, b), [p.lat, p.lon]);
+    await page.waitForTimeout(150);
+    const img = await shot(page, evidence(`g5-dots-${p.tag}`));
+    r.places.push({ name: p.name, land: p.land, mean: +middleMean(img).toFixed(1), median: middleMedian(img) });
+  }
+  const land = r.places.filter((p) => p.land).map((p) => p.mean);
+  const sea = r.places.filter((p) => !p.land).map((p) => p.mean);
+  C.landBrighterThanSea = Math.min(...land) > Math.max(...sea);
+  const gm = {};
+  const mk = await markerChecks({ page, g: gm, evidence: (n) => evidence(`g5-dots-${n}`), STATION });
+  for (const [k, v] of Object.entries(mk)) C[`dots_${k}`] = v;
+  r.marker = gm.marker;
+  await page.check('#night-toggle');
+  await page.evaluate(() => window.__iss3d.turnTo(20, -40));
+  await page.waitForTimeout(150);
+  await page.locator('#globe').screenshot({ path: evidence('g5-dots-globe') });
+  // back to the photo: the four-place photo check and the marker check again, unchanged
+  await page.click('#style-photo');
+  await page.waitForTimeout(200);
+  r.after = await page.evaluate(() => document.getElementById('globe').dataset.style);
+  C.photoBack = r.after === 'photo';
+  const gp = {};
+  const pc = await pictureChecks({ page, g: gp, evidence: (n) => evidence(`g5-photo-${n}`), STATION });
+  for (const [k, v] of Object.entries(pc)) C[`photo_${k}`] = v;
+  r.photo = gp.image;
+  r.photoMarker = gp.marker;
+  return r;
+}
+
+const shownIds = (page, ids) =>
+  page.evaluate(
+    (list) =>
+      list.map((id) => {
+        const e = document.getElementById(id);
+        if (!e) return false;
+        const b = e.getBoundingClientRect();
+        return getComputedStyle(e).display !== 'none' && b.width > 0 && b.height > 0;
+      }),
+    ids,
+  );
+
+/**
+ * G5, inside --view 3d: the station's label on the globe. Read inside one animation frame (after the globe's own
+ * draw in that frame), so #alt, #speed and the label are the same moment. The marker is found by its colour in a
+ * screenshot of the canvas; the label's box must be within 80 px of it. aria-hidden, never reached by Tab, and
+ * hidden on the flat page and in print.
+ */
+export async function hudChecks({ page, evidence }) {
+  const r = { checks: {} };
+  const C = r.checks;
+  const STATION = (await page.evaluate(() => window.__iss3d?.STATION_RGB)) ?? [255, 0, 255];
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.evaluate(() => {
+    const lat = +document.getElementById('lat').textContent;
+    const lon = +document.getElementById('lon').textContent;
+    window.__iss3d.turnTo(lat + 8, lon - 20);
+  });
+  await page.waitForTimeout(1300);
+  r.read = await page.evaluate(
+    () =>
+      new Promise((res) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            const e = document.getElementById('hud-station');
+            const b = e?.getBoundingClientRect();
+            const c = document.querySelector('#globe canvas').getBoundingClientRect();
+            res({
+              canvas: { left: c.left, top: c.top },
+              alt: document.getElementById('alt').textContent,
+              speed: document.getElementById('speed').textContent,
+              text: e?.textContent ?? null,
+              shown: !!e && !e.hidden && getComputedStyle(e).display !== 'none' && b.width > 0,
+              box: b ? { left: b.left, top: b.top, right: b.right, bottom: b.bottom } : null,
+              ariaHidden: e?.getAttribute('aria-hidden'),
+              live: !!e?.closest('[aria-live]'),
+              tabIndex: e?.tabIndex ?? null,
+              focusables: e ? e.querySelectorAll('a,button,input,select,textarea,[tabindex]').length : null,
+            });
+          }),
+        ),
+      ),
+  );
+  const digits = (t) => (t ?? '').replace(/[^0-9]/g, '');
+  C.hudStationShown = r.read.shown;
+  C.hudHasAltAndSpeed =
+    !!r.read.text && r.read.text.includes(r.read.alt) && r.read.text.includes(r.read.speed) && digits(r.read.text).includes(digits(r.read.alt)) && digits(r.read.text).includes(digits(r.read.speed));
+  C.hudAriaHidden = r.read.ariaHidden === 'true' && !r.read.live && r.read.tabIndex < 0 && r.read.focusables === 0;
+  // the marker's place in the canvas (from the screenshot) and the label's box in the canvas (from the same frame
+  // as the read above), so a scroll between the two (the screenshot scrolls the canvas into view) changes nothing
+  const cbox = await page.locator('#globe canvas').boundingBox();
+  const img = await shot(page, evidence('g5-hud'));
+  const m = findColour(img, STATION, 24, 1e9);
+  const sx = cbox.width / img.width, sy = cbox.height / img.height;
+  r.marker = m.count ? { x: m.meanX * sx, y: m.meanY * sy, px: m.count } : null;
+  if (r.marker && r.read.box) {
+    const c = r.read.canvas;
+    const b = { left: r.read.box.left - c.left, right: r.read.box.right - c.left, top: r.read.box.top - c.top, bottom: r.read.box.bottom - c.top };
+    const dx = Math.max(b.left - r.marker.x, 0, r.marker.x - b.right);
+    const dy = Math.max(b.top - r.marker.y, 0, r.marker.y - b.bottom);
+    r.distPx = +Math.hypot(dx, dy).toFixed(1);
+  }
+  C.hudWithin80pxOfMarker = r.distPx !== undefined && r.distPx <= 80;
+  // never reached by Tab: 60 presses from the top of the page
+  await page.evaluate(() => document.activeElement?.blur());
+  r.tabHits = 0;
+  for (let i = 0; i < 60; i++) {
+    await page.keyboard.press('Tab');
+    if (await page.evaluate(() => !!document.activeElement?.closest('.hud'))) r.tabHits++;
+  }
+  C.hudNotReachedByTab = r.tabHits === 0;
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const ids = ['style-switch', 'hud-station', 'hud-pass'];
+  r.switchShown3d = (await shownIds(page, ['style-switch']))[0];
+  C.switchShownIn3d = r.switchShown3d;
+  // print hides the switch and both labels
+  await page.emulateMedia({ media: 'print' });
+  r.print = await shownIds(page, ids);
+  await page.emulateMedia({ media: 'screen' });
+  C.printHidesSwitchAndLabels = r.print.every((x) => !x);
+  // the flat page shows none of them
+  await page.click('#view-flat');
+  await page.waitForTimeout(300);
+  r.flat = await shownIds(page, ids);
+  C.flatShowsNoneOfThem = r.flat.every((x) => !x);
+  await page.click('#view-3d');
+  await page.waitForTimeout(300);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  return r;
+}
+
+/** G5 --view 3d --plan: the chosen pass's label names the town and the pass time the plan card shows. */
+export async function hudPassCheck(page) {
+  await page.waitForTimeout(1200);
+  const r = await page.evaluate(
+    () =>
+      new Promise((res) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            const e = document.getElementById('hud-pass');
+            res({
+              shown: !!e && !e.hidden && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0,
+              l1: e?.querySelector('.hud-l1')?.textContent ?? '',
+              l2: e?.querySelector('.hud-l2')?.textContent ?? '',
+              card: document.getElementById('plan-card')?.textContent ?? '',
+              ariaHidden: e?.getAttribute('aria-hidden'),
+            });
+          }),
+        ),
+      ),
+  );
+  const [night, start] = r.l2.split(' · ');
+  r.checks = {
+    hudPassShown: r.shown,
+    hudPassNamesTownOnCard: r.l1.length > 1 && r.card.includes(r.l1),
+    hudPassTimeOnCard: !!night && !!start && r.card.includes(night) && r.card.includes(start),
+    hudPassAriaHidden: r.ariaHidden === 'true',
+  };
+  delete r.card;
+  return r;
 }
 
 /**

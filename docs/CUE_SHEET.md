@@ -11,6 +11,7 @@ Final version, Sun Nov 15, 5:15 AM EST, the 3D refresh (before it: 12:30 AM; ver
 - **The dark look:** black page, white type, a "3D globe" badge.
 - **The "3D / Flat page" switch** (`#view-3d`, `#view-flat`): the flat page is one press away.
 - **The scroll story below the tool** (`#story`): six scenes that turn the globe as you scroll.
+- **Optional: the Photo / Dots switch** on the globe (`#style-photo`, `#style-dots`); nothing in the script changes.
  Full plan: [PRESENTING.md](PRESENTING.md). Answers to judge questions: [PRESENTER_PACK.md](PRESENTER_PACK.md).
 
 ## The three numbers (say what each one counts)

@@ -40,7 +40,10 @@ import { startWhereRegion } from './ui/whereRegion';
 import { initVoice, voiceHtml } from './ui/voice';
 import { initSkyPanel, skyPanelHtml } from './sky/skyPanel';
 import { initView } from './globe/view';
-import { createGlobe, type Globe } from './globe/globe';
+import { createGlobe, type Globe, type GlobeStyle } from './globe/globe';
+import { DOTS_ON } from './globe/dots';
+import { passLabel, stationLabel } from './globe/hud';
+import { passTexts } from './agent/tools';
 import { orbitPoints, passPoints, type OrbitPoint } from './globe/geo';
 import { applyLook } from './globe/look';
 import { subsolarPoint } from './orbit/daynight';
@@ -73,6 +76,10 @@ ${voiceHtml}
         <p id="view-note" class="view-note" hidden></p>
         <div id="map" role="region" aria-label="World map with the space station's position and path. Arrow keys move the map; plus and minus zoom."></div>
         <div id="globe" role="region" tabindex="0" aria-label="3D globe with the space station's position, its last and next orbit, the night side and the area the crew can see. Arrow keys turn the globe; plus and minus zoom."></div>
+        ${DOTS_ON ? `<div id="style-switch" class="style-switch" role="group" aria-label="How to draw the globe">
+          <button type="button" id="style-photo" aria-pressed="true">Photo</button>
+          <button type="button" id="style-dots" aria-pressed="false">Dots</button>
+        </div>` : ''}
       </div>
       <p class="small legend">
         <span class="key key-iss"></span> ISS now
@@ -188,6 +195,32 @@ function feedGlobe(g: Globe, now = new Date()) {
   g.setTrack(t.past, t.next);
   g.setNight(nightToggle.checked);
   if (shownPass) g.setPass(shownPass.points, shownPass.city, shownPass.peak, false);
+  g.setStyle(globeStyle);
+  g.setLabels(stationLabel($('alt').textContent ?? '', $('speed').textContent ?? ''), passHud);
+}
+// ---- G5: the globe's style (Photo / Dots), kept for the tab like the view choice; Photo by default.
+const STYLE_STORAGE_KEY = 'iss-ride-along-style';
+let globeStyle: GlobeStyle = (() => {
+  try {
+    return DOTS_ON && sessionStorage.getItem(STYLE_STORAGE_KEY) === 'dots' ? 'dots' : 'photo';
+  } catch {
+    return 'photo';
+  }
+})();
+/** G5: the chosen pass's label (the town, and the night and start as the plan card prints them). */
+let passHud: [string, string] | null = null;
+function setGlobeStyle(s: GlobeStyle, save: boolean) {
+  globeStyle = s;
+  document.getElementById('style-photo')?.setAttribute('aria-pressed', String(s === 'photo'));
+  document.getElementById('style-dots')?.setAttribute('aria-pressed', String(s === 'dots'));
+  if (save) {
+    try {
+      sessionStorage.setItem(STYLE_STORAGE_KEY, s);
+    } catch {
+      /* storage refused: the choice lasts until the page is closed */
+    }
+  }
+  view?.globe()?.setStyle(s);
 }
 /** G2: the pass "Plan my sighting" last showed, kept so a globe made later draws it too. */
 let shownPass: { points: OrbitPoint[]; city: { lat: number; lon: number }; peak: { lat: number; lon: number } } | null = null;
@@ -257,6 +290,8 @@ function tick() {
   if (g) {
     g.setStation(s.latDeg, s.lonDeg, s.altKm);
     g.setSun(sunNow.latDeg, sunNow.lonDeg);
+    // G5: the label on the globe copies the readout's own texts
+    g.setLabels(stationLabel($('alt').textContent ?? '', $('speed').textContent ?? ''), passHud);
   }
   // G3: the story's numbers, the same values and text as the readout
   story?.update({
@@ -330,6 +365,10 @@ setInterval(renderAccuracy, 30_000);
 // M6: the game plays on the main map (a tap places the guess); its panel is the Game tab.
 initGame({ map, getSatrec: () => elements.satrec, onStart: () => view?.current() === '3d' && view.press('flat') });
 setInterval(tick, 1000);
+// G5: the Photo / Dots switch (a corner of the globe, 3D view only).
+setGlobeStyle(globeStyle, false);
+document.getElementById('style-photo')?.addEventListener('click', () => setGlobeStyle('photo', true));
+document.getElementById('style-dots')?.addEventListener('click', () => setGlobeStyle('dots', true));
 setInterval(() => {
   drawTrack(new Date());
   drawNight(new Date());
@@ -365,6 +404,9 @@ initPlanner({
       map.setView([s.latDeg, s.lonDeg], Math.max(map.getZoom(), 3));
       // G2: the same pass on the globe, rise to set at the station's height, and the turn to its highest point.
       shownPass = { points: passPoints(elements.satrec, p.start, p.end), city: { lat: info.place.latDeg, lon: info.place.lonDeg }, peak: { lat: s.latDeg, lon: s.lonDeg } };
+      const card = passTexts(ctx, info);
+      passHud = passLabel(info.place.name, card.night, card.start);
+      view?.globe()?.setLabels(stationLabel($('alt').textContent ?? '', $('speed').textContent ?? ''), passHud);
       view?.globe()?.setPass(shownPass.points, shownPass.city, shownPass.peak, true);
     }
     const tz = info.place.timeZone ?? ctx.viewerTimeZone;

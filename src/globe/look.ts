@@ -33,6 +33,11 @@ export const TEXT_ON: [text: LookKey, on: LookKey, where: string][] = [
   ['good', 'panel', 'green numbers (km from the reference, NASA gap)'],
   ['warn', 'panel', 'amber notes (fixed plan, orbit lines)'],
   ['bad', 'panel', 'red notes (a failed step)'],
+  // G5: the grid and specks of the backdrop are drawn in the line colour, under the page's own text
+  ['text', 'line', 'page text over a grid line or speck'],
+  ['muted', 'line', 'the grey second line over a grid line or speck'],
+  ['accent', 'line', 'links on the page over a grid line or speck'],
+  ['pass', 'panel', 'the town on the pass label'],
 ];
 
 const lin = (c: number) => {
