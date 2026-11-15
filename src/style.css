@@ -307,3 +307,49 @@ body[data-view="3d"] #map { display: none; }
 .view-note[hidden] { display: none; }
 @media (max-width: 860px) { #globe { height: 46vh; } }
 @media print { #globe, .view-switch, .view-note { display: none !important; } }
+
+/* G2: the 3D view's own look, written new at this event (modelled on the feel of Ahmed's earlier RoBuff page,
+   nothing copied): a black page, a white headline with a grey second line, a pill badge, thin borders, numbers
+   in a fixed-width face. Every rule is under body[data-view="3d"] (the flat page is untouched) and every
+   colour is a --g-* property set from src/globe/look.ts, where tests/globe.test.ts checks each text colour on
+   its panel colour. Panels are fully opaque, so that contrast is the one on screen. */
+.look-badge { display: none; }
+:root:has(> body[data-view="3d"]) { background: var(--g-page); }
+body[data-view="3d"] { background: var(--g-page); color: var(--g-text); min-height: 100vh; }
+body[data-view="3d"] .top h1 { color: var(--g-text); font-weight: 700; letter-spacing: -0.01em; }
+body[data-view="3d"] .tag { color: var(--g-muted); opacity: 1; }
+body[data-view="3d"] .look-badge {
+  display: inline-block; align-self: center; font-size: 0.7rem; font-weight: 700; line-height: 1.3; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--g-onLight); background: var(--g-text); border-radius: 999px; padding: 0.1rem 0.55rem;
+}
+body[data-view="3d"] .small, body[data-view="3d"] .readout dt, body[data-view="3d"] .passes th { color: var(--g-muted); opacity: 1; }
+body[data-view="3d"] .card, body[data-view="3d"] .panel, body[data-view="3d"] .credits {
+  background: var(--g-panel); color: var(--g-text); border: 1px solid var(--g-line); border-radius: 10px;
+}
+body[data-view="3d"] .next-box { border-color: var(--g-good); }
+body[data-view="3d"] .plan-card { border-color: var(--g-pass); }
+body[data-view="3d"] #globe { background: var(--g-page); border: 1px solid var(--g-line); border-radius: 10px; }
+body[data-view="3d"] button { color: var(--g-onLight); background: var(--g-text); border-radius: 999px; }
+body[data-view="3d"] button.linkish { color: var(--g-accent); background: none; border-radius: 0; }
+body[data-view="3d"] .photo a, body[data-view="3d"] .credits a, body[data-view="3d"] .news-box a { color: var(--g-accent); }
+body[data-view="3d"] .tabs { border-bottom-color: var(--g-line); }
+body[data-view="3d"] .tabs .tab { color: var(--g-text); background: var(--g-raised); border-color: var(--g-line); border-radius: 999px 999px 0 0; }
+body[data-view="3d"] .tabs .tab[aria-selected="true"] { color: var(--g-onLight); background: var(--g-text); }
+body[data-view="3d"] .view-switch { background: var(--g-page); border-color: var(--g-text); }
+body[data-view="3d"] .view-switch button { color: var(--g-text); background: var(--g-page); }
+body[data-view="3d"] .view-switch button:first-child { border-radius: 999px 0 0 999px; }
+body[data-view="3d"] .view-switch button:last-child { border-radius: 0 999px 999px 0; }
+body[data-view="3d"] .view-switch button[aria-pressed="true"] { color: var(--g-onLight); background: var(--g-text); }
+body[data-view="3d"] .warnings li { color: var(--g-text); background: var(--g-raised); border-left-color: var(--g-warn); }
+body[data-view="3d"] .age { color: var(--g-text); background: var(--g-raised); }
+body[data-view="3d"] .age-fresh { border-color: var(--g-good); }
+body[data-view="3d"] .age-aging { border-color: var(--g-warn); }
+body[data-view="3d"] .age-stale { border-color: var(--g-bad); }
+body[data-view="3d"] .place-form input { color: var(--g-text); background: var(--g-raised); border-color: var(--g-line); }
+body[data-view="3d"] .passes th, body[data-view="3d"] .passes td, body[data-view="3d"] .sources-table th, body[data-view="3d"] .sources-table td { border-bottom-color: var(--g-line); }
+body[data-view="3d"] .readout dd, body[data-view="3d"] .passes table, body[data-view="3d"] .countdown, body[data-view="3d"] #orbit-lab,
+body[data-view="3d"] .ref-result strong, body[data-view="3d"] .oem-gap strong { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-variant-numeric: tabular-nums; }
+body[data-view="3d"] .ref-result strong, body[data-view="3d"] .oem-gap strong { color: var(--g-good); }
+body[data-view="3d"] .plan-fallback, body[data-view="3d"] .plan-orbit { color: var(--g-warn); }
+body[data-view="3d"] .trace-bad strong { color: var(--g-bad); }
+body[data-view="3d"] .key-view { border-color: var(--g-accent); }
