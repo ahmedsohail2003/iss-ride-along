@@ -3,7 +3,7 @@
 ## Just look at it (no install)
 
 - Live page: https://ahmedsohail2003.github.io/iss-ride-along/ (GitHub Pages, rebuilt by
-  `.github/workflows/pages.yml` on every push to `main`: `npm ci`, `npm test`, `npm run build`).
+  `.github/workflows/pages.yml` on every push to `main`: `npm ci`, `npm test`, the docs check, a secret scan, `npm run build`; it publishes only if all pass).
 - Offline: double-click `docs/iss-ride-along-offline.html` (also small enough to send as a Discord
   attachment). It is one self-contained file, so it opens from `file://` with no server and no
   internet; it then runs on the orbit data built into it and says so in the "Orbit data age" label
@@ -15,7 +15,7 @@ Needs Node 22 (built with 22.14.0) and npm. In this folder:
 
 ```
 npm install        # once; installs the exact versions in package-lock.json
-npm test           # 68 unit tests, offline, a few seconds
+npm test           # 78 unit tests, offline, a few seconds
 npm run build      # type check + one self-contained file: dist/index.html
 npm run offline    # build, then copy it to docs/iss-ride-along-offline.html (fails at 8 MB or more)
 npm run dev        # local dev server with reload; open the address Vite prints

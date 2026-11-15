@@ -25,6 +25,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Docs check (the code tour, RUN.md and the README's "How we test" point at code that exists)
+        run: node scripts/check-docs.mjs
+      - name: Secret scan (stops the publish if any tracked file holds text shaped like a key)
+        shell: bash
+        run: |
+          set +e
+          git grep -n -I -E "(api_key|apikey|access_token)\s*[=:]\s*['\"]?[A-Za-z0-9_-]{16,}|DEMO_KEY|AIza[0-9A-Za-z_-]{20,}|ghp_[0-9A-Za-z]{30,}|\bsk-[A-Za-z0-9_-]{20,}|x-goog-api-key['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9_-]{20,}|Bearer [A-Za-z0-9_-]{20,}" -- . ":!package-lock.json" ":!.github/workflows/pages.yml"
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then echo "Secret scan: the lines above look like keys; not publishing."; exit 1; fi
+          if [ "$status" -ne 1 ]; then echo "Secret scan: git grep failed (exit $status)."; exit 1; fi
+          echo "Secret scan: no hits"
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
