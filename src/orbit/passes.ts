@@ -82,10 +82,18 @@ function elevationDeg(satrec: SatRec, obs: GeodeticLocation, ms: number): number
   return sat.ecfToLookAngles(obs, sat.eciToEcf(pv.position, sat.gstime(t)) as EcfVec3<Kilometer>).elevation * DEG;
 }
 
+/**
+ * The station's shadow test, shared by the pass predictor and the map's sunlight label (C2,
+ * src/orbit/daynight.ts), so the two can never disagree: in sunlight unless fully in Earth's shadow.
+ */
+export function inSunlight(shadowFraction: number): boolean {
+  return shadowFraction < 1;
+}
+
 /** The three-part visibility rule at one instant. */
 export function isVisibleAt(satrec: SatRec, obs: GeodeticLocation, ms: number): boolean {
   const l = lookAt(satrec, obs, ms);
-  return !!l && l.elDeg >= PASS_RULES.minElDeg && l.sunElDeg <= PASS_RULES.maxSunElDeg && l.shadow < 1;
+  return !!l && l.elDeg >= PASS_RULES.minElDeg && l.sunElDeg <= PASS_RULES.maxSunElDeg && inSunlight(l.shadow);
 }
 
 /**
@@ -201,7 +209,7 @@ function describe(satrec: SatRec, obs: GeodeticLocation, vs: number, ve: number,
   const p = lookAt(satrec, obs, peak)!;
   const b = lookAt(satrec, obs, ve)!;
   const why = (l: NonNullable<ReturnType<typeof lookAt>>) =>
-    l.shadow >= 1 ? 'shadow' : l.sunElDeg > PASS_RULES.maxSunElDeg ? 'sky' : 'low';
+    !inSunlight(l.shadow) ? 'shadow' : l.sunElDeg > PASS_RULES.maxSunElDeg ? 'sky' : 'low';
   // What stops the pass being visible just outside its two ends.
   const before = lookAt(satrec, obs, vs - 1000);
   const after = lookAt(satrec, obs, ve + 1000);

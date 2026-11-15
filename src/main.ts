@@ -2,13 +2,15 @@
 // against NASA's own trajectory (C1, src/oem-ui.ts). Every second
 // the page runs SGP4 (satellite.js) on the station's orbit elements and moves the marker; a button
 // compares our answer with wheretheiss.at; src/nasa/layers.ts draws what the station is flying over;
-// src/passes-ui.ts lists when it can be seen from a chosen place.
+// src/passes-ui.ts lists when it can be seen from a chosen place; src/orbit/daynight.ts shades the night
+// side of the map and labels the station "in sunlight" or "in Earth's shadow" (C2).
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import * as L from 'leaflet';
 import tleText from './data/iss.tle?raw';
 import meta from './data/snapshot-meta.json';
 import { stateAt } from './orbit/orbit';
+import { nightLine, sunlightLabel } from './orbit/daynight';
 import { ageLevel, formatAge, groundTrack, periodMinutes } from './orbit/track';
 import { compareWithReference } from './orbit/compare';
 import { initialElements, refreshElements, type Elements } from './elements';
@@ -41,6 +43,7 @@ app.innerHTML = `
         <span class="key key-past"></span> last orbit
         <span class="key key-next"></span> next orbit
         <span class="key key-view"></span> station's view
+        <label class="night-toggle"><input type="checkbox" id="night-toggle" checked> <span class="key key-night"></span> night side</label>
         · <span id="gibs-date"></span>
         <span id="pass-key" hidden><span class="key key-pass"></span> <span id="pass-key-text"></span></span>
       </p>
@@ -50,7 +53,9 @@ app.innerHTML = `
         <div><dt>Altitude</dt><dd><span id="alt">-</span> km</dd></div>
         <div><dt>Speed <span class="small">(orbital, not over the ground)</span></dt><dd><span id="speed">-</span> km/h</dd></div>
         <div><dt>Time</dt><dd id="clock">-</dd></div>
+        <div><dt>Station</dt><dd id="sunlit">-</dd></div>
       </dl>
+      <p class="small why-sun">You can see it only when you are in the dark and it is still in sunlight, which happens in the hours after sunset and before sunrise.</p>
       <p id="data-age" class="age"></p>
     </section>
     <aside class="side">
@@ -105,10 +110,28 @@ map.fitBounds([
 ]);
 const nasa = initNasaLayers(map);
 
+// ---- C2: the night side of the Earth, in its own pane under every line and marker (tiles are at 200,
+// overlays at 400). Redrawn every minute (the line moves a quarter of a degree a minute).
+map.createPane('night').style.zIndex = '350';
+const nightShade = L.polygon([], { pane: 'night', stroke: false, fillColor: '#000814', fillOpacity: 0.55, interactive: false, className: 'night-shade' });
+const terminator = L.polyline([], { pane: 'night', color: '#ffd166', weight: 1, opacity: 0.7, interactive: false, className: 'terminator' });
+const nightLayer = L.layerGroup([nightShade, terminator]).addTo(map);
+function drawNight(now: Date) {
+  const n = nightLine(now);
+  nightShade.setLatLngs(n.polygon);
+  terminator.setLatLngs(n.line);
+  document.body.dataset.nightPoints = String(n.polygon.length);
+}
+const nightToggle = document.getElementById('night-toggle') as HTMLInputElement;
+nightToggle.addEventListener('change', () => {
+  if (nightToggle.checked) nightLayer.addTo(map);
+  else nightLayer.remove();
+});
+
 // M7: a larger marker with an "ISS" label, so a stranger finds it at once.
 const issIcon = L.divIcon({
   className: 'iss-icon',
-  html: '<span class="iss-dot"></span><span class="iss-ring"></span><span class="iss-label">ISS</span>',
+  html: '<span class="iss-dot"></span><span class="iss-ring"></span><span class="iss-label">ISS</span><span class="iss-sun"></span>',
   iconSize: [34, 34],
   iconAnchor: [17, 17],
 });
@@ -158,11 +181,20 @@ function tick() {
   $('clock').textContent = `${now.toISOString().slice(11, 19)} UTC`;
   marker.setLatLng([s.latDeg, s.lonDeg]);
   nasa.update(s.latDeg, s.lonDeg, s.altKm);
+  // C2: the same shadow test as the pass list, so the label and the passes never disagree.
+  const sun = sunlightLabel(elements.satrec, now);
+  if (sun) {
+    $('sunlit').textContent = sun.text;
+    const tag = marker.getElement()?.querySelector('.iss-sun');
+    if (tag) tag.textContent = sun.text;
+    document.body.dataset.sunlit = String(sun.sunlit);
+  }
   renderAge(now);
 }
 
 tick();
 drawTrack(new Date());
+drawNight(new Date());
 const passPanel = initPassPanel(() => elements.satrec);
 const oemPanel = initOemPanel(() => elements.satrec);
 renderAccuracy();
@@ -172,7 +204,10 @@ initTabs((id) => {
 });
 setInterval(renderAccuracy, 30_000);
 setInterval(tick, 1000);
-setInterval(() => drawTrack(new Date()), 60_000);
+setInterval(() => {
+  drawTrack(new Date());
+  drawNight(new Date());
+}, 60_000);
 
 // ---- "Plan my sighting" (A1): the chosen pass is drawn on the map (its arc and the point under the
 // station at its highest moment) and the map moves there.

@@ -33,6 +33,10 @@
 //                                               no other source warns; 0 uncaught errors. Console lines about the
 //                                               refused requests themselves are expected and listed, not counted.
 //
+// C2 day and night, every mode: the night side is drawn (a filled path in Leaflet's "night" pane, the
+// day/night line beside it), the station's label on the marker and in the numbers panel is one of the two
+// allowed strings ("in sunlight" / "in Earth's shadow, sunrise in N min") and the two agree; in default
+// mode the "night side" toggle removes and restores the shading, and evidence/c2.png is saved.
 // M7 first-screen checks (default mode, any --size): no horizontal scroll; the planner box and the
 // next-pass line inside the first screen; "Detroit" typed in the planner box plus Enter puts a pass
 // line with a time and a compass word in #next-pass within 2 s; every tab opens its own panel.
@@ -306,6 +310,46 @@ try {
     photoLoaded: document.getElementById('photo-img')?.naturalWidth ?? 0,
     creditsHasGibs: /Global Imagery Browse Services/.test(document.getElementById('credits')?.textContent ?? ''),
   }));
+
+  // ---- C2: the night side and the station's sunlight label (every mode).
+  const LABEL_RE = /^(in sunlight|in Earth's shadow, sunrise in \d+ min)$/;
+  const readC2 = () =>
+    page.evaluate(() => {
+      const pane = document.querySelector('.leaflet-night-pane');
+      const shade = pane?.querySelector('path.night-shade');
+      const r = shade?.getBoundingClientRect();
+      const m = document.getElementById('map')?.getBoundingClientRect();
+      return {
+        shadePaths: pane ? pane.querySelectorAll('path.night-shade').length : 0,
+        linePaths: pane ? pane.querySelectorAll('path.terminator').length : 0,
+        shadeFill: shade ? getComputedStyle(shade).fill : null,
+        shadeBox: r ? { w: Math.round(r.width), h: Math.round(r.height) } : null,
+        mapBox: m ? { w: Math.round(m.width), h: Math.round(m.height) } : null,
+        nightPoints: document.body.dataset.nightPoints ?? null,
+        panelLabel: document.getElementById('sunlit')?.textContent ?? '',
+        markerLabel: document.querySelector('.iss-icon .iss-sun')?.textContent ?? '',
+        sunlit: document.body.dataset.sunlit ?? null,
+      };
+    });
+  const c2 = await readC2();
+  c2.checks = {
+    shadeDrawn: c2.shadePaths === 1 && c2.linePaths === 1 && c2.nightPoints === '363' && !!c2.shadeBox && c2.shadeBox.w > 0.9 * c2.mapBox.w && c2.shadeBox.h > 20,
+    labelAllowed: LABEL_RE.test(c2.panelLabel),
+    markerMatchesPanel: c2.markerLabel === c2.panelLabel,
+    labelMatchesState: (c2.sunlit === 'true') === (c2.panelLabel === 'in sunlight'),
+  };
+  if (FIRST) {
+    mkdirSync(resolve('evidence'), { recursive: true });
+    await page.screenshot({ path: resolve('evidence/c2.png') });
+    await page.uncheck('#night-toggle');
+    c2.afterToggleOff = (await readC2()).shadePaths;
+    await page.check('#night-toggle');
+    c2.afterToggleOn = (await readC2()).shadePaths;
+    c2.checks.toggleWorks = c2.afterToggleOff === 0 && c2.afterToggleOn === 1;
+    // Clicking the toggle scrolls it into view (on a phone it sits below the planner): back to the top
+    // so the M7 first-screen checks below see the page as a stranger first does.
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
 
   let ref = null;
   if (NET) {
@@ -701,6 +745,7 @@ try {
     block7,
     blockedConsole,
     oem,
+    c2,
     gibsTiles: { total: gibsResponses.length, status200: tiles200.length, sample: gibsResponses.slice(0, 3) },
     consoleErrors,
     pageErrors,
@@ -726,13 +771,16 @@ try {
     (PATH && clickRun.problems.length > 0) ||
     (FIRST && Object.values(first7.checks).includes(false)) ||
     (BLOCK && Object.values(block7.checks).includes(false)) ||
-    Object.values(oem.checks).includes(false);
+    Object.values(oem.checks).includes(false) ||
+    Object.values(c2.checks).includes(false);
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
     failed
       ? 'SMOKE FAIL'
       : `SMOKE PASS: #lat ${second.lat}, marker moved, ${info.trackPaths} track paths, 0 console errors${offlineNote}; ` +
           `map label "${info.gibsLabel}"${NET ? `, ${tiles200.length} GIBS tile(s) HTTP 200` : ''}; ${info.eventsListed} event line(s); photo ${info.photo}` +
+          `; day and night: night side drawn (${c2.nightPoints} points), label "${c2.panelLabel}" on the marker and in the panel` +
+          (FIRST ? `, toggle off/on ${c2.afterToggleOff}/${c2.afterToggleOn}, evidence/c2.png` : '') +
           `; NASA trajectory: ${oem.kmShown} km apart at ${oem.rowTime?.slice(11, 16)} UTC, orbit numbers ${oem.ageShownH} h old` +
           (OEM ? ` (recomputed ${oem.ageRecomputedH?.toFixed(2)} h)` : '') +
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : '') +

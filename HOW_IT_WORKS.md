@@ -46,8 +46,8 @@ There is no server and no account. The only key is one a visitor may type into t
 
 ## When can I see it (visible passes)
 
-- The page looks 5 days ahead for times when the station is at least 10° above your horizon, your sky is dark (Sun 6° or
-  more below) and the station is in sunlight (`shadowFraction` under 1): 20 s steps, edges to 0.5 s; 5 days took 21 ms.
+- The page looks 5 days ahead for times when the station is at least 10° above your horizon, your sky is dark (Sun 6° or more below) and the station is in sunlight (`shadowFraction` under 1): 20 s steps, edges to 0.5 s; 5 days took 21 ms.
+- **Day and night on the map.** You can see it only when you are in the dark and it is still in sunlight, which happens in the hours after sunset and before sunrise. The shaded part of the map is where the Sun is below the horizon (one latitude per degree of longitude, the Sun's centre on the horizon, no bending of light by the air); the marker says "in sunlight" or "in Earth's shadow, sunrise in N min" from the same shadow test as the pass list (`tests/daynight.test.ts`: the line's Sun height within 0.007° of astronomy-engine at 24 points; 559 of 559 samples over one orbit agree with the pass test).
 - Against Heavens-Above's Ypsilanti list for Nov 14-18, same TLE (`tests/passes.test.ts`): 8 of 8 passes, starts within 1.3 s,
   ends 4.8 s, peak 0.6° (limits 5 s, 15 s, 3°). Far north (Alert, 82.5° N) it says why the list is empty. Ypsilanti's times, else the viewer's.
 

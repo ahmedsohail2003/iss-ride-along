@@ -198,3 +198,15 @@ button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align
   .no-print { display: none !important; }
 }
 #passes-table caption { text-align: left; font-weight: 600; padding-bottom: 0.25rem; }
+
+/* C2: the night side, the toggle, and the station's sunlight label */
+.key-night { width: 0.9rem; height: 0.7rem; background: rgba(0, 8, 20, 0.75); border: 1px solid #ffd166; }
+.night-toggle { display: inline-flex; align-items: center; gap: 0.1rem; margin-left: 0.4rem; cursor: pointer; }
+.night-toggle input { margin: 0; }
+.leaflet-night-pane { pointer-events: none; }
+.iss-sun {
+  position: absolute; left: 34px; top: 22px; font-weight: 600; font-size: 11px; color: #fff; white-space: nowrap;
+  text-shadow: 0 0 3px #000, 0 0 3px #000;
+}
+.why-sun { margin: 0 0 0.4rem; }
+@media (min-width: 861px) { .readout { grid-template-columns: repeat(6, auto); } }

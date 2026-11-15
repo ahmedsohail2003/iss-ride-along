@@ -24,8 +24,8 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
 - `stateAt()` runs SGP4, the standard model for propagating TLEs (it moves the orbit from the epoch to any time), through
   satellite.js, and turns the result into latitude, longitude, altitude in km and speed in km/s (through space, not over the ground).
 - `greatCircleKm()` is the haversine formula: the distance between two points on the Earth's surface.
-- `isSunlitCylinder()` is a simple Earth-shadow test; the pass predictor (stop 8) uses satellite.js's
-  `shadowFraction()`. `satellite-lite.ts` imports only satellite.js's plain JavaScript (its WebAssembly broke the build).
+- `isSunlitCylinder()` is a simple Earth-shadow test; the pass predictor (stop 8) uses satellite.js's `shadowFraction()`. `satellite-lite.ts` imports only satellite.js's plain JavaScript (its WebAssembly broke the build).
+- Day and night (C2), `src/orbit/daynight.ts`: `nightLine()` gives the day/night line, one latitude per degree of longitude, closed over the dark pole for the map's shading; `sunlitNow()` calls the pass predictor's own `inSunlight()` test, so the marker's "in sunlight" can never disagree with the pass list; `nextSunlightChange()` steps 10 s, then 1 s, for "sunrise in N min".
 - Say: "This file is pure math with no internet and no screen, which is why we can test it on its own."
 
 ## Stop 3: the path on the map and the data-age label

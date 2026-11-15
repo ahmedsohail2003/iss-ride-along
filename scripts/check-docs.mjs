@@ -26,6 +26,10 @@
 //    from docs/VERIFICATION.md where the log is not present, as in CI, which then skips the number
 //    rule and says so); every file path they name exists; every `#id` they name is an element id in
 //    src/; the 2-minute script's spoken lines (the "> " lines) are 300 words or fewer.
+// 10. (C2) Two phrases that overstate the science never appear in the public docs or in src/: "only at dawn
+//    and dusk" and "only visible near dawn and dusk" (near midsummer at our latitude the station can be in
+//    sunlight all night). The page's own wording: "You can see it only when you are in the dark and it is
+//    still in sunlight, which happens in the hours after sunset and before sunrise."
 // Exit 0 when everything holds, 1 otherwise. Offline, no dependencies.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -137,6 +141,20 @@ if (existsSync(join(root, 'RUN.md'))) {
     }
   }
   passes.push(`wording: no "accurate to" near the NASA trajectory gap in ${checked} files`);
+}
+
+// ---- 10. Phrases that overstate when the station can be seen (C2).
+{
+  const BANNED = ['only at dawn and dusk', 'only visible near dawn and dusk'];
+  const docs = ['README.md', 'HOW_IT_WORKS.md', 'CODE_TOUR.md', 'RUN.md', 'DEVPOST_DRAFT.md', 'index.html'];
+  if (existsSync(join(root, 'docs')))
+    for (const e of readdirSync(join(root, 'docs'))) if (e.endsWith('.md')) docs.push(`docs/${e}`);
+  const files = [...docs.filter((f) => existsSync(join(root, f))), ...codeFiles('src')];
+  for (const f of files) {
+    const text = read(f).replace(/\s+/g, ' ').toLowerCase();
+    for (const b of BANNED) if (text.includes(b)) problems.push(`${f}: says "${b}" (overstated: say "in the hours after sunset and before sunrise")`);
+  }
+  passes.push(`wording: neither "${BANNED.join('" nor "')}" in ${files.length} files (public docs and src/)`);
 }
 
 // ---- 7. README "How we test": every command named there exists (M8).
