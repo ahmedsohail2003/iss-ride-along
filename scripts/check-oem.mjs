@@ -17,8 +17,8 @@ import { loadTs } from './load-ts.mjs';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fx = (n) => readFileSync(join(root, 'tests', 'fixtures', n), 'utf8');
 
-const { mods, close } = await loadTs(['/src/orbit/oem.ts', '/src/orbit/oemCompare.ts', '/src/orbit/orbit.ts']);
-const [{ parseOem }, cmp, { satrecFromTle }] = mods;
+const { mods, close } = await loadTs(['/src/orbit/oem.ts', '/src/orbit/oemCompare.ts', '/src/orbit/orbit.ts', '/src/orbit/satellite-lite.ts']);
+const [{ parseOem }, cmp, { satrecFromTle }, sat] = mods;
 let ok = true;
 try {
   const oem = parseOem(fx('ISS.OEM_J2K_EPH.txt'));
@@ -62,6 +62,22 @@ try {
     byAge,
   };
   if (byAge.some(([, km]) => !Number.isFinite(km))) ok = false;
+  // Step 6: NASA's own predicted height, the lowest of its 4-minute rows on each whole UTC day in the file.
+  // Geodetic height (WGS-84 ellipsoid, satellite.js eciToGeodetic); the height does not depend on the
+  // longitude, so the Earth-rotation angle is set to 0, and the J2000 vs true-of-date pole (0.37 degree)
+  // changes it by metres at most.
+  const byDay = new Map();
+  for (const r of oem.rows) {
+    const day = new Date(r.t).toISOString().slice(0, 10);
+    const hKm = sat.eciToGeodetic({ x: r.x, y: r.y, z: r.z }, 0).height;
+    const d = byDay.get(day) ?? { day, minKm: Infinity, first: r.t, last: r.t };
+    d.minKm = Math.min(d.minKm, hKm);
+    d.last = r.t;
+    byDay.set(day, d);
+  }
+  const fullDays = [...byDay.values()].filter((d) => d.last - d.first >= 23.9 * 3_600_000);
+  agreement.nasaLowestHeightByDay = fullDays.map((d) => [d.day, Number(d.minKm.toFixed(1))]);
+  if (fullDays.length === 0 || fullDays.some((d) => !Number.isFinite(d.minKm))) ok = false;
   writeFileSync(join(root, 'src', 'data', 'oem-agreement.json'), JSON.stringify(agreement) + '\n');
   console.error(`wrote src/data/oem-agreement.json (${byAge.length} hourly points, ${byAge[0][0]} to ${byAge[byAge.length - 1][0]} h)`);
 } catch (e) {

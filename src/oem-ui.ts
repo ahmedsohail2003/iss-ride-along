@@ -18,6 +18,7 @@ export const oemPanelHtml = `
     <p id="oem-measured" class="small"></p>
     <svg id="oem-chart" class="oem-chart" viewBox="0 0 300 90" role="img" aria-label="Gap between our position and NASA's over the next 3 days"></svg>
     <p id="oem-growth" class="small"></p>
+    <p id="oem-height" class="small"></p>
     <p class="small">NASA's file is a prediction from mission control's own orbit model, not a measurement,
       so this shows how far apart two predictions are. The other check (button above) compares with an
       independent tracker that uses the same kind of public orbit numbers.</p>
@@ -32,6 +33,17 @@ function growthLine(): string {
   const parts = pick.map((m) => `${m.km.toFixed(1)} km at ${Math.round(m.hours)} h`);
   return `How the gap grows as orbit numbers age (measured on one set of orbit numbers, ${agreement.measuredOn}): ${parts.join(', ')}. ` +
     `Without the frame conversion it would be ${agreement.noConversionWithin12h.minKm.toFixed(0)} to ${agreement.noConversionWithin12h.maxKm.toFixed(0)} km even within 12 h.`;
+}
+
+/** Step 6: NASA's predicted lowest height per day, first and last whole day in its file. */
+function heightLine(): string {
+  const d = (agreement.nasaLowestHeightByDay ?? []) as [string, number][];
+  if (d.length < 2) return '';
+  const [a, b] = [d[0], d[d.length - 1]];
+  const lo = Math.min(...d.map((x) => x[1]));
+  const hi = Math.max(...d.map((x) => x[1]));
+  return `NASA's own prediction of the station's lowest height each day, ${a[0]} to ${b[0]}: between ${lo.toFixed(1)} and ${hi.toFixed(1)} km ` +
+    `(${a[1].toFixed(1)} km on the first day, ${b[1].toFixed(1)} km on the last; above the WGS-84 ellipsoid, lowest of NASA's 4-minute rows).`;
 }
 
 function drawChart(satrec: SatRec, fromT: number) {
@@ -97,6 +109,7 @@ export function initOemPanel(getSatrec: () => SatRec) {
     }
   };
   $('oem-growth').textContent = growthLine();
+  $('oem-height').textContent = heightLine();
   render();
   setInterval(render, 30_000);
   return { refresh: render };
