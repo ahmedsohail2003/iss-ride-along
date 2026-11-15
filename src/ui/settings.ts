@@ -1,6 +1,7 @@
 // Keys for the sighting planner. A key lives in memory only. The tick box "keep until this tab is
 // closed" stores it in this tab's sessionStorage (wiped when the tab closes), so a reload at the demo
 // table does not lose it. Never localStorage, never the page address, never a log line.
+// R3: the chosen Gemini model ("" = automatic) is kept the same way, in the same place, as the keys.
 
 export type KeyName = 'gemini' | 'openai' | 'exa';
 export const SESSION_KEY = 'iss-ride-along-keys';
@@ -22,6 +23,8 @@ interface StorageLike {
 
 export class KeyStore {
   private keys: Record<KeyName, string> = { gemini: '', openai: '', exa: '' };
+  /** R3: the Gemini model id chosen in Settings; "" = automatic (the first that answers). */
+  private model = '';
   keep = false;
   private session: StorageLike | null;
 
@@ -30,8 +33,9 @@ export class KeyStore {
     const saved = session?.getItem(SESSION_KEY);
     if (saved) {
       try {
-        const k = JSON.parse(saved) as Partial<Record<KeyName, string>>;
+        const k = JSON.parse(saved) as Partial<Record<KeyName | 'geminiModel', string>>;
         this.keys = { gemini: k.gemini ?? '', openai: k.openai ?? '', exa: k.exa ?? '' };
+        this.model = typeof k.geminiModel === 'string' ? k.geminiModel : '';
         this.keep = true;
       } catch {
         session?.removeItem(SESSION_KEY);
@@ -48,6 +52,15 @@ export class KeyStore {
     this.persist();
   }
 
+  geminiModel(): string {
+    return this.model;
+  }
+
+  setGeminiModel(id: string) {
+    this.model = id;
+    this.persist();
+  }
+
   setKeep(on: boolean) {
     this.keep = on;
     this.persist();
@@ -55,7 +68,7 @@ export class KeyStore {
 
   private persist() {
     if (!this.session) return;
-    if (this.keep) this.session.setItem(SESSION_KEY, JSON.stringify(this.keys));
+    if (this.keep) this.session.setItem(SESSION_KEY, JSON.stringify(this.model ? { ...this.keys, geminiModel: this.model } : this.keys));
     else this.session.removeItem(SESSION_KEY);
   }
 
