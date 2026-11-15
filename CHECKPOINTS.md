@@ -2,6 +2,27 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 8 — Saturday Nov 14, 9:25 PM EST
+
+**Time left:** 12 hours to our feature freeze (9:30 AM Sunday), 14.5 hours to the final Devpost deadline (12:00 PM Sunday).
+
+**The planner now runs on the demo laptop.** Denim ran the trip example on his laptop with his own Gemini key at 8:58 PM: planned by the AI in 13.7 seconds, 4 AI calls, 0 unverified numbers. Unless one of you says otherwise, Denim's laptop is the demo laptop. Denim: the page forgets the key when the tab is closed, so paste it again at 9:00 AM Sunday.
+
+**New since checkpoint 7 (both passed an independent check):**
+- **Day and night on the map.** The night side of Earth is shaded, and the marker says "in sunlight" or "in Earth's shadow, sunrise in 32 min". Under it: "You can see it only when you are in the dark and it is still in sunlight, which happens in the hours after sunset and before sunrise." The edge of the shading was checked against an independent astronomy library at 24 points (worst difference 0.007 of a degree), and the sunrise countdown against a second-by-second search (0 seconds off).
+- **The plan now says why.** When the plan picks a later pass than the "next time you can see it" line, the card gives the reason from the engine's own numbers, for example: "Why not the next pass, Sun, Nov 15 at 6:45 PM: it has 36% cloud and climbs only to 33°; this one has 9% cloud and climbs to 48°." And the Place box and the passes table now follow the city you planned for.
+- 102 of 102 automated tests pass.
+
+**Try it:** open https://ahmedsohail2003.github.io/iss-ride-along/ and look at the map: the shaded half is night. Then plan for your own city and read the "Why not the next pass" line.
+
+**Being built next:** a small game ("tap where the station will be in 10 minutes"), accessibility (a plain sentence for where the station is, keyboard and screen-reader use), then the star view from the station.
+
+**Still need from you tonight:**
+1. Study cards 3 and 4 out loud, then "card done" ([docs/STUDY_CARDS.md](docs/STUDY_CARDS.md)).
+2. Your own closing line, 12 words at most, about what you learned ([docs/PRESENTING.md](docs/PRESENTING.md) section 2).
+3. Denim and Armeis: your school, for the Devpost form. Armeis: join the Devpost project with the link in the chat.
+4. Quinn: one science read. Is the day-and-night sentence quoted above right as written?
+
 ## Checkpoint 7 — Saturday Nov 14, 9:00 PM EST
 
 **Time left:** 12.5 hours to our feature freeze (9:30 AM Sunday), 15 hours to the final Devpost deadline (12:00 PM Sunday).
