@@ -28,7 +28,8 @@ area the crew can see and the chosen pass come from the same tested functions as
 The flat page stays one press away (`#view-flat`) or at `?view=flat`, and opens by itself when the device
 has no WebGL2, draws in software, is slow or asks for reduced motion. The dark look was modelled on
 Ahmed's earlier RoBuff page; all code was written new at this event. Not affiliated with or endorsed by
-NASA.
+NASA,
+G4 the full re-check of both views, the refreshed presenter files and the re-recorded video.
 
 - M0 VERIFIED 14:12 ET — fresh-shell re-run 2:10-2:12 PM: npm test 5/5 passed; build exit 0, dist/index.html 23,866 bytes single-file, 0 external script/link; src/data TLE/OMM/10 samples/150 cities/256x256 tile/snapshot-meta present; git clean, commit 3bfbfb5 by Ahmed, no trailers; headless Chrome file:// shows title, lat -48.38 lon 175.33, 0 console errors, 0 non-file requests (evidence/m0-r0.png). Notes: findPasses test not ported (logged deviation, M5); orbit data from 12:36 PM fetch (CelesTrak unreachable 2:07 PM).
 
@@ -89,3 +90,5 @@ NASA.
 - G3 VERIFIED 04:23 ET — fresh-shell verify 4:13-4:21 AM Sun at HEAD b51930f (git clean before/after; RAM 2.14 GB, C: 32.3 GB, one headless Chrome): tsc 0; npm test 187/187 (23 files, 4 new G3: Polaris <= 0.736 deg from +Y, zenith star <= 1.21e-6 deg, sceneAt 6 ids, 1,627 stars); build 2,743,656 B < 3,200,000; smoke --view 3d --story PASS at 1366x768 and 390x844 (6 scenes 3-69 ms, now 0.06/0.05 deg from station, height = #alt, daynight centre.Sun 0.000, median frame 16.6/8.3 ms, 0 console errors); 3D, a11y (axe 0/0, 28/28 Tab), plan/outputs print and flat runs PASS, 0/140 ids missing; DOCS PASS, secret scan 0; own drive evidence/g3-r0.png viewed; screenRestored check change for 3D logged as deviation.
 
 - R2 VERIFIED 04:52 ET - fresh-shell verify 4:41-4:52 AM Sun at HEAD a945b49 (git clean before/after): tsc 0; 193/193 tests incl. 6 new R2 tests, G1 (i)/(j) unchanged; build 2,744,813 B < 3,100,000; smoke --view auto 7 cases PASS (case 7 held frames -> flat 'no-frames', no note, recovers to 3d auto, 1 live context); --gpu PASS on Intel Iris Xe (3d auto 729 ms, picture/marker checks pass); flat/3d/plan/path/a11y PASS, 0 of 140 ids missing; docs and secrets scans pass; own UI drive on real chip: press 0.151 deg from readout, held-frames edge case gives 'no-frames' then 3d press; 0 headless chrome left. Note: 10-29 gaps timed out still 'slow' (MIN_GAPS=10), by design.
+
+- G4 VERIFIED 05:24 ET - fresh-shell verify 5:12-5:24 AM Sun at HEAD cd5103b (git clean, 2 ahead of origin, not pushed): tsc 0; 193/193 tests; build 2,744,815 B < 3,200,000; 16 smoke runs PASS (flat/3d at both sizes, plan/path/a11y/story, path rows match across views, auto 7/7, --gpu Intel Iris Xe 3d auto 768 ms), 0 of 140 ids missing; frame median 8.3 ms SwiftShader / 4.2 ms real chip; DOCS PASS incl. fresh export; secrets clean; fresh clone install/test/build pass; demo-backup.mp4 147.36 s 1280x720 7.47 MB opens on globe; G4 doc lines present; own Playwright drive 0 console errors. Open: push, post-push live check (favicon 404 on first load), G4 line in docs/VERIFICATION.md.

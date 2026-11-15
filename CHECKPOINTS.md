@@ -2,6 +2,42 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 13 — Sunday Nov 15, 5:30 AM EST
+
+**Time left:** 4 hours to our feature freeze (9:30 AM), 6.5 hours to the final Devpost deadline (12:00 PM). Posted quietly; the morning post with your names comes at about 7:00 AM.
+
+**The page now has a 3D view, and every part of it passed a separate check.** 193 of 193 automated tests pass, and a fresh copy of the repo installs, tests and builds from the README alone.
+
+**Why:** Ahmed asked at about 1:00 AM for the page to look and feel 3D. Nothing you practised was removed: the flat page is one press away, and the spoken lines and the clicks in the cue sheet are unchanged (the 14 click-path rows were re-run in both views and give the same result).
+
+**New since checkpoint 12:**
+- **A 3D globe in the map's place**, drawn with three.js (a free library for 3D in the browser). It shows the station, its last and next orbit, the night side and the area the crew can see, all from the same orbit math as the flat map. The check compared the picture at four places on Earth, and the marker with the page's own latitude and longitude, so the globe is not mirrored or shifted.
+- **The pass you choose is drawn on the globe:** a pink arc, your town as a white dot, and the globe turns to face it.
+- **A dark look**, and a "3D / Flat page" switch above the globe.
+- **Real stars behind the globe:** the Sky tab's 1,627 catalogue stars, placed where they really are.
+- **A scroll story below the tool:** six short scenes that turn the globe as you scroll (in the 3D view only).
+- **The page picks the view by itself.** A laptop that can draw 3D smoothly opens on the globe. One with no 3D, a slow graphics chip or "reduced motion" switched on opens on the flat page. On the build laptop's real graphics chip (Intel Iris Xe) the globe took 4.2 ms a frame (the middle value of 120 frames).
+- **A new backup video**, 2 minutes 27 seconds, no sound, showing the 3D view: [docs/demo-backup.mp4](docs/demo-backup.mp4).
+- **The presenter files are updated:** [docs/PRESENTING.md](docs/PRESENTING.md), [docs/CUE_SHEET.md](docs/CUE_SHEET.md) and [docs/PRESENTER_PACK.md](docs/PRESENTER_PACK.md) open with the address to demo from and list what is new on the first screen.
+
+**Demo from this address** (it always opens on the globe): https://ahmedsohail2003.github.io/iss-ride-along/?view=3d
+
+**Spare** (always the flat page): https://ahmedsohail2003.github.io/iss-ride-along/?view=flat
+
+**Two things that went wrong overnight, both fixed:**
+- From 12:32 AM to 2:41 AM the live page did not update, because a docs check in the publish step failed online while it passed on the build laptop. The live page is current now, and every push is now checked the way the publish step checks it.
+- A page opened in a background tab said the 3D view was "too slow" when it had simply not been shown yet. It now waits until the page is shown.
+
+**One thing to know at the table:** when you tick the daily satellite photo, the page changes to the flat map. That is meant to happen, because the daily photo is a layer of the flat map. Press "3D" to go back to the globe.
+
+**Still need from you (before the 9:00 AM run):**
+- "card done" for study cards 3 and 4, said out loud.
+- Your closing line, 12 words at most.
+- Armeis: join the Devpost project and add your school.
+- One of you: upload the new [docs/demo-backup.mp4](docs/demo-backup.mp4) to YouTube as Unlisted and swap the video link on Devpost.
+
+**Your feedback since checkpoint 12:** no new messages overnight.
+
 ## Checkpoint 12 — Sunday Nov 15, 12:40 AM EST
 
 **Time left:** 9 hours to our feature freeze (9:30 AM), 11.5 hours to the final Devpost deadline (12:00 PM). Posted quietly; the morning summary comes at about 7:00 AM.
