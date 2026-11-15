@@ -118,3 +118,64 @@ code { font-family: ui-monospace, Consolas, monospace; }
 .oem-chart .axis { stroke: #3a4a6d; stroke-width: 1; }
 .oem-chart .line { fill: none; stroke: #7fdbff; stroke-width: 2; }
 .oem-chart text { fill: #c8d3ea; font-size: 9px; }
+
+/* ---- M7: a first screen a stranger can use (fits 1366x768 and a 390x844 phone) */
+#app { max-width: 1400px; padding: 0.5rem 1rem 1.5rem; }
+.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 1rem; margin-bottom: 0.5rem; }
+.top h1 { font-size: 1.35rem; }
+.tag { margin: 0; font-size: 0.88rem; }
+.layout { grid-template-columns: minmax(0, 1fr) 25rem; gap: 0.8rem; }
+#map { height: min(58vh, 540px); min-height: 260px; }
+.side { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+.side .card { padding: 0.6rem 0.8rem; }
+.side h2 { font-size: 1.05rem; margin: 0 0 0.35rem; }
+.readout { grid-template-columns: repeat(5, auto); justify-content: start; gap: 0.2rem 1.2rem; margin: 0.4rem 0; }
+.readout dt { font-size: 0.68rem; }
+.readout dd { font-size: 1rem; }
+.age { margin: 0 0 0.4rem; font-size: 0.8rem; padding: 0.3rem 0.5rem; }
+.planner .plan-form { gap: 0.35rem; }
+.planner .plan-form .grow { font-size: 0.85rem; }
+.planner .example { font-size: 0.78rem; padding: 0.3rem 0.5rem; text-align: left; }
+.planner .plain-controls { font-size: 0.8rem; gap: 0.35rem 0.5rem; padding: 0.3rem 0.5rem; margin: 0; }
+.planner .plain-controls legend { font-size: 0.75rem; opacity: 0.8; }
+.planner .plain-controls label { display: inline-flex; align-items: center; gap: 0.25rem; }
+.planner .plain-controls input[type="time"] { font: inherit; width: 6.6rem; }
+.planner .plain-controls #plan-place { font: inherit; width: 8rem; }
+.planner #plan-go { width: 100%; }
+.plan-note { margin: 0.3rem 0 0; font-size: 0.85rem; }
+.next-box { border-color: #3ecf8e; }
+.next-pass { margin: 0; font-size: 1rem; font-weight: 600; }
+.acc-card .oem { border-top: 0; margin-top: 0; padding-top: 0; }
+.acc-card .ref-result { margin: 0.3rem 0; font-size: 0.85rem; }
+button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align: left; font-weight: 500; text-decoration: underline; font-size: 0.85rem; }
+.warnings { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.warnings li { border-left: 4px solid #f5b041; background: rgba(245, 176, 65, 0.12); padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.85rem; }
+.warnings li::before { content: '⚠ '; }
+.tabs-wrap { margin-top: 1rem; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; border-bottom: 1px solid #23304d; margin-bottom: 0.6rem; }
+.tabs .tab { width: auto; background: #121a30; color: #e8ecf1; border: 1px solid #23304d; border-bottom: 0; border-radius: 6px 6px 0 0; font-weight: 500; padding: 0.45rem 0.8rem; }
+.tabs .tab[aria-selected="true"] { background: #7fdbff; color: #0b1020; font-weight: 700; }
+.tab-panel > .passes, .tab-panel > .below { margin-top: 0; }
+.accuracy-list { padding-left: 1.1rem; font-size: 0.9rem; }
+.accuracy-list li { margin: 0.25rem 0; }
+.sources-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.sources-table th, .sources-table td { text-align: left; padding: 0.3rem 0.6rem 0.3rem 0; border-bottom: 1px solid #23304d; vertical-align: top; }
+.oem-details { margin: 0.6rem 0; }
+.oem-details h3 { font-size: 0.95rem; margin: 0 0 0.3rem; }
+.foot { margin-top: 0.6rem; }
+/* the ISS marker: larger, with a label */
+.iss-dot { left: 10px; top: 10px; width: 14px; height: 14px; box-shadow: 0 0 10px 3px rgba(127, 219, 255, 0.95); }
+.iss-ring { width: 34px; height: 34px; border-width: 2.5px; }
+.iss-label {
+  position: absolute; left: 34px; top: 7px; font-weight: 800; font-size: 13px; color: #fff;
+  text-shadow: 0 0 3px #000, 0 0 3px #000; letter-spacing: 0.04em;
+}
+.key-iss { width: 0.8rem; height: 0.8rem; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 2px rgba(127, 219, 255, 0.9); }
+@media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr) 22rem; } }
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .side { order: -1; }
+  #map { height: 46vh; }
+  .readout { grid-template-columns: repeat(3, auto); }
+  .tag { font-size: 0.8rem; }
+}

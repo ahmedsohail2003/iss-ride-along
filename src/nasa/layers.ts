@@ -12,6 +12,7 @@ import { EONET_SET, eonetRawCount, fetchEonet, parseEonet, type EonetEvent } fro
 import { GIBS_LAYER, GIBS_MAX_NATIVE_ZOOM, gibsTemplate, pickGibsDay, probeGibs } from './gibs';
 import { photoCreditLine, photoDay, type CuratedPhoto } from './photos';
 import * as C from './credits';
+import { clearSource, warnSource } from '../ui/warnings';
 
 const blueMarbleTiles = import.meta.glob('../data/bluemarble/*.jpg', { eager: true, import: 'default' }) as Record<string, string>;
 const thumbs = import.meta.glob('../data/photos/*.jpg', { eager: true, import: 'default' }) as Record<string, string>;
@@ -41,6 +42,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   Volcanoes: '#ff4d4d',
 };
 
+/** The NASA panel (events and photo); M7 puts it in the "What it is flying over" tab. */
 export const belowPanelHtml = `
   <section class="below" aria-label="What the station is flying over">
     <div class="card">
@@ -59,6 +61,10 @@ export const belowPanelHtml = `
       </figure>
     </div>
   </section>
+`;
+
+/** Credits stay outside the tabs, at the foot of the page, so they are always one click away. */
+export const creditsHtml = `
   <details id="credits" class="credits">
     <summary>Credits and data sources</summary>
     <div id="credits-body"></div>
@@ -97,6 +103,7 @@ export function initNasaLayers(map: L.Map): NasaLayers {
     const choice = await pickGibsDay(new Date(), probeGibs);
     if (!choice.day) {
       setGibs('unreachable', 'Map: built-in NASA Blue Marble image (NASA GIBS could not be reached).');
+      warnSource('gibs', 'NASA GIBS (the daily satellite image) could not be reached: the map shows the built-in NASA Blue Marble image instead.');
       return;
     }
     const day = choice.day;
@@ -113,13 +120,15 @@ export function initNasaLayers(map: L.Map): NasaLayers {
     layer.on('tileload', () => {
       loaded++;
       if (document.body.dataset.gibs !== 'loaded')
-        setGibs('loaded', `Map: daily satellite image, ${day}, not a live camera (NASA GIBS, MODIS Terra true colour)${note}.`);
+        setGibs('loaded', `Map: daily satellite image, ${day}, not a live camera (NASA GIBS, MODIS Terra true colour)${note}. Black stripes = gaps between the satellite's daily passes.`);
+      clearSource('gibs');
     });
     layer.on('tileerror', () => {
       failed++;
       if (loaded === 0 && failed >= 4) {
         map.removeLayer(layer);
         setGibs('failed', `Map: the daily satellite image for ${day} did not load; showing the built-in NASA Blue Marble image.`);
+        warnSource('gibs', `NASA GIBS map tiles for ${day} did not load: the map shows the built-in NASA Blue Marble image instead.`);
       }
     });
     layer.addTo(map);
@@ -169,7 +178,9 @@ export function initNasaLayers(map: L.Map): NasaLayers {
     const live = await fetchEonet();
     if (!live) {
       eventsSource += ' The live list could not be loaded.';
+      warnSource('eonet', `NASA EONET could not be reached: the natural events are the saved copy from ${utcMinute(new Date(snapMeta.retrievedAt))}.`);
     } else {
+      clearSource('eonet');
       events = live.events;
       rawEventCount = live.rawCount;
       eventsSource = `Live from NASA EONET, fetched ${utcMinute(new Date())}.`;

@@ -13,49 +13,70 @@ import { ageLevel, formatAge, groundTrack, periodMinutes } from './orbit/track';
 import { compareWithReference } from './orbit/compare';
 import { initialElements, refreshElements, type Elements } from './elements';
 import { fetchReference } from './reference';
-import { belowPanelHtml, initNasaLayers, WORLD } from './nasa/layers';
-import { initPassPanel, passPanelHtml } from './passes-ui';
-import { initPlanner, plannerPanelHtml } from './ui/plannerPanel';
+import { belowPanelHtml, creditsHtml, initNasaLayers, WORLD } from './nasa/layers';
+import { initPassPanel, nextPassHtml, passPanelHtml } from './passes-ui';
+import { initPlanner, plannerPanelHtml, plannerResultHtml, plannerSettingsHtml } from './ui/plannerPanel';
 import { fmtClock, fmtDay } from './agent/format';
 import { initOemPanel, oemPanelHtml } from './oem-ui';
+import { clearSource, warningsHtml, warnSource } from './ui/warnings';
+import { initTabs, tabsHtml } from './ui/tabs';
+import { accuracyHtml, recordReference, renderAccuracy } from './ui/accuracy';
 
+// M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
+// box, the next-pass line for the chosen place and a small "How accurate is this?" card. Everything
+// else opens from the tabs under it (anything built later gets a tab too).
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <header class="top">
     <h1>ISS Ride-Along</h1>
-    <p class="tag">Where the International Space Station is right now, computed in your browser from public orbit data.</p>
+    <p class="tag">Where the International Space Station is right now, and when you can see it, computed in your browser from public orbit data.</p>
   </header>
+  ${warningsHtml}
   <main class="layout">
     <section class="map-wrap">
       <div id="map" role="img" aria-label="World map with the space station's position and path"></div>
       <p class="small legend">
+        <span class="key key-iss"></span> ISS now
         <span class="key key-past"></span> last orbit
         <span class="key key-next"></span> next orbit
         <span class="key key-view"></span> station's view
         · <span id="gibs-date"></span>
         <span id="pass-key" hidden><span class="key key-pass"></span> <span id="pass-key-text"></span></span>
       </p>
-    </section>
-    <aside class="panel">
       <dl class="readout">
         <div><dt>Latitude</dt><dd><span id="lat">-</span>°</dd></div>
         <div><dt>Longitude</dt><dd><span id="lon">-</span>°</dd></div>
         <div><dt>Altitude</dt><dd><span id="alt">-</span> km</dd></div>
-        <div class="wide"><dt>Speed</dt><dd><span id="speed">-</span> km/h</dd>
-          <dd class="small">orbital speed, not speed over the ground</dd></div>
-        <div class="wide"><dt>Time</dt><dd id="clock">-</dd></div>
+        <div><dt>Speed <span class="small">(orbital, not over the ground)</span></dt><dd><span id="speed">-</span> km/h</dd></div>
+        <div><dt>Time</dt><dd id="clock">-</dd></div>
       </dl>
       <p id="data-age" class="age"></p>
-      <button id="check-ref" type="button">Check against reference</button>
-      <p id="ref-result" class="ref-result" aria-live="polite"></p>
-      ${oemPanelHtml}
-      <p class="small">Orbit data: CelesTrak (US Space Force data, not NASA). Reference: wheretheiss.at
-        (not NASA). Not affiliated with or endorsed by NASA.</p>
+    </section>
+    <aside class="side">
+      ${plannerPanelHtml}
+      ${nextPassHtml}
+      ${plannerResultHtml}
+      <section class="card acc-card" aria-labelledby="acc-h">
+        <h2 id="acc-h">How accurate is this?</h2>
+        ${oemPanelHtml}
+        <button id="check-ref" type="button">Check against reference</button>
+        <p id="ref-result" class="ref-result" aria-live="polite"></p>
+        <button type="button" class="linkish" data-open-tab="accuracy">Every measured number, and what is computed vs fetched</button>
+      </section>
     </aside>
   </main>
-  ${plannerPanelHtml}
-  ${passPanelHtml}
-  ${belowPanelHtml}
+  ${tabsHtml(
+    [
+      { id: 'passes', label: 'All passes', html: passPanelHtml },
+      { id: 'nasa', label: 'What it is flying over', html: belowPanelHtml },
+      { id: 'accuracy', label: 'Accuracy and sources', html: accuracyHtml },
+      { id: 'settings', label: 'Settings', html: `<section class="card">${plannerSettingsHtml}</section>` },
+    ],
+    'nasa',
+  )}
+  ${creditsHtml}
+  <p class="small foot">Orbit data: CelesTrak (US Space Force data, not NASA). Reference: wheretheiss.at
+    (not NASA). Not affiliated with or endorsed by NASA.</p>
 `;
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -82,11 +103,12 @@ map.fitBounds([
 ]);
 const nasa = initNasaLayers(map);
 
+// M7: a larger marker with an "ISS" label, so a stranger finds it at once.
 const issIcon = L.divIcon({
   className: 'iss-icon',
-  html: '<span class="iss-dot"></span><span class="iss-ring"></span>',
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
+  html: '<span class="iss-dot"></span><span class="iss-ring"></span><span class="iss-label">ISS</span>',
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
 });
 const marker = L.marker([0, 0], { icon: issIcon, keyboard: false, title: 'International Space Station' }).addTo(map);
 const pastLine = L.polyline([], { color: '#ffd166', weight: 2, opacity: 0.9, className: 'track-line' }).addTo(map);
@@ -141,6 +163,12 @@ tick();
 drawTrack(new Date());
 const passPanel = initPassPanel(() => elements.satrec);
 const oemPanel = initOemPanel(() => elements.satrec);
+renderAccuracy();
+initTabs((id) => {
+  if (id === 'accuracy') renderAccuracy();
+  // Leaflet measures its container; nothing in a tab holds a map, so no resize is needed.
+});
+setInterval(renderAccuracy, 30_000);
 setInterval(tick, 1000);
 setInterval(() => drawTrack(new Date()), 60_000);
 
@@ -166,13 +194,22 @@ initPlanner({
       `chosen pass, ${fmtDay(p.peak, tz)} ${fmtClock(p.peak, tz)} at its highest`;
     document.body.dataset.passShown = info.id;
   },
+  // M7: the next-pass line follows the place the plan is for.
+  onPlace: (p) => passPanel.showPlace({ name: `${p.name}, ${p.region}`, latDeg: p.latDeg, lonDeg: p.lonDeg, heightM: p.heightM, timeZone: p.timeZone ?? undefined }),
 });
 
 // One live fetch per page load. When the browser reports no network (Wi-Fi off, the double-clicked
 // offline copy) the page skips it and makes no request at all, then tries once if the connection returns.
 function refreshOnce() {
-  refreshElements(elements).then((fresh) => {
+  const fallback = () =>
+    warnSource(
+      'celestrak',
+      `CelesTrak could not be reached: the position uses the orbit numbers ${sourceText[elements.source]} ` +
+        `(element set from ${elements.epoch.toISOString().slice(0, 16).replace('T', ' ')} UTC).`,
+    );
+  refreshElements(elements, fallback).then((fresh) => {
     if (!fresh) return;
+    clearSource('celestrak');
     elements = fresh;
     tick();
     drawTrack(new Date());
@@ -194,12 +231,15 @@ btn.addEventListener('click', async () => {
     const c = compareWithReference(elements.satrec, ref);
     if (!c) throw new Error('our orbit model could not compute that instant');
     out.dataset.errorKm = c.errorKm.toFixed(3);
+    recordReference(c.errorKm, c.at);
+    clearSource('wheretheiss');
     out.innerHTML =
       `<strong id="ref-km">${fmt(c.errorKm, 2)} km</strong> from wheretheiss.at at ${c.at.toISOString().slice(11, 19)} UTC. ` +
       `Altitude differs by ${fmt(Math.abs(c.dAltKm), 3)} km, speed by ${fmt(Math.abs(c.dSpeedKmH), 1)} km/h. ` +
       `<span class="small">Both run independent code on public orbit data (their copy may be a different update), so this checks our math, not the station's true position.</span>`;
   } catch (e) {
-    out.textContent = `Could not reach wheretheiss.at (${(e as Error).name === 'AbortError' ? 'timed out' : 'offline?'}). The tracker keeps running on the orbit data above.`;
+    out.textContent = `Could not reach wheretheiss.at (${(e as Error).name === 'AbortError' ? 'timed out' : 'no answer'}). The tracker keeps running on its own orbit numbers.`;
+    warnSource('wheretheiss', 'wheretheiss.at (the independent reference tracker) could not be reached: no live check this time; the tracker keeps running.');
   } finally {
     btn.disabled = false;
   }

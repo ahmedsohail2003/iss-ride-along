@@ -11,17 +11,24 @@ import { epochMs, gapAt, latestRowAtOrBefore, nearestRow, type OemPoint } from '
 
 const ROWS: OemPoint[] = (oemData.rows as number[][]).map(([t, x, y, z]) => ({ t, x, y, z }));
 
+// M7: the gap and its measured value sit in the first screen's "How accurate is this?" card
+// (oemPanelHtml); the chart, the growth and height lines go in the accuracy tab (oemDetailsHtml).
 export const oemPanelHtml = `
   <section id="oem-panel" class="oem" aria-labelledby="oem-h">
     <h3 id="oem-h">Our math vs NASA's own trajectory</h3>
     <p id="oem-gap" class="oem-gap" aria-live="polite">-</p>
     <p id="oem-measured" class="small"></p>
+  </section>`;
+
+export const oemDetailsHtml = `
+  <section class="oem-details" aria-label="How the gap to NASA's trajectory grows">
+    <h3>Our math vs NASA's own trajectory, over the next 3 days</h3>
     <svg id="oem-chart" class="oem-chart" viewBox="0 0 300 90" role="img" aria-label="Gap between our position and NASA's over the next 3 days"></svg>
     <p id="oem-growth" class="small"></p>
     <p id="oem-height" class="small"></p>
     <p class="small">NASA's file is a prediction from mission control's own orbit model, not a measurement,
-      so this shows how far apart two predictions are. The other check (button above) compares with an
-      independent tracker that uses the same kind of public orbit numbers.</p>
+      so this shows how far apart two predictions are. The other check, "Check against reference", compares with an
+      independent tracker that uses the same kind of public orbit numbers (the button on the first screen).</p>
   </section>`;
 
 const $ = (id: string) => document.getElementById(id)!;

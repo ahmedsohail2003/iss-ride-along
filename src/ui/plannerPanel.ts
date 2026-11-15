@@ -11,6 +11,10 @@ import { runAgent, type AgentResult } from '../agent/loop';
 import { gemini, GEMINI_MODELS, openai, OPENAI_MODEL } from '../agent/providers';
 import { newContext, SEARCH_DAYS, type PassInfo, type RunContext, type TraceRow } from '../agent/tools';
 import { KeyStore, PRIVACY_LINE, STATUS, type KeyName } from './settings';
+import { builtInMatches, type AgentPlace } from '../agent/places';
+import { NEWS_DOWN_TEXT } from '../news/exaMcp';
+import { clearSource, warnSource } from './warnings';
+import { recordPlanRun } from './accuracy';
 
 export const EXAMPLES = {
   trip: 'Ypsilanti until Monday, then Chicago Tuesday to Thursday, kids in bed by 8:30',
@@ -18,11 +22,24 @@ export const EXAMPLES = {
 };
 export const NEEDS_AI_TEXT = 'this one needs the AI: add a key in settings';
 
+/**
+ * M7, no key: a stranger types just a town ("Detroit") and presses Enter. A built-in name, or up to
+ * three words with no digits (sent to the place search), is used as the place; anything longer is a
+ * sentence that needs the AI, so the plain controls are used. The two examples use the plain controls.
+ */
+export function placeFromSentence(text: string): string | null {
+  const t = text.trim();
+  if (!t || t === EXAMPLES.trip || t === EXAMPLES.simple) return null;
+  if (builtInMatches(t).length) return t;
+  const words = t.split(',')[0].trim().split(/\s+/);
+  return words.length <= 3 && !/\d/.test(t) ? t : null;
+}
+
 export const plannerPanelHtml = `
   <section class="card planner" aria-labelledby="planner-h">
     <h2 id="planner-h">Where will you be, and when are you free?</h2>
     <form id="plan-form" class="plan-form">
-      <label class="grow">Your week, in your own words
+      <label class="grow">A town, or your week in your own words (press Enter)
         <input id="plan-sentence" autocomplete="off" placeholder="${EXAMPLES.trip}" />
       </label>
       <div class="examples">
@@ -40,6 +57,12 @@ export const plannerPanelHtml = `
       <button type="submit" id="plan-go">Plan my sighting <span id="plan-mode"></span></button>
     </form>
     <p id="plan-note" class="plan-note" aria-live="polite"></p>
+  </section>
+`;
+
+/** M7: the plan's answer sits under the first screen's next-pass line, so that line stays in view. */
+export const plannerResultHtml = `
+  <section id="plan-result" class="card planner plan-result" aria-label="Your plan" hidden>
     <div id="plan-card" class="plan-card" hidden>
       <p id="plan-fallback" class="plan-fallback" hidden></p>
       <h3 id="plan-headline"></h3>
@@ -49,7 +72,7 @@ export const plannerPanelHtml = `
       <p id="plan-countdown" class="countdown" aria-live="off"></p>
       <p id="plan-audit" class="audit" hidden></p>
     </div>
-    <div class="plan-cols">
+    <div id="plan-cols" class="plan-cols" hidden>
       <div class="news-box">
         <h3>From the live web</h3>
         <p id="news-query" class="small"></p>
@@ -62,6 +85,11 @@ export const plannerPanelHtml = `
         <ol id="plan-trace"></ol>
       </div>
     </div>
+  </section>
+`;
+
+/** The AI keys box; M7 puts it in the Settings tab. */
+export const plannerSettingsHtml = `
     <details id="plan-settings" class="plan-settings">
       <summary>Settings: AI keys</summary>
       <label>Provider <select id="set-provider"><option value="gemini">Gemini</option><option value="openai">OpenAI</option></select></label>
@@ -73,7 +101,6 @@ export const plannerPanelHtml = `
       <p class="small">${PRIVACY_LINE}</p>
       <p class="small">${CREDIT_OPEN_METEO}. Web search by Exa.</p>
     </details>
-  </section>
 `;
 
 export interface PlannerHooks {
@@ -81,6 +108,8 @@ export interface PlannerHooks {
   getEpoch: () => Date;
   /** Draw the chosen pass on the map (arc + peak) and return nothing. */
   onShow: (info: PassInfo, ctx: RunContext) => void;
+  /** M7: the place the run is for (a built-in match before the run, the found place after it). */
+  onPlace?: (p: AgentPlace) => void;
 }
 
 const viewerTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -155,10 +184,10 @@ export function initPlanner(h: PlannerHooks) {
     });
   }
 
-  function controls(): Controls {
+  function controls(placeOverride: string | null = null): Controls {
     const nights = [...document.querySelectorAll<HTMLInputElement>('#plan-nights input')].filter((c) => c.checked).map((c) => c.value);
     return {
-      place: $<HTMLInputElement>('plan-place').value.trim() || 'Ypsilanti',
+      place: placeOverride ?? ($<HTMLInputElement>('plan-place').value.trim() || 'Ypsilanti'),
       nights: nights.length === dates.length ? null : nights,
       earliest: $<HTMLInputElement>('plan-earliest').value || null,
       latest: $<HTMLInputElement>('plan-latest').value || null,
@@ -265,6 +294,19 @@ export function initPlanner(h: PlannerHooks) {
     } else cd.textContent = '';
   }
 
+  // ---- M7: a source that failed during the run gets a named warning; the card is still shown.
+  function warnFromRun(r: PlanResult | AgentResult, ctx: RunContext, p: 'gemini' | 'openai' | null) {
+    const failed = (tool: string, test: (row: TraceRow) => boolean) => ctx.trace.some((row) => row.tool === tool && !row.ok && test(row));
+    if (failed('cloudForecast', (row) => /unavailable/.test(row.summary)))
+      warnSource('forecast', 'Open-Meteo forecast could not be reached: the cloud cover is unknown, so every pass is counted as 50% cloud.');
+    if (failed('findCity', (row) => /place search unavailable/.test(row.summary)))
+      warnSource('places', 'Open-Meteo place search could not be reached: only the built-in list of places works (Ypsilanti and 150 cities).');
+    if (failed('stationNews', (row) => row.summary.startsWith(NEWS_DOWN_TEXT)))
+      warnSource('exa', 'Exa (the live web search) could not be reached: no station news this time; the pass times do not depend on it.');
+    if (p && r.fallbackReason)
+      warnSource('ai', `${p === 'gemini' ? 'Gemini' : 'OpenAI'} (the AI provider) could not be used: ${r.fallbackReason}.`);
+  }
+
   // ---- run
   const go = $<HTMLButtonElement>('plan-go');
   $('plan-form').addEventListener('submit', async (e) => {
@@ -283,6 +325,15 @@ export function initPlanner(h: PlannerHooks) {
     });
     const p = activeProvider();
     const text = sentence.value.trim();
+    // M7: the place typed alone goes straight to the next-pass line when it is a built-in name.
+    // With a key the AI reads the sentence; a lone town is still the place its fallback plan uses.
+    const lonePlace = placeFromSentence(text);
+    const typedPlace = p ? null : lonePlace;
+    const early = builtInMatches(p ? text : (typedPlace ?? controls().place))[0];
+    if (early) h.onPlace?.(early);
+    for (const k of ['forecast', 'places', 'exa', 'ai'] as const) clearSource(k);
+    $('plan-cols').hidden = false;
+    $('plan-result').hidden = false;
     try {
       let r: PlanResult | AgentResult;
       if (p && text) {
@@ -292,7 +343,7 @@ export function initPlanner(h: PlannerHooks) {
           sentence: text,
           provider,
           ctx,
-          controls: controls(),
+          controls: controls(lonePlace),
           onModelCall: () => {
             aiCalls++;
             $('ai-calls').textContent = `AI calls this session: ${aiCalls}`;
@@ -301,11 +352,17 @@ export function initPlanner(h: PlannerHooks) {
         r = ar;
         $('plan-note').textContent = `${ar.mode === 'ai' ? 'Planned by the AI' : 'Fixed plan'} in ${ar.seconds.toFixed(1)} s with ${ar.modelCalls} AI call${ar.modelCalls === 1 ? '' : 's'}.`;
       } else {
-        r = await runFixedPlan(ctx, controls());
+        r = await runFixedPlan(ctx, controls(typedPlace));
         if (!p && text && sentence.value === EXAMPLES.trip) $('plan-note').textContent = `The trip has two places: ${NEEDS_AI_TEXT}. This is the fixed plan for the first place only (Ypsilanti).`;
+        else if (!p && typedPlace) $('plan-note').textContent = `Fixed plan, no AI, for "${typedPlace}" (the times and nights are the plain controls below the box).`;
+        else if (!p && text && text !== EXAMPLES.simple) $('plan-note').textContent = `A sentence like this one needs the AI: add a key in Settings. Fixed plan, no AI: the plain controls below the box were used.`;
         else if (!p) $('plan-note').textContent = 'Fixed plan, no AI: the plain controls below the box were used.';
       }
       showResult(r, ctx);
+      const where = ctx.shown?.place ?? [...ctx.places.values()][0];
+      if (where) h.onPlace?.(where);
+      warnFromRun(r, ctx, p);
+      recordPlanRun('audit' in r && r.audit ? { checked: r.audit.tokens.length, unverified: r.audit.unverified } : null);
     } catch (err) {
       $('plan-note').textContent = `The planner hit an error: ${(err as Error).message}`;
     } finally {

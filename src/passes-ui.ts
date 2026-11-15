@@ -29,9 +29,41 @@ export const YPSILANTI: NamedPlace = {
 
 const DAYS = 5;
 
-export const passPanelHtml = `
-  <section class="card passes" aria-labelledby="passes-h">
+// M7: the first screen carries the heading "When can I see it?" (#passes-h) and the one-line answer
+// for the chosen place (#next-pass); the full table below sits in the "All passes" tab.
+export const nextPassHtml = `
+  <section class="card next-box" aria-labelledby="passes-h">
     <h2 id="passes-h">When can I see it?</h2>
+    <p id="next-pass" class="next-pass" aria-live="polite">-</p>
+  </section>
+`;
+
+const COMPASS_WORDS: Record<string, string> = {
+  N: 'north', NNE: 'north-northeast', NE: 'northeast', ENE: 'east-northeast', E: 'east', ESE: 'east-southeast',
+  SE: 'southeast', SSE: 'south-southeast', S: 'south', SSW: 'south-southwest', SW: 'southwest', WSW: 'west-southwest',
+  W: 'west', WNW: 'west-northwest', NW: 'northwest', NNW: 'north-northwest',
+};
+
+/** "Next time you can see it from {place}: {day} {time}, look {direction}, {minutes} min", from the pass engine. */
+export function nextPassText(satrec: SatRec, p: NamedPlace, now: Date): { text: string; pass: VisiblePass | null } {
+  const tz = p.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const r = predictForPlace(satrec, p, now, DAYS);
+  const next = r.passes[0];
+  if (r.message || !next) return { text: `${p.name}: ${r.message ?? `no visible pass in the next ${DAYS} days.`}`, pass: null };
+  const dir = compass(next.startAzDeg);
+  const mins = Math.max(1, Math.round((next.end.getTime() - next.start.getTime()) / 60_000));
+  const clock = next.start.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
+  return {
+    text:
+      `Next time you can see it from ${p.name}: ${fmtDay(next.start, tz)} ${clock}, look ${COMPASS_WORDS[dir]} (${dir}), ${mins} min` +
+      ` (${p.timeZone ? `local time in ${p.name.split(',')[0]}` : 'your time zone'}).`,
+    pass: next,
+  };
+}
+
+export const passPanelHtml = `
+  <section class="card passes" aria-labelledby="passes-all-h">
+    <h2 id="passes-all-h">All visible passes</h2>
     <p class="small">Visible passes in the next ${DAYS} days: the station at least 10° above your horizon,
       your sky dark (Sun 6° or more below the horizon) and the station still in sunlight.</p>
     <form id="place-form" class="place-form">
@@ -86,7 +118,11 @@ function row(p: VisiblePass, tz: string): string {
 export interface PassPanel {
   /** Re-run the search for the current place (call after the orbit data changes). */
   refresh(): void;
+  /** Show this place in the table and in the first screen's next-pass line. */
+  showPlace(p: NamedPlace): void;
 }
+
+export type { NamedPlace };
 
 export function initPassPanel(getSatrec: () => SatRec): PassPanel {
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -104,6 +140,12 @@ export function initPassPanel(getSatrec: () => SatRec): PassPanel {
 
   function show(p: NamedPlace) {
     place = p;
+    const line = nextPassText(getSatrec(), p, new Date());
+    const np = $('next-pass');
+    np.textContent = line.text;
+    np.dataset.place = p.name;
+    if (line.pass) np.dataset.start = line.pass.start.toISOString();
+    else delete np.dataset.start;
     cityIn.value = byLabel.has(p.name) ? p.name : '';
     latIn.value = p.latDeg.toFixed(2);
     lonIn.value = p.lonDeg.toFixed(2);
@@ -172,5 +214,5 @@ export function initPassPanel(getSatrec: () => SatRec): PassPanel {
     `end times within ${a.maxEndS.toFixed(1)} s, highest point within ${a.maxPeakDeg.toFixed(1)}°.`;
 
   show(YPSILANTI);
-  return { refresh: () => show(place) };
+  return { refresh: () => show(place), showPlace: show };
 }

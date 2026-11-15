@@ -87,13 +87,17 @@ export function initialElements(embeddedTle: string, embeddedRetrievedAt: Date):
 
 /**
  * Try one live fetch (unless this device saved a copy recently) and return the newest element set,
- * or null if nothing newer than `current` was found.
+ * or null if nothing newer than `current` was found. `onUnreachable` runs when the live fetch fails.
  */
-export async function refreshElements(current: Elements): Promise<Elements | null> {
+export async function refreshElements(current: Elements, onUnreachable?: () => void): Promise<Elements | null> {
   const saved = readSaved();
   if (saved && Date.now() - saved.retrievedAt.getTime() < SKIP_FETCH_IF_SAVED_WITHIN_MS) return null;
   const live = await fetchLive();
-  if (!live) return null;
+  if (!live) {
+    // M7: CelesTrak gave no usable element set (no answer, an error status or a bad reply).
+    onUnreachable?.();
+    return null;
+  }
   save(live);
   return live.epoch.getTime() >= current.epoch.getTime() ? live : null;
 }
