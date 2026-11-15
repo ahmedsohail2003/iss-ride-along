@@ -10,6 +10,9 @@
 // 6. (C1) The words "accurate to" never appear near the NASA trajectory gap (we say "apart": NASA's file
 //    is also a prediction): no "accurate to" within 300 characters of "NASA" plus "trajectory"/"OEM" in the
 //    public docs and the panel's source.
+// 7. (M8) README.md has a "## How we test" section, and every command it names exists: each
+//    `node scripts/*.mjs` file, each `npm run <script>` and `npm test` in package.json, `npx tsc` as a
+//    devDependency, and the workflow file it points to.
 // Exit 0 when everything holds, 1 otherwise. Offline, no dependencies.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -121,6 +124,44 @@ if (existsSync(join(root, 'RUN.md'))) {
     }
   }
   passes.push(`wording: no "accurate to" near the NASA trajectory gap in ${checked} files`);
+}
+
+// ---- 7. README "How we test": every command named there exists (M8).
+if (existsSync(join(root, 'README.md'))) {
+  const readme = read('README.md');
+  const start = readme.search(/^## How we test\b/m);
+  if (start < 0) problems.push('README.md has no "## How we test" section');
+  else {
+    const rest = readme.slice(start + 3);
+    const end = rest.search(/^## /m);
+    const section = end < 0 ? rest : rest.slice(0, end);
+    const pkg = JSON.parse(read('package.json'));
+    const scripts = pkg.scripts ?? {};
+    const dev = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+    let n = 0;
+    for (const [, f] of section.matchAll(/node (scripts\/[\w.-]+\.mjs)/g)) {
+      n++;
+      if (!existsSync(join(root, f))) problems.push(`README "How we test": ${f} not found`);
+    }
+    for (const [, s] of section.matchAll(/npm run ([\w:-]+)/g)) {
+      n++;
+      if (!(s in scripts)) problems.push(`README "How we test": "npm run ${s}" is not a script in package.json`);
+    }
+    if (/\bnpm test\b/.test(section)) {
+      n++;
+      if (!('test' in scripts)) problems.push('README "How we test": "npm test" but package.json has no test script');
+    }
+    if (/\bnpx tsc\b/.test(section)) {
+      n++;
+      if (!('typescript' in dev)) problems.push('README "How we test": "npx tsc" but typescript is not in package.json');
+    }
+    for (const [, f] of section.matchAll(/`(\.github\/workflows\/[\w.-]+\.ya?ml)`/g)) {
+      n++;
+      if (!existsSync(join(root, f))) problems.push(`README "How we test": ${f} not found`);
+    }
+    if (n === 0) problems.push('README "How we test" names no command');
+    passes.push(`README "How we test": ${n} commands and files checked against the repo`);
+  }
 }
 
 for (const p of passes) console.log(`ok   ${p}`);
