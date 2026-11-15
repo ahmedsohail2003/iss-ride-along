@@ -12,7 +12,7 @@ import { angleBetween, cameraFor, circleOnSphere, latLonToVec3, orbitPoints, pas
 import { contrast, LOOK, TEXT_ON } from '../src/globe/look';
 import { predictForPlace } from '../src/orbit/passes';
 import { YPSILANTI } from '../src/passes-ui';
-import { chooseView, DEFAULT_VIEW, speedDecision, type ProbeResult } from '../src/globe/view';
+import { afterBurst, chooseView, DEFAULT_VIEW, MIN_GAPS, NOTE, noteFor, runDeviceCheck, speedDecision, type CheckEnv, type ProbeResult } from '../src/globe/view';
 import { EARTH_RADIUS_KM, satrecFromTle, stateAt } from '../src/orbit/orbit';
 import { nightLine, subsolarPoint } from '../src/orbit/daynight';
 import { periodMinutes } from '../src/orbit/track';
@@ -221,5 +221,140 @@ describe('G2 the chosen pass, the look and the default view', () => {
 
   test("DEFAULT_VIEW is 'flat' or 'auto'", () => {
     expect(['flat', 'auto']).toContain(DEFAULT_VIEW);
+  });
+});
+
+// R2 acceptance: the 3D default decides only on frames it actually saw. runDeviceCheck is driven here with a
+// stand-in page: visibility, the visible/input events and the burst are all in the test's hands.
+describe('R2 the device check decides only on frames it saw', () => {
+  const auto = { def: 'auto' as const, reducedMotion: false, flag: null, saved: null };
+  const hw = 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x0000A7A0) Direct3D11 vs_5_0 ps_5_0, D3D11)';
+  const fast: ProbeResult = { webgl2: true, caveat: false, renderer: hw, gaps: Array(30).fill(16.7), timedOut: false };
+  const none: ProbeResult = { webgl2: true, caveat: false, renderer: hw, gaps: [], timedOut: true };
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  /** A stand-in page: `results` are handed out one per burst; fire('visible' | 'input') plays the events. */
+  function fakePage(results: ProbeResult[], visible = true) {
+    const page = {
+      visible,
+      bursts: 0,
+      reports: [] as { view: string; why: string; run: number }[],
+      pressed: false,
+      listeners: { visible: new Set<() => void>(), input: new Set<() => void>() },
+      fire(kind: 'visible' | 'input') {
+        if (kind === 'visible') page.visible = true;
+        [...page.listeners[kind]].forEach((f) => f());
+      },
+    };
+    const on = (kind: 'visible' | 'input') => (fn: () => void) => {
+      const h = () => {
+        page.listeners[kind].delete(h);
+        fn();
+      };
+      page.listeners[kind].add(h);
+      return () => void page.listeners[kind].delete(h);
+    };
+    const env: CheckEnv = {
+      visible: () => page.visible,
+      onVisible: on('visible'),
+      onInput: on('input'),
+      burst: async () => results[page.bursts++] ?? none,
+    };
+    const done = runDeviceCheck({
+      env,
+      decide: (p) => afterBurst({ ...auto, probe: p }),
+      report: (d, _p, run) => page.reports.push({ ...d, run }),
+      wanted: () => !page.pressed,
+    });
+    return { page, done };
+  }
+
+  test('(a) hidden at the start: no burst starts until the page is visible', async () => {
+    const { page, done } = fakePage([fast], false);
+    await settle();
+    page.fire('input'); // a key or pointer before the page is visible does not start it either
+    await settle();
+    expect(page.bursts).toBe(0);
+    expect(page.reports).toEqual([]);
+    page.fire('visible');
+    expect(await done).toBe(1);
+    expect(page.bursts).toBe(1);
+    expect(page.reports).toEqual([{ view: '3d', why: 'auto', run: 1 }]);
+  });
+
+  test('(b) 0 frames, or fewer gaps than the decision needs: no decision, flat, not "slow", no "slow" note', () => {
+    const results: ProbeResult[] = [
+      none,
+      { ...none, gaps: null },
+      { ...none, gaps: Array(MIN_GAPS - 1).fill(16) },
+      { ...none, gaps: [16], timedOut: true },
+      // not timed out but short of BURST_FRAMES (the table says "still measuring"): no decision too
+      { ...fast, gaps: Array(29).fill(16) },
+    ];
+    for (const p of results) {
+      const d = afterBurst({ ...auto, probe: p });
+      expect(d, JSON.stringify(p.gaps)).toEqual({ view: 'flat', why: 'no-frames' });
+      expect(d.why).not.toBe('slow');
+      expect(noteFor(d.view, d.why) ?? '').not.toMatch(/slow/i);
+    }
+    // the reason the page stays flat is never shown as a fault of the device
+    expect(NOTE['no-frames']).toBeUndefined();
+    // a timed-out burst that saw MIN_GAPS gaps or more is still "slow" (G1's table, not loosened)
+    expect(afterBurst({ ...auto, probe: { ...none, gaps: Array(MIN_GAPS).fill(16) } })).toEqual({ view: 'flat', why: 'slow' });
+    expect(MIN_GAPS).toBeLessThanOrEqual(12);
+    expect(noteFor('flat', 'slow')).toMatch(/too slow/);
+  });
+
+  test('(c) after a no-decision, becoming visible runs exactly one more burst, and a fast one switches to 3D', async () => {
+    const { page, done } = fakePage([none, fast]);
+    await settle();
+    expect(page.bursts).toBe(1);
+    expect(page.reports).toEqual([{ view: 'flat', why: 'no-frames', run: 1 }]);
+    page.fire('visible');
+    expect(await done).toBe(2);
+    expect(page.reports.at(-1)).toEqual({ view: '3d', why: 'auto', run: 2 });
+    // nothing runs again, whatever happens next
+    page.fire('visible');
+    page.fire('input');
+    await settle();
+    expect(page.bursts).toBe(2);
+  });
+
+  test('(c) the first pointerdown or keydown runs the re-run too; a second no-decision stays flat and nothing runs again', async () => {
+    const { page, done } = fakePage([none, none, fast]);
+    await settle();
+    page.fire('input');
+    expect(await done).toBe(2);
+    expect(page.reports).toEqual([
+      { view: 'flat', why: 'no-frames', run: 1 },
+      { view: 'flat', why: 'no-frames', run: 2 },
+    ]);
+    page.fire('visible');
+    page.fire('input');
+    await settle();
+    expect(page.bursts).toBe(2);
+    // both triggers were cancelled after the first one fired
+    expect(page.listeners.visible.size + page.listeners.input.size).toBe(0);
+  });
+
+  test('(c) a press before the re-run wins: no second burst', async () => {
+    const { page, done } = fakePage([none, fast]);
+    await settle();
+    page.pressed = true;
+    page.fire('input');
+    expect(await done).toBe(1);
+    expect(page.bursts).toBe(1);
+  });
+
+  test('(c) a decided first burst (fast or slow) never re-runs', async () => {
+    for (const [p, view, why] of [[fast, '3d', 'auto'], [{ ...fast, gaps: Array(30).fill(50) }, 'flat', 'slow']] as const) {
+      const { page, done } = fakePage([p, fast]);
+      expect(await done).toBe(1);
+      expect(page.reports).toEqual([{ view, why, run: 1 }]);
+      page.fire('visible');
+      page.fire('input');
+      await settle();
+      expect(page.bursts).toBe(1);
+    }
   });
 });

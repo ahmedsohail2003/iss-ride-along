@@ -75,6 +75,55 @@ export async function waitForGlobe(page, timeout = 20_000) {
 }
 
 /**
+ * The four-place picture check and the station-marker check (G1, moved here unchanged by R2 so the --gpu run
+ * uses the same code): fills g.image and g.marker and returns the four checks.
+ */
+export async function pictureChecks({ page, g, evidence, STATION }) {
+  const C = {};
+  // The NASA image, on the sphere and the right way round: night shade off, turnTo, screenshot, middle 9x9.
+  await page.uncheck('#night-toggle');
+  g.image = [];
+  const places = [
+    { name: 'Arabia', lat: 23, lon: 45, red: true },
+    { name: 'central Australia', lat: -25, lon: 135, red: true },
+    { name: 'mid-Atlantic', lat: 23, lon: -45, red: false },
+    { name: 'sea south of Japan', lat: 25, lon: 135, red: false },
+  ];
+  for (const p of places) {
+    await page.evaluate(([a, b]) => window.__iss3d.turnTo(a, b), [p.lat, p.lon]);
+    await page.waitForTimeout(150);
+    const img = await shot(page, p.name === 'Arabia' ? evidence('g1-arabia') : undefined);
+    const med = middleMedian(img);
+    const smp = await page.evaluate(([a, b]) => window.__iss3d.sample(a, b), [p.lat, p.lon]);
+    const diff = med[0] - med[2];
+    const ok = p.red ? diff >= 30 : -diff >= 12;
+    const sampleAgrees = Math.sign(smp[0] - smp[2]) === Math.sign(diff) && diff !== 0;
+    g.image.push({ ...p, screenshotMedian: med, redMinusBlue: diff, sample: smp, ok, sampleAgrees });
+  }
+  C.imageRightWayRound = g.image.every((r) => r.ok);
+  C.sampleAgreesInSign = g.image.every((r) => r.sampleAgrees);
+
+  // The marker where the engine says: turnTo the readout's latitude and longitude, then 30 degrees east.
+  const at = await page.evaluate(() => {
+    const lat = +document.getElementById('lat').textContent;
+    const lon = +document.getElementById('lon').textContent;
+    window.__iss3d.turnTo(lat, lon);
+    return { lat, lon };
+  });
+  await page.waitForTimeout(100);
+  const m1 = findColour(await shot(page, evidence('g1-marker')), STATION, 24, 3);
+  await page.evaluate(([a, b]) => window.__iss3d.turnTo(a, b + 30), [at.lat, at.lon]);
+  await page.waitForTimeout(100);
+  const img2 = await shot(page);
+  const m2 = findColour(img2, STATION, 24, 10);
+  g.marker = { at, centred: m1, east30: m2 };
+  C.markerAtMiddle = m1.near > 0;
+  C.marker30EastNotMiddleAndLeft = m2.near === 0 && m2.count > 0 && m2.meanX < m2.midX;
+  await page.check('#night-toggle');
+  return C;
+}
+
+/**
  * --view 3d, default mode: every G1 globe check that is not the game (smoke.mjs plays the game round itself).
  * `subsolarAt(ms)` is subsolarPoint recomputed in Node (src/orbit/daynight.ts through scripts/load-ts.mjs).
  */
@@ -149,46 +198,8 @@ export async function globeChecks({ page, w, h, evidence, subsolarAt }) {
   g.trackPoints = await page.evaluate(() => Number(document.getElementById('globe').dataset.trackPoints));
   C.trackPointsOver300 = g.trackPoints > 300;
 
-  // The NASA image, on the sphere and the right way round: night shade off, turnTo, screenshot, middle 9x9.
-  await page.uncheck('#night-toggle');
-  g.image = [];
-  const places = [
-    { name: 'Arabia', lat: 23, lon: 45, red: true },
-    { name: 'central Australia', lat: -25, lon: 135, red: true },
-    { name: 'mid-Atlantic', lat: 23, lon: -45, red: false },
-    { name: 'sea south of Japan', lat: 25, lon: 135, red: false },
-  ];
-  for (const p of places) {
-    await page.evaluate(([a, b]) => window.__iss3d.turnTo(a, b), [p.lat, p.lon]);
-    await page.waitForTimeout(150);
-    const img = await shot(page, p.name === 'Arabia' ? evidence('g1-arabia') : undefined);
-    const med = middleMedian(img);
-    const smp = await page.evaluate(([a, b]) => window.__iss3d.sample(a, b), [p.lat, p.lon]);
-    const diff = med[0] - med[2];
-    const ok = p.red ? diff >= 30 : -diff >= 12;
-    const sampleAgrees = Math.sign(smp[0] - smp[2]) === Math.sign(diff) && diff !== 0;
-    g.image.push({ ...p, screenshotMedian: med, redMinusBlue: diff, sample: smp, ok, sampleAgrees });
-  }
-  C.imageRightWayRound = g.image.every((r) => r.ok);
-  C.sampleAgreesInSign = g.image.every((r) => r.sampleAgrees);
-
-  // The marker where the engine says: turnTo the readout's latitude and longitude, then 30 degrees east.
-  const at = await page.evaluate(() => {
-    const lat = +document.getElementById('lat').textContent;
-    const lon = +document.getElementById('lon').textContent;
-    window.__iss3d.turnTo(lat, lon);
-    return { lat, lon };
-  });
-  await page.waitForTimeout(100);
-  const m1 = findColour(await shot(page, evidence('g1-marker')), STATION, 24, 3);
-  await page.evaluate(([a, b]) => window.__iss3d.turnTo(a, b + 30), [at.lat, at.lon]);
-  await page.waitForTimeout(100);
-  const img2 = await shot(page);
-  const m2 = findColour(img2, STATION, 24, 10);
-  g.marker = { at, centred: m1, east30: m2 };
-  C.markerAtMiddle = m1.near > 0;
-  C.marker30EastNotMiddleAndLeft = m2.near === 0 && m2.count > 0 && m2.meanX < m2.midX;
-  await page.check('#night-toggle');
+  // The NASA image at four places and the marker where the engine says (pictureChecks, shared with R2's --gpu run).
+  Object.assign(C, await pictureChecks({ page, g, evidence, STATION }));
 
   // A drag turns the view, not the station; it draws every frame while dragged.
   await page.evaluate(() => window.__iss3d.turnTo(20, -40));
@@ -400,8 +411,12 @@ export async function autoCases({ newPage, baseUrl }) {
     await page.goto(plain, { waitUntil: 'load' });
     const c = { name: 'reduced motion', decided: await decided(page) };
     c.atLoad = await state(page);
+    // R2: pressing 3D from this flat start faces the station: the globe's centre within 5 degrees of it.
+    await page.click('#view-3d');
+    c.globe = await waitForGlobe(page);
+    c.pressed = await pressCentre(page);
     c.consoleErrors = [...errors];
-    c.ok = c.atLoad.view === 'flat' && c.atLoad.why === 'reduced-motion' && errors.length === 0;
+    c.ok = c.atLoad.view === 'flat' && c.atLoad.why === 'reduced-motion' && c.globe && c.pressed.view === '3d' && c.pressed.why === 'press' && c.pressed.offDeg !== null && c.pressed.offDeg <= 5 && errors.length === 0;
     cases.push(c);
     await close();
   }
@@ -514,7 +529,106 @@ export async function autoCases({ newPage, baseUrl }) {
     cases.push(c);
     await close();
   }
+  // (7) R2: no frames delivered at load (a page the browser is not drawing). The same stand-ins as (5), and this
+  // script also holds back every requestAnimationFrame callback until it lets frames through. At load: flat,
+  // why not "slow", no "too slow" text anywhere on the page. Then the page is hidden (no re-run: it is not a
+  // change to visible), frames are let through and the page is made visible again: 3D with why "auto".
+  {
+    const { page, errors, close } = await newPage({}, () => {
+      window.__glContexts = [];
+      const HW = 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+      const orig = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, attrs, ...rest) {
+        let a = attrs;
+        if (a && typeof a === 'object' && 'failIfMajorPerformanceCaveat' in a) {
+          a = { ...a };
+          delete a.failIfMajorPerformanceCaveat;
+        }
+        const ctx = a === undefined ? orig.call(this, type) : orig.call(this, type, a, ...rest);
+        if (ctx && /webgl/i.test(type) && !window.__glContexts.includes(ctx)) window.__glContexts.push(ctx);
+        return ctx;
+      };
+      const gp = WebGL2RenderingContext.prototype.getParameter;
+      WebGL2RenderingContext.prototype.getParameter = function (pname) {
+        const ext = this.getExtension('WEBGL_debug_renderer_info');
+        if (ext && pname === ext.UNMASKED_RENDERER_WEBGL) return HW;
+        return gp.call(this, pname);
+      };
+      window.__vis = 'visible';
+      Object.defineProperty(document, 'visibilityState', { get: () => window.__vis, configurable: true });
+      Object.defineProperty(document, 'hidden', { get: () => window.__vis !== 'visible', configurable: true });
+      window.__setVis = (v) => {
+        window.__vis = v;
+        document.dispatchEvent(new Event('visibilitychange'));
+      };
+      const raf = window.requestAnimationFrame.bind(window);
+      let lastReal = -1;
+      let fake = 0;
+      const held = [];
+      window.__frames = false;
+      window.__heldFrames = 0;
+      const run = (cb) =>
+        raf((real) => {
+          if (real !== lastReal) {
+            lastReal = real;
+            fake += 16;
+          }
+          cb(fake);
+        });
+      window.requestAnimationFrame = (cb) => {
+        if (window.__frames) return run(cb);
+        held.push(cb);
+        window.__heldFrames++;
+        return 0;
+      };
+      window.__letFramesThrough = () => {
+        window.__frames = true;
+        held.splice(0).forEach(run);
+      };
+    });
+    const live = () => page.evaluate(() => window.__glContexts.filter((g) => !g.isContextLost()).length);
+    const tooSlowText = () => page.evaluate(() => /too slow/i.test(document.body.innerText));
+    const t0 = Date.now();
+    await page.goto(plain, { waitUntil: 'load' });
+    const c = { name: 'no frames at load', decided: await decided(page) };
+    await page.waitForTimeout(Math.max(0, t0 + 3000 - Date.now()));
+    c.atLoad = await state(page);
+    c.atLoad.tooSlowText = await tooSlowText();
+    c.atLoad.heldFrames = await page.evaluate(() => window.__heldFrames);
+    c.liveAtLoad = await live();
+    await page.evaluate(() => window.__setVis('hidden'));
+    await page.waitForTimeout(500);
+    c.whileHidden = await state(page);
+    await page.evaluate(() => {
+      window.__letFramesThrough();
+      window.__setVis('visible');
+    });
+    const t1 = Date.now();
+    c.switched = await page.waitForFunction(() => document.body.dataset.view === '3d', null, { timeout: 5000 }).then(() => true).catch(() => false);
+    c.switchMs = Date.now() - t1;
+    await page.waitForTimeout(1000);
+    c.after = await state(page);
+    c.after.tooSlowText = await tooSlowText();
+    c.liveAfter = await live();
+    c.contexts = await page.evaluate(() => window.__glContexts.length);
+    c.consoleErrors = [...errors];
+    c.ok =
+      c.atLoad.view === 'flat' && c.atLoad.why !== 'slow' && c.atLoad.why === 'no-frames' && !c.atLoad.note && !c.atLoad.tooSlowText && c.atLoad.heldFrames > 0 && c.liveAtLoad === 0 &&
+      c.whileHidden.view === 'flat' && c.whileHidden.why === 'no-frames' &&
+      c.switched && c.after.view === '3d' && c.after.why === 'auto' && !c.after.tooSlowText && c.liveAfter === 1 && c.contexts === 2 && errors.length === 0;
+    cases.push(c);
+    await close();
+  }
   return cases;
+}
+
+/** R2: the view, its reason, and the globe's centre against the station (degrees apart) right after a press. */
+export async function pressCentre(page) {
+  return page.evaluate(() => {
+    const ds = document.getElementById('globe').dataset;
+    const c = window.__iss3d?.centre() ?? null;
+    return { view: document.body.dataset.view, why: document.body.dataset.viewWhy, centre: c, station: { lat: +ds.stationLat, lon: +ds.stationLon } };
+  }).then((r) => ({ ...r, offDeg: r.centre ? sepDeg(r.centre.lat, r.centre.lon, r.station.lat, r.station.lon) : null }));
 }
 
 /**
@@ -643,4 +757,67 @@ export async function storyChecks({ page, evidence }) {
     backToSlotAtTop: !s.back.storyOn && s.back.scene === '' && s.back.canvas.position !== 'fixed',
   };
   return s;
+}
+
+/**
+ * R2 --view auto --gpu: the real graphics chip, no stand-ins. (1) The plain address (DEFAULT_VIEW 'auto', the
+ * device check on the chip as launched) must end on data-view "3d" with why "auto" within 10 s, with a renderer
+ * that names the Intel chip and not SwiftShader; then the four-place picture check and the station-marker
+ * check, and 0 console errors. (2) ?view=flat, then 3D pressed: the globe's centre within 5 degrees of the station.
+ * `why` says in plain words what went wrong when the chip was not reached.
+ */
+export async function gpuRun({ newPage, baseUrl, evidence }) {
+  const r = { checks: {} };
+  const C = r.checks;
+  const plain = new URL(baseUrl);
+  plain.searchParams.delete('view');
+  const flat = new URL(baseUrl);
+  flat.searchParams.set('view', 'flat');
+  const state = (page) =>
+    page.evaluate(() => ({ view: document.body.dataset.view, why: document.body.dataset.viewWhy ?? null, probe: document.body.dataset.viewProbe ?? null, renderer: document.getElementById('globe')?.dataset.renderer ?? null }));
+  {
+    const { page, errors, close } = await newPage({});
+    const t0 = Date.now();
+    await page.goto(plain.href, { waitUntil: 'load' });
+    const ended = await page
+      .waitForFunction(() => document.body.dataset.view === '3d' && document.body.dataset.viewWhy === 'auto', null, { timeout: Math.max(1, t0 + 10_000 - Date.now()) })
+      .then(() => true)
+      .catch(() => false);
+    r.endMs = Date.now() - t0;
+    r.end = await state(page);
+    // the renderer the device check saw (data-view-probe), the same string the globe carries in data-renderer
+    let probe = null;
+    try {
+      probe = JSON.parse(r.end.probe ?? 'null');
+    } catch {}
+    r.renderer = probe?.renderer || r.end.renderer || '';
+    C.rendererIsIntel = /intel/i.test(r.renderer);
+    C.rendererNotSwiftShader = r.renderer !== '' && !/swiftshader/i.test(r.renderer);
+    C.ends3dAutoWithin10s = ended && r.endMs <= 10_000;
+    if (!C.rendererIsIntel || !C.rendererNotSwiftShader)
+      r.why = r.renderer ? `headless Chrome reached "${r.renderer}", not the Intel chip` : `the device check made no hardware context (why "${r.end.why}")`;
+    else if (!ended) r.why = `the page stayed on "${r.end.view}" with why "${r.end.why}" (probe ${r.end.probe})`;
+    if (ended && (await waitForGlobe(page))) {
+      const g = {};
+      Object.assign(C, await pictureChecks({ page, g, evidence, STATION: (await page.evaluate(() => window.__iss3d?.STATION_RGB)) ?? [255, 0, 255] }));
+      r.image = g.image;
+      r.marker = g.marker;
+    } else C.pictureAndMarkerRan = false;
+    r.consoleErrors = [...errors];
+    C.noConsoleErrors = errors.length === 0;
+    await close();
+  }
+  {
+    const { page, errors, close } = await newPage({});
+    await page.goto(flat.href, { waitUntil: 'load' });
+    await page.waitForFunction(() => document.body.dataset.viewWhy === 'flag', null, { timeout: 15_000 }).catch(() => {});
+    await page.click('#view-3d');
+    r.pressedGlobe = await waitForGlobe(page);
+    r.pressed = await pressCentre(page);
+    C.pressFromFlatFacesStation = r.pressedGlobe && r.pressed.view === '3d' && r.pressed.why === 'press' && r.pressed.offDeg !== null && r.pressed.offDeg <= 5;
+    r.pressErrors = [...errors];
+    C.noConsoleErrorsAfterPress = errors.length === 0;
+    await close();
+  }
+  return r;
 }

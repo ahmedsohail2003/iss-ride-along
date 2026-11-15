@@ -211,6 +211,7 @@ void main() {
   let sunAt = { lat: 0, lon: 0 };
   let trackPoints = 0;
   let active = false;
+  let shownOnce = false;
   let dirty = true;
   let dragging = false;
   const held = new Set<string>();
@@ -456,6 +457,16 @@ void main() {
   return {
     setActive(on) {
       active = on;
+      // R2: the first time this globe is shown it faces the station (a press from the flat page, the device
+      // check's switch or ?view=3d alike); later shows keep wherever the reader left it.
+      if (on && !shownOnce) {
+        shownOnce = true;
+        if (!story) {
+          turn = null;
+          cur.lat = target.lat = clampLat(stationAt.lat);
+          cur.lon = target.lon = wrapLon(stationAt.lon);
+        }
+      }
       if (on) {
         resize();
         dirty = true;

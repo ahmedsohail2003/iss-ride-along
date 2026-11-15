@@ -117,6 +117,9 @@
 // the flat map with a dated label); --a11y: the count of axe "incomplete" contrast items is printed;
 // --view 3d --block gibs.earthdata.nasa.gov: the globe still shows its built-in image; --view auto (no flag,
 // DEFAULT_VIEW 'auto'): G1's four cases plus the good and the slow branch with stand-ins in this script only.
+// R2: --view auto adds (7), no frames delivered at load -> flat, why not "slow", no "too slow" text; frames let
+// through and the page made visible -> 3D "auto"; case (2) also presses 3D and needs the centre within 5 degrees
+// of the station. --view auto --gpu: the real graphics chip, no stand-ins (see GPU below).
 // G3: --view 3d --story: the stars and the scroll story (scripts/smoke-globe.mjs storyChecks: data-stars 1627, each
 // scene sets data-scene within 2 s, "now" centred on the station, "daynight" on the day/night line, the height in
 // #scene-now = #alt, the canvas fixed to the window, the median frame gap over a 3-second scroll printed). Flat
@@ -130,7 +133,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { freemem, tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { armTurnWatch, autoCases, globeChecks, globeKeyboard, globePassChecks, storyChecks, waitForGlobe } from './smoke-globe.mjs';
+import { armTurnWatch, autoCases, globeChecks, gpuRun, globeKeyboard, globePassChecks, storyChecks, waitForGlobe } from './smoke-globe.mjs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { builtHash, sourceHash } from './source-hash.mjs';
@@ -158,6 +161,16 @@ const STORY = args.includes('--story');
 const VIEW = opt('--view', 'flat');
 if (!['flat', '3d', 'auto'].includes(VIEW)) {
   console.log('SMOKE FAIL: --view needs flat, 3d or auto');
+  process.exit(1);
+}
+// R2 --gpu (with --view auto): headless Chrome without the SwiftShader flags, on this laptop's own graphics chip
+// through ANGLE, with no stand-ins at all. The plain address must end on data-view="3d" with why "auto" within
+// 10 s, the renderer must name the Intel chip and not SwiftShader, the four-place picture check and the
+// station-marker check must pass, 0 console errors; then ?view=flat, press 3D: the globe's centre within 5
+// degrees of the station. If the chip is not reached, it prints why and SMOKE FAIL, never SMOKE PASS.
+const GPU = args.includes('--gpu');
+if (GPU && VIEW !== 'auto') {
+  console.log('SMOKE FAIL: --gpu needs --view auto');
   process.exit(1);
 }
 if (STORY && VIEW !== '3d') {
@@ -292,7 +305,8 @@ const pageErrors = [];
 const requests = { file: 0, mockedCelestrak: 0, mockedEonet: 0, mockedGibs: 0, blocked: [], network: [], refusedOffline: [] };
 
 const SWIFTSHADER = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
-const browser = await chromium.launch({ channel: 'chrome', headless: true, ...(VIEW !== 'flat' ? { args: SWIFTSHADER } : {}) });
+const browser = await chromium.launch({ channel: 'chrome', headless: true, ...(VIEW !== 'flat' && !GPU ? { args: SWIFTSHADER } : {}) });
+if (GPU) console.log('R2 --gpu: Chrome launched headless with no extra flags (no SwiftShader flags, no --ignore-gpu-blocklist)');
 let failed = false;
 try {
   // --a11y: reduced motion, so the game's reveal is instant (the page's own prefers-reduced-motion path).
@@ -430,17 +444,32 @@ try {
       await pg.route('**/*', handleRoute);
       return { page: pg, errors, close: () => ctx.close() };
     };
+    if (GPU) {
+      const gpuEvidence = (n) => resolve(`evidence/${n.replace(/^g1-/, 'r2-gpu-')}.png`);
+      mkdirSync(resolve('evidence'), { recursive: true });
+      const r = await gpuRun({ newPage, baseUrl: pageUrl, evidence: gpuEvidence });
+      console.log(JSON.stringify({ url: pageUrl, viewport: `${w}x${h}`, gpu: r }, null, 2));
+      const bad = Object.entries(r.checks).filter(([, v]) => !v).map(([k]) => k);
+      console.log(
+        bad.length
+          ? `SMOKE FAIL: --view auto --gpu: ${bad.join(', ')}${r.why ? ` (${r.why})` : ''}`
+          : `SMOKE PASS: --view auto --gpu ${w}x${h}: renderer "${r.renderer}" (not SwiftShader); plain address -> data-view "${r.end.view}" why "${r.end.why}" after ${r.endMs} ms, probe ${r.end.probe}; picture R-B ${r.image.map((x) => `${x.name} ${x.redMinusBlue}`).join(', ')} (sample() agrees); marker ${r.marker.centred.near} px of STATION_RGB within 3 px of the middle and ${r.marker.east30.near} within 10 px at +30 deg east (mean x ${r.marker.east30.meanX?.toFixed(0)} < ${r.marker.east30.midX}); ?view=flat then 3D pressed -> "${r.pressed.why}", centre ${r.pressed.offDeg.toFixed(2)} deg from the station (${r.pressed.station.lat}/${r.pressed.station.lon}); 0 console errors; evidence/r2-gpu-arabia.png, evidence/r2-gpu-marker.png`,
+      );
+      await browser.close();
+      process.exit(bad.length ? 1 : 0);
+    }
     const cases = await autoCases({ newPage, baseUrl: pageUrl });
     const defaultView = /export const DEFAULT_VIEW: Choice = '(\w+)'/.exec(readFileSync(resolve('src/globe/view.ts'), 'utf8'))?.[1];
     console.log(JSON.stringify({ url: pageUrl, viewport: `${w}x${h}`, cases }, null, 2));
-    failed = cases.length !== 6 || cases.some((c) => !c.ok);
+    failed = cases.length !== 7 || cases.some((c) => !c.ok);
     console.log(
       failed
         ? `SMOKE FAIL: --view auto: ${cases.filter((c) => !c.ok).map((c) => c.name).join(', ')}`
         : `SMOKE PASS: --view auto: ${cases
             .map((c) => {
               if (c.name === 'no WebGL') return `(no flag, DEFAULT_VIEW ${defaultView}) (1) no WebGL -> flat "${c.atLoad.why}", note shown, 3D pressed -> still flat "${c.afterPress.why}"`;
-              if (c.name === 'reduced motion') return `(2) reduced motion -> flat "${c.atLoad.why}"`;
+              if (c.name === 'reduced motion') return `(2) reduced motion -> flat "${c.atLoad.why}", 3D pressed -> "${c.pressed.why}" with the centre ${c.pressed.offDeg.toFixed(2)} deg from the station`;
+              if (c.name === 'no frames at load') return `(7) no frames at load (${c.atLoad.heldFrames} frame requests held back) -> flat "${c.atLoad.why}", no note, no "too slow" text, 0 live contexts; hidden -> still flat "${c.whileHidden.why}"; frames let through and made visible -> ${c.after.view} "${c.after.why}" after ${c.switchMs} ms, ${c.liveAfter} live context (${c.contexts} made), probe ${c.after.probe}`;
               if (c.name === 'software renderer') return `(3) as launched (${c.at2s.probe}) -> flat "${c.at2s.why}" at 2 s and "${c.at10s.why}" at 10 s, note shown, ${c.contexts.length} WebGL context(s) made, all lost`;
               if (c.name === 'context lost') return `(4) ?view=3d then WEBGL_lose_context -> flat "${c.after.why}" after ${c.flatAfterMs} ms, ${c.tiles} built-in tiles showing`;
               return `(${c.gapMs === 16 ? 5 : 6}) ${c.name}, renderer answered as hardware, frames ${c.gapMs} ms apart -> ${c.at2s.view} "${c.at2s.why}" at 2 s and ${c.at10s.view} "${c.at10s.why}" at 10 s, live WebGL contexts ${c.live2s} then ${c.live10s} (${c.contexts} made)${c.at2s.probe ? `, probe ${c.at2s.probe}` : ''}`;

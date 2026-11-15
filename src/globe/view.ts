@@ -10,6 +10,10 @@
 // flat when reduced motion is on, there is no WebGL2, the browser refuses a context without a "major
 // performance caveat", the renderer is a software one, or 30 frames drawn back to back take a median of
 // more than 33 ms each (or do not finish in 2 s). On any flat outcome the check's context is released.
+// R2: the check decides only on frames it actually saw. It starts only while the page is visible; a burst
+// that ends with fewer than MIN_GAPS frame gaps (a page the browser is not drawing: a covered window, a
+// hidden pane) is "no decision" ('no-frames'), never "slow": the flat map with no note, and the check runs
+// once more at the next change to visible or the first pointerdown or keydown, one re-run at most.
 export type View = '3d' | 'flat';
 export type Choice = View | 'auto';
 export type Why =
@@ -23,6 +27,7 @@ export type Why =
   | 'caveat'
   | 'software'
   | 'slow'
+  | 'no-frames'
   | 'lost';
 
 /** What the page opens on when nothing else says. */
@@ -32,6 +37,12 @@ export const VIEW_STORAGE_KEY = 'iss-ride-along-view';
 export const SLOW_MS = 33;
 export const BURST_FRAMES = 30;
 export const BURST_TIMEOUT_MS = 2000;
+/**
+ * R2: a burst that timed out is "slow" only if it saw at least this many frame gaps (a third of the burst):
+ * 10 or more frames in 2 s that still did not reach 30 average over 65 ms a frame, which is slow. Fewer than
+ * 10 frames in 2 s means the browser was hardly drawing the page at all, which says nothing about the device.
+ */
+export const MIN_GAPS = 10;
 
 export interface ProbeResult {
   webgl2: boolean;
@@ -84,11 +95,71 @@ export function chooseView(i: ViewInput): ViewDecision {
   if (!p.webgl2) return { view: 'flat', why: 'no-webgl' };
   if (p.caveat) return { view: 'flat', why: 'caveat' };
   if (isSoftwareRenderer(p.renderer)) return { view: 'flat', why: 'software' };
-  if (p.timedOut) return { view: 'flat', why: 'slow' };
+  if (p.timedOut) return (p.gaps?.length ?? 0) >= MIN_GAPS ? { view: 'flat', why: 'slow' } : { view: 'flat', why: 'no-frames' };
   const speed = speedDecision(p.gaps);
   if (speed === null) return { view: 'probe', why: 'auto' };
   return speed === 'slow' ? { view: 'flat', why: 'slow' } : { view: '3d', why: 'auto' };
 }
+
+export type Decided = { view: View; why: Why };
+/** R2: the view after a finished burst. A burst that ended without enough gaps to decide is 'no-frames'. */
+export function afterBurst(i: ViewInput & { probe: ProbeResult }): Decided {
+  const d = chooseView(i);
+  return d.view === 'probe' ? { view: 'flat', why: 'no-frames' } : d;
+}
+
+/** What the device check needs from the page (the tests hand in a stand-in). */
+export interface CheckEnv {
+  /** document.visibilityState === 'visible' */
+  visible(): boolean;
+  /** call fn once at the next change of the page to visible; returns a function that cancels it */
+  onVisible(fn: () => void): () => void;
+  /** call fn once at the first pointerdown or keydown; returns a function that cancels it */
+  onInput(fn: () => void): () => void;
+  /** one burst of frames (makes the check's context and globe) */
+  burst(): Promise<ProbeResult>;
+}
+
+/**
+ * R2: run the device check. No burst starts until the page is visible. After each burst `report` gets the
+ * decision. A 'no-frames' decision gets one more burst at the next change to visible or the first pointerdown
+ * or keydown (whichever comes first), unless `wanted()` is false by then (a press decided the view); a second
+ * 'no-frames' stays flat and nothing runs again. Resolves with the number of bursts run.
+ */
+export async function runDeviceCheck(o: {
+  env: CheckEnv;
+  decide: (p: ProbeResult) => Decided;
+  report: (d: Decided, p: ProbeResult, run: number) => void;
+  wanted: () => boolean;
+}): Promise<number> {
+  const { env } = o;
+  const whenVisible = () => (env.visible() ? Promise.resolve() : new Promise<void>((r) => void env.onVisible(r)));
+  let runs = 0;
+  const once = async () => {
+    await whenVisible();
+    if (runs > 0 && !o.wanted()) return null;
+    runs++;
+    const p = await env.burst();
+    const d = o.decide(p);
+    o.report(d, p, runs);
+    return d;
+  };
+  const first = await once();
+  if (!first || first.why !== 'no-frames' || !o.wanted()) return runs;
+  await new Promise<void>((resolve) => {
+    const cancels: (() => void)[] = [];
+    const go = () => {
+      cancels.forEach((c) => c());
+      resolve();
+    };
+    cancels.push(env.onVisible(go), env.onInput(go));
+  });
+  if (o.wanted()) await once();
+  return runs;
+}
+
+/** The note under the switch for a view and its reason (none for 'no-frames': it is not about the device). */
+export const noteFor = (view: View, why: Why): string | undefined => (view === 'flat' ? NOTE[why] : undefined);
 
 /** The one plain line under the switch when the page stays flat for a reason. */
 export const NOTE: Partial<Record<Why, string>> = {
@@ -139,7 +210,8 @@ export function initView<G extends GlobeHandle>(o: ViewOptions<G>) {
   let current: View = 'flat';
   let globe: G | null = null;
   let canvas: HTMLCanvasElement | null = null;
-  let decided = false;
+  /** true once a press (or an action that needs the flat map) has chosen the view: it wins over the check */
+  let pressed = false;
 
   const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   const saved = () => {
@@ -163,7 +235,7 @@ export function initView<G extends GlobeHandle>(o: ViewOptions<G>) {
     document.body.dataset.viewWhy = why;
     o.btn3d.setAttribute('aria-pressed', String(view === '3d'));
     o.btnFlat.setAttribute('aria-pressed', String(view === 'flat'));
-    const text = view === 'flat' ? NOTE[why] : undefined;
+    const text = noteFor(view, why);
     o.note.textContent = text ?? '';
     o.note.hidden = !text;
     globe?.setActive(view === '3d');
@@ -234,8 +306,7 @@ export function initView<G extends GlobeHandle>(o: ViewOptions<G>) {
       return { webgl2: true, caveat: false, renderer, gaps: null, timedOut: false };
     }
     const g = adopt(c, gl);
-    // A tab opened in the background waits until it is shown (its frames would be throttled).
-    if (document.hidden) await new Promise<void>((r) => document.addEventListener('visibilitychange', () => !document.hidden && r()));
+    // (R2: the wait until the page is visible is in runDeviceCheck, before any context is made.)
     const stamps: number[] = [];
     const timedOut = await new Promise<boolean>((resolve) => {
       const timer = setTimeout(() => resolve(true), BURST_TIMEOUT_MS);
@@ -270,24 +341,63 @@ export function initView<G extends GlobeHandle>(o: ViewOptions<G>) {
   async function decideAtLoad() {
     const flag = new URLSearchParams(location.search).get('view');
     const base = { flag, saved: saved(), def: DEFAULT_VIEW, reducedMotion: reducedMotion() };
-    let d = chooseView(base);
-    if (d.view === 'probe') {
-      const p = await probe();
-      d = chooseView({ ...base, probe: p });
-      if (d.view === 'probe') d = { view: 'flat', why: 'slow' };
-      document.body.dataset.viewProbe = JSON.stringify({ renderer: p.renderer, frames: p.gaps?.length ?? 0, timedOut: p.timedOut });
-      if (d.view === 'flat') dropProbeGlobe();
+    const d = chooseView(base);
+    if (d.view !== 'probe') {
+      if (!pressed) {
+        if (d.view === '3d') start3d(d.why);
+        else show('flat', d.why);
+      }
+      return;
     }
-    if (!decided) {
-      if (d.view === '3d') start3d(d.why);
-      else show('flat', d.why);
-    }
-    decided = true;
+    const env: CheckEnv = {
+      visible: () => document.visibilityState === 'visible',
+      onVisible(fn) {
+        const h = () => {
+          if (document.visibilityState !== 'visible') return;
+          document.removeEventListener('visibilitychange', h);
+          fn();
+        };
+        document.addEventListener('visibilitychange', h);
+        return () => document.removeEventListener('visibilitychange', h);
+      },
+      onInput(fn) {
+        const h = () => {
+          window.removeEventListener('pointerdown', h, true);
+          window.removeEventListener('keydown', h, true);
+          fn();
+        };
+        window.addEventListener('pointerdown', h, true);
+        window.addEventListener('keydown', h, true);
+        return () => {
+          window.removeEventListener('pointerdown', h, true);
+          window.removeEventListener('keydown', h, true);
+        };
+      },
+      burst: probe,
+    };
+    await runDeviceCheck({
+      env,
+      decide: (p) => afterBurst({ ...base, probe: p }),
+      wanted: () => !pressed,
+      report: (r, p, run) => {
+        document.body.dataset.viewProbe = JSON.stringify({ renderer: p.renderer, frames: p.gaps?.length ?? 0, timedOut: p.timedOut, run });
+        // A press during the burst wins: keep the check's globe only if the press showed it.
+        if (pressed) {
+          if (current !== '3d') dropProbeGlobe();
+          return;
+        }
+        if (r.view === '3d') start3d(r.why);
+        else {
+          dropProbeGlobe();
+          show('flat', r.why);
+        }
+      },
+    });
   }
 
   /** A press always wins and is saved for this tab. */
   function press(view: View) {
-    decided = true;
+    pressed = true;
     save(view);
     if (view === '3d') start3d('press');
     else show('flat', 'press');
