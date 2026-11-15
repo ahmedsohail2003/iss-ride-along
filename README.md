@@ -43,9 +43,26 @@ for a parent, a teacher or a first-time stargazer, starting with us in Michigan 
   position every 4 minutes for 15 days. The page shows how far apart our position and NASA's are at
   NASA's latest row, how old our orbit numbers were then, and a 3-day chart.
 
-Still being built at the time of writing (Sat Nov 14, 7:25 PM EST), so not listed above: a first
-screen built around the planner, a calendar file for the chosen pass, day and night on the map, a
-30-second guessing game, and a plain sentence for where the station is.
+- **A first screen a stranger can use.** The map, the planner box, a "Next time you can see it" line
+  for the chosen place and a small "How accurate is this?" card are on the first screen; everything
+  else opens from tabs. When a live source cannot be reached (CelesTrak, NASA GIBS, NASA EONET,
+  wheretheiss.at, the Open-Meteo forecast and place search, Exa, the AI provider), a warning names it
+  and the page carries on. When the plan picks a later pass than the next one, the card says why.
+- **Day and night.** The night side of the Earth is shaded on the map, and the station is labelled
+  "in sunlight" or "in Earth's shadow" with the minutes to its sunrise.
+- **Take the plan with you.** For the chosen pass: a calendar file (.ics), a one-page family sheet
+  and a class handout. If clouds rule out every pass, the card names a nearby place with a clear sky.
+- **Game.** Three rounds of "tap where the station will be in 10 minutes"; the score is how many km
+  you were off, the answer is our own SGP4 position, and the best scores stay on your device.
+- **Sky from the station.** A star chart of everything above the station's own horizon right now
+  (1,627 stars of magnitude 5 or brighter, 88 constellation figures). Drag to look around, scroll or
+  pinch to zoom, tap a star for its name; "Back to the station's view" follows the station again.
+- **Read aloud.** An off-by-default switch reads the plain sentence (see "Who can use it") and the
+  plan's result line with the browser's own speech, with a caption of the words spoken. No microphone.
+- **Forecast lab (a research demo, not investment advice).** Scored the way weather forecasts are
+  scored: NOAA's satellite crop-health index forecast the US corn harvest better than a trend line,
+  a skill of 0.57 over 31 test years (0 = no better, 1 = perfect); on the corn price the same data
+  scored 0.00 over 23 years, so no price forecast is shown. Details: `HOW_IT_WORKS.md`.
 
 ## Who can use it
 
@@ -93,7 +110,11 @@ plan each part of the trip, search the news, show a pass), and our code runs the
 
 - **Gemini** (`gemini-4-hydrogen`, `generateContent` endpoint): live-tested on Nov 14, 2026,
   6:09-6:23 PM EST: 5 runs (3 one-place, 2 two-city trips), 4 model calls each, 7.2-13.2 s,
-  0 unverified numbers, every chosen pass inside the user's rules.
+  0 unverified numbers, every chosen pass inside the user's rules. Re-run on Nov 15, 12:15-12:18 AM
+  EST: 3 runs. The one-place run (10.3 s) and one trip run (15.4 s, 4 model calls) were finished by
+  the AI with 0 unverified numbers; the other trip run got no model reply within 15 seconds, so the
+  page's own rule gave the fixed plan for Ypsilanti and said why (20.4 s). So far 7 of 8 live runs
+  were finished by the AI (counting only runs recorded by `scripts/check-agent.mjs`).
 - **OpenAI** (Responses API): the same adapter, tested with saved replies written from OpenAI's
   documentation, not live-tested.
 - **Exa search**: live-tested without a key; the keyed call is not live-tested.
@@ -119,18 +140,18 @@ on every push before the live page updates.
 
 Every push to `main` runs `.github/workflows/pages.yml` (GitHub Actions, GitHub's automatic build):
 `npm test`, then the docs check, then a secret scan, then the build; the live page is published only
-if all of them pass. Latest local results, Sat Nov 14, 2026 (EST):
+if all of them pass. Latest local results, Sat Nov 14 and Sun Nov 15, 2026 (EST):
 
 | Command | What it checks | Latest result |
 |---|---|---|
-| `npm test` | Vitest unit tests, offline, on saved data: position, passes, footprint, NASA data parsing, the planner (fixed and AI, with saved replies), the NASA trajectory conversion | 78 of 78 passed, 9 files (7:19 PM) |
-| `npx tsc --noEmit` | the TypeScript compiler in strict mode (`"strict": true` in `tsconfig.json`) over `src/` | 0 errors (7:24 PM) |
+| `npm test` | Vitest unit tests, offline, on saved data: position, passes, footprint, NASA data parsing, the planner (fixed and AI, with saved replies), the NASA trajectory conversion, the sky, the game, the Forecast lab | 159 of 159 passed, 20 files (Sun 12:14 AM) |
+| `npx tsc --noEmit` | the TypeScript compiler in strict mode (`"strict": true` in `tsconfig.json`) over `src/` | 0 errors (Sun 12:14 AM) |
 | `node scripts/check-docs.mjs` | every file and function named in `CODE_TOUR.md` exists; every command in `RUN.md` and in this section exists; the NASA gap is worded as a distance apart, never as accuracy | DOCS PASS (7:24 PM) |
-| `node scripts/check-live.mjs` | our position for "now" vs wheretheiss.at (needs the network) | 0.774 km, under the 2 km limit (7:19 PM) |
-| `node scripts/check-oem.mjs` | our position vs NASA's trajectory file at 0, 12, 24, 36 and 72 h, and with the conversion off | 0.485 / 0.308 / 0.870 / 1.767 / 4.763 km; off: 26.10-45.19 km (7:19 PM) |
-| `node scripts/smoke.mjs` | opens the built page in headless Chrome (Playwright drives it), network mocked: the dot moves, both orbit lines, the NASA panel, 0 console errors | SMOKE PASS (7:20 PM) |
+| `node scripts/check-live.mjs` | our position for "now" vs wheretheiss.at (needs the network) | 1.110 km, under the 2 km limit (Sun 12:14 AM) |
+| `node scripts/check-oem.mjs` | our position vs NASA's trajectory file at 0, 12, 24, 36 and 72 h, and with the conversion off | 0.485 / 0.308 / 0.870 / 1.767 / 4.763 km; off: 26.10-45.19 km (Sun 12:14 AM) |
+| `node scripts/smoke.mjs` | opens the built page in headless Chrome (Playwright drives it), network mocked: the dot moves, both orbit lines, the NASA panel, 0 console errors | SMOKE PASS, and with `--path` the 13 rows of the presenters' click path (Sun 12:22 AM) |
 | `node scripts/smoke.mjs --a11y` | axe-core on 7 states of the page; Tab and Enter on every button; the screen-reader sentence changes at most once a minute; 0 console errors | 0 critical, 0 serious; 22 of 22 buttons by Tab, Enter on each; 1 change in 65 s (9:49 PM) |
-| `node scripts/check-agent.mjs --provider gemini` | the planner against the real Gemini API (key from the environment, never printed) | 1 trip run, 13.2 s, 4 model calls, audit 0 (6:23 PM) |
+| `node scripts/check-agent.mjs --provider gemini` | the planner against the real Gemini API (key from the environment, never printed) | 3 runs (Sun 12:15-12:18 AM): one place 10.3 s and a trip 15.4 s, both finished by the AI with audit 0; one trip ended in the fixed plan after 15 s with no model reply |
 | secret scan (a `git grep` step in `.github/workflows/pages.yml`) | no tracked file holds text shaped like a Google, OpenAI or GitHub key, a NASA demo key, a key assignment, or a key header or `Bearer` line with a value | no hits (7:24 PM) |
 
 The commands, their options and what to do when one fails are in `RUN.md`.
@@ -154,6 +175,10 @@ to build it"). Each teammate's own sentence is added here once they have confirm
 | Open-Meteo | the cloud forecast and the place search the planner uses | fetched when you plan |
 | Exa | the web search for station news | results filtered to the last 7 days in our code; not checked by us |
 | Natural Earth | the 150 largest populated places | public domain |
+| NOAA STAR | the Forecast lab's crop signal: the Vegetation Health Index, weekly by state, cropland only | NOAA marks this data for experimental use only |
+| USDA Economic Research Service | the Forecast lab's harvests: US corn yield per harvested acre (Feed Grains Yearbook) | |
+| NASA EOSDIS GIBS (MODIS Terra NDVI) | the Forecast lab's two greenness images and the colour key used to read them back | 16-day composites, not from the ISS and not live |
+| IMF corn price (via FRED) | the Forecast lab's price test only | only the computed result is kept in the repo; the series itself is not |
 | d3-celestial (Olaf Frohn) | the Sky tab's 1,627 stars of magnitude 5 or brighter (XHIP catalogue, Anderson and Francis 2012, VizieR V/137D) and 88 constellation figures (IAU charts with changes by Olaf Frohn), J2000 | BSD 3-Clause; not NASA data; built in by `scripts/make-sky-data.mjs` from one pinned commit, sources and retrieval time in `src/data/sky/meta.json` |
 
 The orbit elements built into the page were fetched from CelesTrak at 12:36 PM EST on Nov 14

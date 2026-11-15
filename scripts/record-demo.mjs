@@ -16,6 +16,11 @@
 // the model id from the request address (the key is in a header, never in the address) or says
 // "fixed plan, no AI"; it is also written to docs/demo-backup.txt. Last, scripts/scan-secrets.mjs
 // runs over evidence/ and docs/ and must print nothing.
+//
+// M10: after the reference check, one short captioned scene per part verified later (the plain
+// sentence, day and night, the daily-photo switch, the NASA layers, the Forecast lab, the sky from the
+// station with a drag and a zoom, one game round, read aloud, the calendar file and sheets). A scene
+// that fails is printed and makes the script exit 1, as do a file of 25 MB or more and a video over 180 s.
 import { chromium } from 'playwright-core';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -114,11 +119,119 @@ try {
   await say('How accurate is this? An independent tracker, and NASA mission control\'s own trajectory');
   await page.click('#check-ref');
   await pause(8);
+
+  // M10: one short scene for each part verified after the 8:26 PM recording. Each scene is guarded:
+  // if one fails, the video carries on and the failure is printed (and makes the script exit 1).
+  const scenes = [];
+  const scene = async (name, fn) => {
+    const s0 = Date.now();
+    try {
+      await fn();
+      scenes.push({ name, ok: true, s: (Date.now() - s0) / 1000 });
+    } catch (e) {
+      scenes.push({ name, ok: false, s: (Date.now() - s0) / 1000, error: String(e?.message ?? e).split('\n')[0] });
+    }
+  };
+  const top = () => page.evaluate(() => window.scrollTo(0, 0));
+  const toView = (sel) => page.evaluate((s) => document.querySelector(s)?.scrollIntoView({ block: 'start' }), sel);
+  const openTab = async (id) => {
+    await page.click(`#tab-btn-${id}`);
+    await toView(`#tab-btn-${id}`);
+  };
+
+  await scene('plain sentence (C3)', async () => {
+    await top();
+    const where = (await page.textContent('#where-now'))?.trim();
+    if (!where) throw new Error('#where-now is empty');
+    await say(`One plain sentence for where it is, read once a minute to screen readers: "${where}"`);
+    await pause(6);
+  });
+  await scene('day and night (C2)', async () => {
+    const sunlit = (await page.textContent('#sunlit'))?.trim();
+    await say(`The shaded half of the map is night right now. The station: ${sunlit}`);
+    await pause(6);
+  });
+  await scene('daily photo switch (P2)', async () => {
+    await page.waitForFunction(() => !document.getElementById('daily-toggle')?.disabled, null, { timeout: 8000 });
+    await page.check('#daily-toggle');
+    await say('A clear NASA Blue Marble map by default; one switch shows NASA\'s satellite photo of the day, clouds and all');
+    await pause(6);
+    await page.uncheck('#daily-toggle');
+  });
+  await scene('NASA layers (M4)', async () => {
+    await openTab('nasa');
+    await say('Under the station: NASA\'s open natural events in view, and an astronaut photo, each dated and credited');
+    await pause(6);
+  });
+  await scene('forecast lab (X6)', async () => {
+    await page.click('#forecast-open');
+    await page.waitForFunction(() => !document.getElementById('forecast-card')?.hidden, null, { timeout: 5000 });
+    await toView('#forecast-lab');
+    const y = (await page.textContent('[data-skill-yield]'))?.trim();
+    const p = (await page.textContent('[data-skill-price]'))?.trim();
+    await say(`Forecast lab: satellite greenness forecast the US corn harvest with skill ${y}; the corn price: ${p}. Research demo, not investment advice`);
+    await pause(9);
+  });
+  await scene('sky from the station (X5, X5b)', async () => {
+    await openTab('sky');
+    await page.waitForFunction(() => !!document.getElementById('sky-canvas')?.dataset.drawnAt, null, { timeout: 10_000 });
+    await page.evaluate(() => document.getElementById('sky-canvas').scrollIntoView({ block: 'center' }));
+    await say('The sky above the station right now: 1,627 stars and 88 constellations. Drag to look around, scroll to zoom');
+    await pause(3);
+    const b = await page.locator('#sky-canvas').boundingBox();
+    await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.5);
+    await page.mouse.down();
+    for (let k = 1; k <= 20; k++) await page.mouse.move(b.x + b.width * (0.5 - 0.012 * k), b.y + b.height * (0.5 + 0.006 * k));
+    await page.mouse.up();
+    await pause(2);
+    await page.mouse.wheel(0, -400);
+    await pause(2);
+    await page.click('#sky-reset');
+    await say('"Back to the station\'s view" follows the station again');
+    await pause(3);
+  });
+  await scene('game (M6)', async () => {
+    await openTab('game');
+    await say('Game: tap where the station will be in 10 minutes. The score is how many km you were off');
+    await pause(3);
+    await page.click('#game-start');
+    await page.waitForFunction(() => document.body.dataset.game === 'guessing', null, { timeout: 5000 });
+    let box = await page.locator('#map').boundingBox();
+    for (let k = 0; k < 30; k++) {
+      await page.waitForTimeout(100);
+      const again = await page.locator('#map').boundingBox();
+      if (again.y === box.y && again.x === box.x) break;
+      box = again;
+    }
+    await pause(1);
+    await page.mouse.click(box.x + 0.62 * box.width, box.y + 0.62 * box.height);
+    await page.waitForFunction(() => ['scored', 'done'].includes(document.body.dataset.game ?? ''), null, { timeout: 8000 });
+    const score = (await page.textContent('#game-score'))?.trim();
+    await say(`Round 1: ${score}. The answer is our own orbit math, run 10 minutes ahead`);
+    await pause(6);
+    await page.click('#game-stop');
+  });
+  await scene('read aloud (X3)', async () => {
+    await top();
+    if (!(await page.isVisible('#voice-toggle'))) throw new Error('#voice-toggle not shown (no speechSynthesis)');
+    await page.locator('#voice-toggle').scrollIntoViewIfNeeded();
+    await say('"Read aloud" speaks that sentence and the plan with the browser\'s own voice (this video has no sound)');
+    await pause(5);
+  });
+  await scene('calendar file and sheets (A2)', async () => {
+    await page.locator('#plan-outputs').scrollIntoViewIfNeeded();
+    await say('For the chosen pass: a calendar file, a family sheet and a class handout');
+    await pause(5);
+  });
+
+  await top();
   await say(`ISS Ride-Along: ${caption}`);
   await pause(4);
   const ref = await page.evaluate(() => document.getElementById('ref-result')?.textContent);
   console.log(`planner: ${note} (${planSeconds.toFixed(1)} s); model ${model ?? 'none'}; caption "${caption}"`);
   console.log(`reference result on screen: ${ref}`);
+  for (const s of scenes) console.log(`scene ${s.ok ? 'ok  ' : 'FAIL'} ${s.name} (${s.s.toFixed(1)} s)${s.ok ? '' : `: ${s.error}`}`);
+  globalThis.__scenesFailed = scenes.filter((s) => !s.ok).length;
   globalThis.__caption = caption;
   await context.close(); // flushes the video
   webm = readdirSync(workDir).find((f) => f.endsWith('.webm'));
@@ -153,4 +266,7 @@ try {
   scanFailed = true;
 }
 console.log(scanFailed ? 'SCAN FAIL: see the lines above' : 'scan over evidence/ and docs/: no hits');
-if (mb >= 25 || scanFailed) process.exit(1);
+const tooLong = Number(p.format.duration) > 180;
+if (tooLong) console.log('TOO LONG: over 180 s');
+if (globalThis.__scenesFailed) console.log(`SCENES FAILED: ${globalThis.__scenesFailed}`);
+if (mb >= 25 || scanFailed || tooLong || globalThis.__scenesFailed) process.exit(1);

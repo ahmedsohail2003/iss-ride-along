@@ -14,7 +14,7 @@ This pack is a review of the four study cards in [STUDY_CARDS.md](STUDY_CARDS.md
 
 **The three numbers (each with what it counts):**
 
-1. **5 of 5 live AI runs, 0 made-up numbers.** Five real runs on Gemini on Nov 14 (3 one-place, 2 two-city trips), and each one's audit counted 0 numbers that no tool gave (`README.md`, "AI in the app").
+1. **7 of 7 finished AI runs, 0 made-up numbers.** Eight real runs on Gemini (5 on Nov 14; 3 at 12:15-12:18 AM Sunday). The AI finished 7, and each one's audit counted 0 numbers that no tool gave; the eighth, a trip, got no AI reply within 15 seconds and ended in the fixed plan, as built (`README.md`, "AI in the app").
 2. **360 of NASA's rows, at most 1.03 km apart.** Within 12 hours of our orbit numbers' timestamp, our position and NASA's predicted trajectory are 0.37 km apart in the middle and 1.03 km at most. With our coordinate conversion switched off, the gap is 26 to 45 km (`node scripts/check-oem.mjs`, 7:39 PM).
 3. **8 of 8 passes, start times within 1.3 seconds.** For Ypsilanti, Nov 14-18, our pass list matches every pass on Heavens-Above's saved list (`tests/passes.test.ts`).
 
@@ -25,7 +25,7 @@ This pack is a review of the four study cards in [STUDY_CARDS.md](STUDY_CARDS.md
 - **Leaflet**: a small map library that draws the map, the station and its path.
 - **NASA GIBS, EONET, Image and Video Library**: the map (the cloud-free Blue Marble by default; the dated daily satellite photo with its clouds behind the switch "Daily satellite photo (with clouds)" under the map), the list of open natural events and the astronaut photos. **NASA's ISS trajectory file**: the check in number 2.
 - **Gemini** (Google's AI model): the planner's model, live-tested. **Exa**: a search engine built for AI, for station news. **Open-Meteo**: the free cloud forecast.
-- **Vitest**: runs the 78 automated tests (78 of 78 passed at 7:39 PM). **GitHub Actions**: runs them again on every push before the live page updates.
+- **Vitest**: runs the 159 automated tests (159 of 159 passed at 12:14 AM Sunday). **GitHub Actions**: runs them again on every push before the live page updates.
 - **Claude Code**: the AI coding tool that wrote the code (question 1 below).
 
 Full list with versions: [HOW_IT_WORKS.md](../HOW_IT_WORKS.md) "Each tool in one line". Tech stack and licences: [README.md](../README.md) "Built with" and `package.json`.
@@ -177,7 +177,7 @@ Everyone can answer a basic question on every part. Each person leads these and 
 ## Phone cue cards (one per screen; scroll on your phone)
 
 1. **Open:** "Tell it your week in your own words; it plans the one pass worth going out for, and shows where every number came from."
-2. **Planner:** "The AI only chooses. 5 of 5 live runs, 0 made-up numbers." Read three Steps rows.
+2. **Planner:** "The AI only chooses. 7 of 7 finished AI runs, 0 made-up numbers." Read three Steps rows.
 3. **Tracker:** "Computed every second in your browser. Saved test: 10 of 10 within 1 metre of another tracker."
 4. **NASA:** "Within 12 hours, 1.03 km apart at most from NASA mission control's own trajectory; 26 to 45 km without our conversion."
 5. **Passes:** "8 of 8 Heavens-Above passes for Ypsilanti, start times within 1.3 seconds."

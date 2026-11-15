@@ -82,7 +82,7 @@ Both trackers run their own code on public orbit numbers: a small difference sho
 - **Gemini API** (`gemini-4-hydrogen`, `generateContent`): the planner's model, live-tested; OpenAI only with saved replies.
 - **ERFA** (BSD 3-clause, from the IAU's SOFA library): source of the 106-term nutation table. **astronomy-engine 2.1.19** (MIT): a second, independent frame conversion, used only in a test.
 - **Open-Meteo** (free weather service, CC BY 4.0) for cloud; **Exa** (a search engine built for AI) for station news.
-- **Vite 8.3.8 + vite-plugin-singlefile 2.3.4** build one self-contained `index.html`; **TypeScript 7.0.2** (type-checked JavaScript); **Vitest 5.1.0** runs the 133 unit tests offline; **playwright-core 1.65.1** drives Chrome; **axe-core 4.14.0** (an accessibility checker) runs in the smoke test.
+- **Vite 8.3.8 + vite-plugin-singlefile 2.3.4** build one self-contained `index.html`; **TypeScript 7.0.2** (type-checked JavaScript); **Vitest 5.1.0** runs the 159 unit tests offline; **playwright-core 1.65.1** drives Chrome; **axe-core 4.14.0** (an accessibility checker) runs in the smoke test.
 
 ## Forecast lab: the harvest from orbit (a research demo)
 
