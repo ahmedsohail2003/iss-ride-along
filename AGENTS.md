@@ -5,7 +5,7 @@ You are helping a member of the ISS Ride-Along team at Hack the Nest 2026. They 
 When the teammate says "follow AGENTS.md for checkpoint N":
 
 1. Read `CHECKPOINTS.md` (newest entry first) and explain entry N in plain words: what works now, how to try it, what is being built next, and what the team needs from them.
-2. Read `README.md`, `HOW_IT_WORKS.md`, `CODE_TOUR.md`, `RUN.md` and `docs/STUDY_CARDS.md`. Be ready to explain any file in `src/`.
+2. Read `README.md`, `HOW_IT_WORKS.md`, `CODE_TOUR.md`, `RUN.md`, `docs/STUDY_CARDS.md` and `docs/PRESENTER_PACK.md` (the 10 judge questions, the 90-second click path and who owns what). Be ready to explain any file in `src/`.
 3. Tell them how to see it: the live page is https://ahmedsohail2003.github.io/iss-ride-along/ . To run it from the code: `npm install`, then `npm run dev`.
 4. If there is a study card for that checkpoint, walk them through it: have them say the "Say it" line, then ask the three judge questions one at a time and let them answer before you show the answer.
 5. Help them write suggestions. A good suggestion says what to add or change and which judging criterion it helps: does it work, technical challenge, originality and impact, design and usability, or learning and growth. They put suggestions and questions in their own Google Doc under a "Checkpoint N" heading (or in the team's Discord chat).
