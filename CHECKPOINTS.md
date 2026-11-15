@@ -2,6 +2,33 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 5 — Saturday Nov 14, 7:45 PM EST
+
+**Time left:** about 4 hours to the Devpost draft (midnight tonight), 14 hours to our feature freeze (9:30 AM Sunday), 16 hours to the final Devpost deadline (12:00 PM Sunday).
+
+**New since checkpoint 4 (both passed an independent check):**
+- **Our orbit math checked against NASA's own trajectory.** NASA's mission control publishes where it predicts the station will be, as a file of positions 4 minutes apart. The page now compares our position with that file and shows the gap. Measured on 360 of NASA's rows within 12 hours of our orbit numbers' timestamp: **1.03 km apart at most, 0.37 km in the middle**. The gap grows as our orbit numbers age: 0.87 km at one day, 1.77 km at a day and a half, 4.76 km at three days. The page shows that age next to the gap, and says NASA's file is a prediction, not a measurement.
+- **Why it was hard:** our orbit model and NASA's file use two different coordinate systems. Without converting between them the gap is 26 to 45 km at every one of the 360 rows; with the conversion it is about a kilometre at most. The conversion itself was checked against a published worked example to within 1 metre.
+- **A README and a "how we test" list** for anyone who opens the repo, a record of each part's independent check ([docs/VERIFICATION.md](docs/VERIFICATION.md)), and two more safety nets on every push: the docs are checked against the code, and the push is scanned for anything that looks like a key before the live page updates.
+- **A backup demo video**, 36 seconds, no sound: [docs/demo-backup.mp4](docs/demo-backup.mp4).
+- 78 of 78 automated tests pass.
+
+**Try it:** open https://ahmedsohail2003.github.io/iss-ride-along/ and find the panel "Our math vs NASA's own trajectory" under the numbers. Then open [README.md](README.md).
+
+**Study (required, 5 to 10 min):** [docs/STUDY_CARDS.md](docs/STUDY_CARDS.md), card 4, the check against NASA. Cards 3 and 4 are the two main stories at the table. Say "card done" in the chat when you have done each one out loud.
+
+**Devpost, needs one of you tonight:** the project is saved as a draft, but Devpost will not accept the story step or the Submit button without a demo video link. Please download [docs/demo-backup.mp4](docs/demo-backup.mp4) ("Download raw file" on GitHub), upload it to YouTube as **Unlisted**, and post the link in the chat. Then the entry gets finished and submitted, and we swap in the real video on Sunday morning.
+
+**Being built next:** the presenter pack (10 likely judge questions with short answers, a page per person) and the 2-minute demo script with a cue sheet. After that: a first screen a stranger can use in a minute, a calendar file for the chosen pass, day and night on the map, a small game, accessibility.
+
+**Still need from you:**
+- Which laptop is the demo laptop, and its owner's screenshot of the trip example running with their own Gemini key ([docs/DEMO_LAPTOP.md](docs/DEMO_LAPTOP.md)).
+- Denim and Armeis: join the Devpost project (link in the chat) and add your school.
+- "card done" for cards 3 and 4.
+
+**Your feedback since checkpoint 4:**
+- Quinn checked the event app: the midnight draft only has to be on Devpost. Thank you; nothing separate is needed there.
+
 ## Checkpoint 4 — Saturday Nov 14, 6:45 PM EST
 
 **Time left:** about 5 hours to the Devpost draft (midnight tonight), 15 hours to our feature freeze (9:30 AM Sunday), 17 hours to the final Devpost deadline (12:00 PM Sunday).

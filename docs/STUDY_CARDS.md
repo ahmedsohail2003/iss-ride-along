@@ -62,3 +62,30 @@ How a pass is scored (the same rule with or without AI): score = (peak height ÷
 
 **Optional, explain it back (in your Google Doc):** in your own words, what does the AI decide, and what does our engine decide? Where in the code is the rule that refuses a made-up pass (`src/agent/tools.ts`, `showPass()`)?
 
+## Card 4 (required): our math checked against NASA's own trajectory
+
+**Say it:** "We check our orbit math against the trajectory file NASA's mission control publishes for the station. Within 12 hours of our orbit numbers' timestamp the two are 1.03 km apart at most and 0.37 km in the middle, and the gap grows as our numbers age."
+
+**The measured table** (from `node scripts/check-oem.mjs`; use these numbers, not the live panel, which changes every few minutes):
+
+| Age of our orbit numbers | Gap between our position and NASA's |
+|---|---|
+| fresh (0.02 hours) | 0.485 km |
+| 12 hours | 0.308 km |
+| 24 hours | 0.870 km |
+| 36 hours | 1.767 km |
+| 72 hours | 4.763 km |
+
+Over all 360 of NASA's rows within 12 hours: largest gap 1.031 km, middle value 0.368 km. With the coordinate conversion switched off, the same 360 rows give 26.10 km at best, 36.95 km in the middle and 45.19 km at worst.
+
+**Judge questions (answer out loud first):**
+1. *What is NASA's file, and is it the truth?* It is the path NASA's mission control predicts for the station, published as a list of positions 4 minutes apart. It comes from their detailed model, not from the simple model that public trackers like ours run. It is still a prediction, not a measurement, and the page says so.
+2. *Why does the gap grow?* Our orbit numbers are a snapshot of the orbit at one moment, and the simple model that moves them forward drifts as the snapshot gets older. That is why the gap is under a kilometre for the first day and 4.76 km at three days, and why the page shows the age of its orbit numbers next to the gap.
+3. *What was the hard part?* Our model gives positions in one coordinate system and NASA's file uses another (they differ in how they treat the slow wobble of Earth's axis). Without converting, we are 26 to 45 km off at every row; with the conversion, about a kilometre at most. The conversion was checked against a published worked example to within 1 metre. The code is `src/orbit/frames.ts`, the comparison is `src/orbit/oemCompare.ts`, and the test is `tests/oem.test.ts` (code tour stop 10).
+
+**If a judge asks "so how accurate are you?"** Say what was measured: "about a kilometre from NASA's own prediction when our orbit numbers are under a day old; for scale, the station moves 7.67 km every second." Do not claim more than the table shows.
+
+**Optional, click and watch:** on the live page read the panel "Our math vs NASA's own trajectory": the gap, the age of the orbit numbers, and the line that says it is a prediction.
+
+**Optional, explain it back (in your Google Doc):** in your own words, why is comparing with NASA's file a stronger check than comparing with another public tracker?
+

@@ -28,7 +28,7 @@ Rules:
 - Quote numbers with what they measure, for example "0.729 km from an independent tracker's position in the live check", never a bare number.
 - Credit data exactly: orbit numbers come from CelesTrak (US Space Force tracking data, not NASA); the comparison tracker is wheretheiss.at; pass times were checked against Heavens-Above; NASA data in this project means GIBS imagery, EONET events and the NASA Image and Video Library. The project is not affiliated with or endorsed by NASA.
 - Never ask them to paste an API key or a credit code into a chat with you, and never put one in a doc, the Discord chat or the repo.
-- Only describe a part as working if `CHECKPOINTS.md` says it works. The AI planner ("Plan my sighting") works as of checkpoint 4: live-tested with Gemini, with an OpenAI adapter that is tested only with saved replies (never say it runs on OpenAI). The check against NASA's trajectory file is in progress until a checkpoint says otherwise.
+- Only describe a part as working if `CHECKPOINTS.md` says it works. The AI planner ("Plan my sighting") works as of checkpoint 4: live-tested with Gemini, with an OpenAI adapter that is tested only with saved replies (never say it runs on OpenAI). The check against NASA's trajectory file works as of checkpoint 5; quote its numbers from study card 4, with the age of the orbit numbers, and never say "accurate to".
 
 Tracks: the event requires one main track per project. Ours is Future of Intelligence (the AI track). We opt in to Beyond the Horizon (NASA open data) and the Department of Computer Science track.
 
