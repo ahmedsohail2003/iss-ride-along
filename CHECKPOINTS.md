@@ -2,6 +2,36 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 9 — Saturday Nov 14, 10:00 PM EST
+
+**Time left:** 11.5 hours to our feature freeze (9:30 AM Sunday), 14 hours to the final Devpost deadline (12:00 PM Sunday).
+
+**New since checkpoint 8 (both passed an independent check):**
+- **The game.** Open the Game tab and tap where you think the station will be in 10 minutes. Three rounds, and your score is how many kilometres you were off. The best totals are kept on that device. In the check, a first try was 4,312 km off, which shows how fast the station moves: it crosses a continent in 10 minutes.
+- **A plain sentence for where it is.** Above the map: "1,610 km southeast of Durban, South Africa, heading southeast, 437 km up." It updates once a minute.
+- **A page everyone can use.** Every button can be reached and pressed from the keyboard, the sentence above is read out by a screen reader (the tool blind users run) when it changes, and an automatic accessibility check on 7 states of the page found 0 problems.
+- A line under the numbers: "At this height a circular orbit takes 93.0 min at 7.66 km/s", worked out from the height shown.
+- 119 of 119 automated tests pass.
+
+**Try it:** open https://ahmedsohail2003.github.io/iss-ride-along/ , go to the Game tab and play three rounds. Then press Tab a few times and watch the yellow outline move from button to button.
+
+**Your feedback since checkpoint 8:**
+- Quinn read the day-and-night sentence and said "That sentence looks good to me". Thank you: that is the science check for that part.
+- Denim: "The map looks really cloudy ... I would like to use a clear image of the earth instead of the cloudy one so the user can tell where the ISS is." **Adopted, and it is being built next:** the clear NASA image of Earth becomes the default map, and yesterday's real satellite photo (with its clouds and the black stripes between the satellite's passes) moves to a switch, still with its date.
+- Denim joined the Devpost project and added his school.
+
+**Being built next:** the clear map, then the star view from the station.
+
+**The list for tonight, as it stands at 10:00 PM:**
+| What | Quinn | Denim | Armeis |
+|---|---|---|---|
+| On the Devpost project | yes | yes | not yet |
+| School on the Devpost form | yes | yes | not yet |
+| "card done" for cards 3 and 4 | not yet | not yet | not yet |
+| Your own closing line (12 words at most) | not yet | not yet | not yet |
+
+The cards and the closing line take about 20 minutes together: [docs/STUDY_CARDS.md](docs/STUDY_CARDS.md) and [docs/PRESENTING.md](docs/PRESENTING.md) section 2. If tonight is not possible, do them before the 9:00 AM timed run.
+
 ## Checkpoint 8 — Saturday Nov 14, 9:25 PM EST
 
 **Time left:** 12 hours to our feature freeze (9:30 AM Sunday), 14.5 hours to the final Devpost deadline (12:00 PM Sunday).
