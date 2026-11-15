@@ -17,7 +17,8 @@ map, X5 the sky from the station, X5b drag and zoom the sky, X3 the read-aloud v
 M10 the overnight re-test, R1 one retry when the AI is slow, B3 the Best Beginner words, G1 the 3D globe
 behind a switch,
 G2 the chosen pass on the globe, the new look and 3D by default where the device can,
-G3 the real stars behind the globe and the scroll story.
+G3 the real stars behind the globe and the scroll story,
+R2 the 3D default decides only on frames it actually saw (and the check on the real graphics chip).
 
 - M0 VERIFIED 14:12 ET — fresh-shell re-run 2:10-2:12 PM: npm test 5/5 passed; build exit 0, dist/index.html 23,866 bytes single-file, 0 external script/link; src/data TLE/OMM/10 samples/150 cities/256x256 tile/snapshot-meta present; git clean, commit 3bfbfb5 by Ahmed, no trailers; headless Chrome file:// shows title, lat -48.38 lon 175.33, 0 console errors, 0 non-file requests (evidence/m0-r0.png). Notes: findPasses test not ported (logged deviation, M5); orbit data from 12:36 PM fetch (CelesTrak unreachable 2:07 PM).
 
@@ -76,3 +77,5 @@ G3 the real stars behind the globe and the scroll story.
 - G2 VERIFIED 03:50 ET — independent verify r1 3:42-3:50 AM Sun at HEAD 401a41d (git clean before/after; RAM 1.87-1.98 GB, C: 32.3 GB): tsc exit 0; npm test 183/183 (22 files); 3 G2 tests pass (8 passes/356 points worst diff 0 deg vs stateAt, 12 contrast pairs min 6.98, DEFAULT_VIEW 'auto'); build 2,736,300 B < 3,100,000; all 3D smoke runs (plan, 1366/390, path 14/14, a11y axe 0/0/0/0 + 28/28 keys, GIBS blocked, auto 6/6) and flat runs SMOKE PASS, 0 console errors, 0/140 ids missing; marker lag 0-5 ms (r0 cause fixed); DOCS PASS, secret scan exit 0; screenshot .autopilot/evidence/g2-r1.png; logs .autopilot/evidence/g2-r1-*.txt.
 
 - G3 VERIFIED 04:23 ET — fresh-shell verify 4:13-4:21 AM Sun at HEAD b51930f (git clean before/after; RAM 2.14 GB, C: 32.3 GB, one headless Chrome): tsc 0; npm test 187/187 (23 files, 4 new G3: Polaris <= 0.736 deg from +Y, zenith star <= 1.21e-6 deg, sceneAt 6 ids, 1,627 stars); build 2,743,656 B < 3,200,000; smoke --view 3d --story PASS at 1366x768 and 390x844 (6 scenes 3-69 ms, now 0.06/0.05 deg from station, height = #alt, daynight centre.Sun 0.000, median frame 16.6/8.3 ms, 0 console errors); 3D, a11y (axe 0/0, 28/28 Tab), plan/outputs print and flat runs PASS, 0/140 ids missing; DOCS PASS, secret scan 0; own drive evidence/g3-r0.png viewed; screenRestored check change for 3D logged as deviation.
+
+- R2 VERIFIED 04:52 ET - fresh-shell verify 4:41-4:52 AM Sun at HEAD a945b49 (git clean before/after): tsc 0; 193/193 tests incl. 6 new R2 tests, G1 (i)/(j) unchanged; build 2,744,813 B < 3,100,000; smoke --view auto 7 cases PASS (case 7 held frames -> flat 'no-frames', no note, recovers to 3d auto, 1 live context); --gpu PASS on Intel Iris Xe (3d auto 729 ms, picture/marker checks pass); flat/3d/plan/path/a11y PASS, 0 of 140 ids missing; docs and secrets scans pass; own UI drive on real chip: press 0.151 deg from readout, held-frames edge case gives 'no-frames' then 3d press; 0 headless chrome left. Note: 10-29 gaps timed out still 'slow' (MIN_GAPS=10), by design.
