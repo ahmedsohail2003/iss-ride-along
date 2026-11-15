@@ -878,7 +878,15 @@ try {
       });
       await page.screenshot({ path: resolve('evidence/a2.png'), fullPage: true });
       await page.emulateMedia({ media: 'screen' });
-      outputs.screenAgain = { map: await page.isVisible('#map'), mapControls: await page.isVisible('.leaflet-control-zoom') };
+      // G3: back on screen the page shows what it showed before printing: in the 3D view the globe and the view
+      // switch (the flat map and its zoom buttons are hidden there by design), otherwise the map and its controls.
+      outputs.screenAgain = {
+        view: await page.evaluate(() => document.body.dataset.view),
+        map: await page.isVisible('#map'),
+        mapControls: await page.isVisible('.leaflet-control-zoom'),
+        globe: await page.isVisible('#globe'),
+        viewSwitch: await page.isVisible('#view-switch'),
+      };
       await page.click('#sheet-close');
       outputs.checks = {
         buttonsShown: outputs.buttonsShown,
@@ -889,7 +897,7 @@ try {
         mapControlsHiddenInPrint: !outputs.print.mapControls && !outputs.print.map && !outputs.print.planner && !outputs.print.printButton,
         globeStorySwitchHiddenInPrint: !outputs.print.globe && !outputs.print.story && !outputs.print.viewSwitch,
         sheetAudit0: /^audit: 0 unverified numbers$/.test(outputs.sheetAudit ?? ''),
-        screenRestored: outputs.screenAgain.map && outputs.screenAgain.mapControls,
+        screenRestored: outputs.screenAgain.view === '3d' ? outputs.screenAgain.globe && outputs.screenAgain.viewSwitch : outputs.screenAgain.map && outputs.screenAgain.mapControls,
       };
     }
     await page.click('button.example[data-example="trip"]');
