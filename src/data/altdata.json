@@ -1,0 +1,206 @@
+{
+  "about": "X6 Forecast lab data, written by scripts/fetch-altdata.mjs. signal = mean NOAA STAR Vegetation Health Index (0-100) over weeks 27-32 across Iowa, Illinois, Nebraska, Minnesota and Indiana, cropland only (a year is left out when any of those 30 weekly values is missing). yields = US corn, bushels per harvested acre, USDA ERS (the newest year is USDA's current estimate, final in January). price = the result of the September-to-December corn price test only; the IMF price series is not included.",
+  "weeks": [
+    27,
+    32
+  ],
+  "states": {
+    "14": "Illinois",
+    "15": "Indiana",
+    "16": "Iowa",
+    "24": "Minnesota",
+    "28": "Nebraska"
+  },
+  "signal": {
+    "1982": 61.767,
+    "1983": 33.6213,
+    "1984": 57.626,
+    "1985": 54.4817,
+    "1986": 63.6473,
+    "1987": 53.9147,
+    "1988": 30.4607,
+    "1989": 31.4363,
+    "1990": 45.1567,
+    "1991": 39.9577,
+    "1992": 68.0763,
+    "1993": 61.0037,
+    "1994": 77.712,
+    "1995": 40.8737,
+    "1996": 47.9827,
+    "1997": 60.8967,
+    "1998": 63.705,
+    "1999": 68.9193,
+    "2000": 65.3703,
+    "2001": 52.2527,
+    "2002": 40.0513,
+    "2003": 51.1973,
+    "2005": 51.104,
+    "2006": 49.0083,
+    "2007": 51.5053,
+    "2008": 56.23,
+    "2009": 68.408,
+    "2010": 63.557,
+    "2011": 56.029,
+    "2012": 30.16,
+    "2013": 59.133,
+    "2014": 67.8263,
+    "2015": 66.5917,
+    "2016": 68.1607,
+    "2017": 60.156,
+    "2018": 66.6353,
+    "2019": 61.7923,
+    "2020": 64.6117,
+    "2021": 53.5567,
+    "2022": 56.3663,
+    "2023": 61.3783,
+    "2024": 60.4737,
+    "2025": 67.3087,
+    "2026": 59.1897
+  },
+  "yields": {
+    "1982": 113.2,
+    "1983": 81.1,
+    "1984": 106.7,
+    "1985": 118,
+    "1986": 119.4,
+    "1987": 119.8,
+    "1988": 84.6,
+    "1989": 116.3,
+    "1990": 118.5,
+    "1991": 108.6,
+    "1992": 131.5,
+    "1993": 100.7,
+    "1994": 138.6,
+    "1995": 113.4803,
+    "1996": 127.0932,
+    "1997": 126.692,
+    "1998": 134.4375,
+    "1999": 133.7922,
+    "2000": 136.8726,
+    "2001": 138.1832,
+    "2002": 129.3349,
+    "2003": 142.1867,
+    "2004": 160.3344,
+    "2005": 147.9317,
+    "2006": 149.0858,
+    "2007": 150.692,
+    "2008": 153.2799,
+    "2009": 164.3874,
+    "2010": 152.5591,
+    "2011": 146.8062,
+    "2012": 123.1055,
+    "2013": 158.1357,
+    "2014": 170.9919,
+    "2015": 168.4391,
+    "2016": 174.6212,
+    "2017": 176.585,
+    "2018": 176.4427,
+    "2019": 167.5286,
+    "2020": 171.4378,
+    "2021": 176.7048,
+    "2022": 173.4392,
+    "2023": 177.3348,
+    "2024": 179.3194,
+    "2025": 186.5201,
+    "2026": 179.5745
+  },
+  "estimateYear": 2026,
+  "price": {
+    "skill": 0.0036,
+    "n": 23,
+    "first": 2002,
+    "last": 2025,
+    "rmseNoChange": 0.1341,
+    "rmseModel": 0.1339,
+    "test": "log change from the September average to the December average of the same year, fitted on at least 10 earlier years, against \"no change from September\"",
+    "series": "PMAIZMTUSDM",
+    "retrieved": "2026-11-15T05:04:54.669Z",
+    "from": "live",
+    "citation": "International Monetary Fund, Global price of Corn [PMAIZMTUSDM], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/PMAIZMTUSDM, 2026-11-15. Copyright International Monetary Fund, reprinted with permission; only this computed result is included, not the series."
+  },
+  "ndvi": {
+    "2012-07-27": {
+      "file": "src/data/ndvi-cornbelt-2012.png",
+      "width": 256,
+      "height": 128,
+      "visible": 32745,
+      "matched": 32745,
+      "low": 0.7574,
+      "high": 0.7672,
+      "mean": 0.7623
+    },
+    "2026-07-28": {
+      "file": "src/data/ndvi-cornbelt-2026.png",
+      "width": 256,
+      "height": 128,
+      "visible": 32766,
+      "matched": 32766,
+      "low": 0.861,
+      "high": 0.8709,
+      "mean": 0.866
+    }
+  },
+  "sources": [
+    {
+      "name": "NOAA STAR VHI, Illinois (provinceID 14)",
+      "url": "https://www.star.nesdis.noaa.gov/smcd/emb/vci/VH/get_TS_admin.php?country=USA&provinceID=14&year1=1982&year2=2026&type=Mean",
+      "retrieved": "2026-11-15T05:04:50.732Z",
+      "from": "live"
+    },
+    {
+      "name": "NOAA STAR VHI, Indiana (provinceID 15)",
+      "url": "https://www.star.nesdis.noaa.gov/smcd/emb/vci/VH/get_TS_admin.php?country=USA&provinceID=15&year1=1982&year2=2026&type=Mean",
+      "retrieved": "2026-11-15T05:04:50.868Z",
+      "from": "live"
+    },
+    {
+      "name": "NOAA STAR VHI, Iowa (provinceID 16)",
+      "url": "https://www.star.nesdis.noaa.gov/smcd/emb/vci/VH/get_TS_admin.php?country=USA&provinceID=16&year1=1982&year2=2026&type=Mean",
+      "retrieved": "2026-11-15T05:04:51.047Z",
+      "from": "live"
+    },
+    {
+      "name": "NOAA STAR VHI, Minnesota (provinceID 24)",
+      "url": "https://www.star.nesdis.noaa.gov/smcd/emb/vci/VH/get_TS_admin.php?country=USA&provinceID=24&year1=1982&year2=2026&type=Mean",
+      "retrieved": "2026-11-15T05:04:51.135Z",
+      "from": "live"
+    },
+    {
+      "name": "NOAA STAR VHI, Nebraska (provinceID 28)",
+      "url": "https://www.star.nesdis.noaa.gov/smcd/emb/vci/VH/get_TS_admin.php?country=USA&provinceID=28&year1=1982&year2=2026&type=Mean",
+      "retrieved": "2026-11-15T05:04:51.213Z",
+      "from": "live"
+    },
+    {
+      "name": "USDA ERS feed grains yearbook, US corn yield",
+      "url": "https://www.ers.usda.gov/media/5766/feed-grains-yearbook-tables-all-years.csv?v=77954",
+      "retrieved": "2026-11-15T05:04:53.273Z",
+      "from": "live"
+    },
+    {
+      "name": "NASA GIBS MODIS Terra NDVI 16-day, corn belt, 2012-07-27",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=MODIS_Terra_L3_NDVI_16Day&CRS=EPSG:4326&BBOX=40.3,-96.7,43.6,-90.1&WIDTH=256&HEIGHT=128&FORMAT=image/png&TIME=2012-07-27",
+      "retrieved": "2026-11-15T05:04:53.837Z",
+      "from": "live"
+    },
+    {
+      "name": "NASA GIBS MODIS Terra NDVI 16-day, corn belt, 2026-07-28",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=MODIS_Terra_L3_NDVI_16Day&CRS=EPSG:4326&BBOX=40.3,-96.7,43.6,-90.1&WIDTH=256&HEIGHT=128&FORMAT=image/png&TIME=2026-07-28",
+      "retrieved": "2026-11-15T05:04:54.269Z",
+      "from": "live"
+    },
+    {
+      "name": "NASA GIBS colour key MODIS_L3_NDVI",
+      "url": "https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_L3_NDVI.xml",
+      "retrieved": "2026-11-15T05:04:54.356Z",
+      "from": "live"
+    },
+    {
+      "name": "FRED PMAIZMTUSDM (IMF world corn price; result only)",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=PMAIZMTUSDM",
+      "retrieved": "2026-11-15T05:04:54.669Z",
+      "from": "live"
+    }
+  ],
+  "generatedAt": "2026-11-15T05:04:54.999Z"
+}

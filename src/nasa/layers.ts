@@ -24,6 +24,8 @@ import {
 import { photoCreditLine, photoDay, type CuratedPhoto } from './photos';
 import * as C from './credits';
 import { clearSource, warnSource } from '../ui/warnings';
+import { forecastLabHtml, initForecastLab } from '../altdata/card';
+import altdata from '../data/altdata.json';
 
 const blueMarbleTiles = import.meta.glob('../data/bluemarble/*.jpg', { eager: true, import: 'default' }) as Record<string, string>;
 const thumbs = import.meta.glob('../data/photos/*.jpg', { eager: true, import: 'default' }) as Record<string, string>;
@@ -73,6 +75,7 @@ export const belowPanelHtml = `
         <figcaption id="photo-caption" class="small"></figcaption>
       </figure>
     </div>
+${forecastLabHtml}
   </section>
 `;
 
@@ -361,8 +364,12 @@ export function initNasaLayers(map: L.Map): NasaLayers {
       <li>${esc(C.CREDIT_SKY)}</li>
       <li>${esc(C.CREDIT_CITIES)}, retrieved ${esc(meta.files['cities.json'].retrievedAt.slice(0, 10))}.</li>
       <li>${esc(C.CREDIT_HEAVENS_ABOVE)}</li>
+      <li>Forecast lab: ${esc(C.CREDIT_NOAA_VHI)} ${esc(C.CREDIT_GIBS_NDVI)} ${esc(C.CREDIT_ERS)} ${esc(C.creditImfPrice(altdata.price.citation))}</li>
       <li>${esc(C.CREDIT_NOT_NASA)}</li>
     </ul>`;
+
+  // ---- X6: the Forecast lab card (opened by its button; its line says when central Iowa is in view).
+  const forecastLab = initForecastLab();
 
   // ---- Network: nothing at all while the browser is offline; one try each when it comes back.
   const goOnline = () => {
@@ -382,6 +389,7 @@ export function initNasaLayers(map: L.Map): NasaLayers {
     update(lat, lon, altKm) {
       footprint.setLatLng([lat, lon]);
       footprint.setRadius(footprintRadiusKm(altKm) * 1000);
+      forecastLab.update(lat, lon, altKm);
       const now = Date.now();
       if (now - lastList >= EVENTS_REFRESH_MS) {
         lastList = now;

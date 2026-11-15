@@ -28,3 +28,11 @@ export const CREDIT_ERFA =
 /** X5: the star view's catalogue and constellation lines (neither is NASA data). */
 export const CREDIT_SKY =
   'Star view: star positions and brightness from the XHIP catalogue (Anderson and Francis 2012, VizieR V/137D) and constellation lines from the IAU charts with changes by Olaf Frohn, both as packaged in d3-celestial by Olaf Frohn (BSD 3-Clause licence; notice in docs/THIRD_PARTY_NOTICES.md). Not NASA data.';
+/** X6 Forecast lab sources. */
+export const CREDIT_NOAA_VHI =
+  'Crop signal: NOAA STAR Vegetation Health Index (VHI), weekly by state, cropland only, from the AVHRR and VIIRS instruments (star.nesdis.noaa.gov). NOAA marks this data for experimental use only.';
+export const CREDIT_GIBS_NDVI =
+  'Greenness images: NASA GIBS, MODIS Terra NDVI 16-day composites (250 m), and the GIBS MODIS_L3_NDVI colour key used to read the colours back as values.';
+export const CREDIT_ERS = 'Harvests: USDA Economic Research Service, Feed Grains Yearbook tables, US corn yield per harvested acre.';
+/** The IMF corn price is used only for the stored test result; its citation is required. */
+export const creditImfPrice = (citation: string) => `Price test: ${citation}`;

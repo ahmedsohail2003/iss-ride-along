@@ -30,3 +30,6 @@ dist-ssr
 
 # Smoke-test screenshots (copies go to ../.autopilot/evidence/)
 evidence/
+
+# X6: the downloaded IMF corn price series (copyrighted; only the computed result is bundled)
+.altdata-cache/

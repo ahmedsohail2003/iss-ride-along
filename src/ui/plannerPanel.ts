@@ -8,6 +8,7 @@ import { CREDIT_OPEN_METEO } from '../weather/openMeteo';
 import { runFixedPlan, type Card, type Controls, type PlanResult } from '../agent/fixedPlan';
 import { nextDates, weekdayOf } from '../agent/format';
 import { runAgent, type AgentResult } from '../agent/loop';
+import { isMoneyQuestion, MONEY_LINE } from '../agent/money';
 import { gemini, GEMINI_MODELS, openai, OPENAI_MODEL } from '../agent/providers';
 import { newContext, SEARCH_DAYS, type PassInfo, type RunContext, type TraceRow } from '../agent/tools';
 import { KeyStore, PRIVACY_LINE, STATUS, type KeyName } from './settings';
@@ -334,6 +335,15 @@ export function initPlanner(h: PlannerHooks) {
     });
     const p = activeProvider();
     const text = sentence.value.trim();
+    // X6 step 7: a money question gets the fixed line, with no model call and no plan.
+    if (isMoneyQuestion(text)) {
+      $('plan-note').textContent = MONEY_LINE;
+      $('plan-result').hidden = true;
+      document.body.dataset.planDeclined = 'money';
+      go.disabled = false;
+      return;
+    }
+    delete document.body.dataset.planDeclined;
     // M7: the place typed alone goes straight to the next-pass line when it is a built-in name.
     // With a key the AI reads the sentence; a lone town is still the place its fallback plan uses.
     const lonePlace = placeFromSentence(text);

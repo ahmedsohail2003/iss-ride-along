@@ -185,7 +185,7 @@ Everyone can answer a basic question on every part. Each person leads these and 
 
 ## Where things are
 
-- The code tour, 10 stops with a sentence to say at each: [CODE_TOUR.md](../CODE_TOUR.md)
+- The code tour, 11 stops with a sentence to say at each: [CODE_TOUR.md](../CODE_TOUR.md)
 - How it works in plain words: [HOW_IT_WORKS.md](../HOW_IT_WORKS.md)
 - The four study cards: [STUDY_CARDS.md](STUDY_CARDS.md)
 - Setting up the demo laptop: [DEMO_LAPTOP.md](DEMO_LAPTOP.md)

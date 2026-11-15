@@ -163,7 +163,9 @@ describe('curated NASA photos', () => {
     if (existsSync(join(root, 'public'))) walk(join(root, 'public'));
     for (const img of images) {
       expect(/insignia|meatball|logo|worm/i.test(img), img).toBe(false);
-      const allowed = img === 'src/data/bluemarble-z0.jpg' || /^src\/data\/bluemarble\/\d-\d-\d\.jpg$/.test(img) || curated.has(img);
+      // X6: the two NASA GIBS MODIS greenness images of the corn belt (map data images, no insignia).
+      const x6 = img === 'src/data/ndvi-cornbelt-2012.png' || img === 'src/data/ndvi-cornbelt-2026.png';
+      const allowed = img === 'src/data/bluemarble-z0.jpg' || /^src\/data\/bluemarble\/\d-\d-\d\.jpg$/.test(img) || curated.has(img) || x6;
       expect(allowed, img).toBe(true);
     }
     expect(images.filter((i) => i.startsWith('src/data/photos/'))).toHaveLength(photos.length);

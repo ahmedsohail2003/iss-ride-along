@@ -41,6 +41,15 @@
 //                                               by keyboard (Tab to the map, Enter guesses the centre). window.print
 //                                               is replaced by a counter for the run (the "Print this sheet" button).
 //                                               evidence/c3.png (a focused button and the sentence).
+//   node scripts/smoke.mjs --forecast           X6: mocked network as in the default mode. In "What it is flying over" the
+//                                               "Forecast lab" button opens the card in place (no new page); [data-skill-yield]
+//                                               must read 0.57 and [data-skill-price] 0.00 (the page computes the harvest
+//                                               skill from the bundled data when the card opens); both NASA greenness images
+//                                               decoded and drawn (256 x 128); the chart has its three lines; the label starts
+//                                               "Research demo, not investment advice" and, with the card's top at the top of
+//                                               the window, is visible without scrolling (the card has no inner scroll); no
+//                                               text in the card outside the label mentions a price; then "should I buy corn
+//                                               futures?" in the planner gets the fixed line with 0 AI requests. evidence/x6.png
 //   node scripts/smoke.mjs --url <url> --out evidence/x.png --size 390x844
 //   node scripts/smoke.mjs --block <host>       M7: every source mocked except <host>, whose requests are refused
 //                                               (connection refused). Presses "Check against reference" and plans
@@ -118,6 +127,8 @@ const OUTPUTS = PLAN && args.includes('--outputs');
 const A11Y = args.includes('--a11y');
 // X3 --voice: a stubbed speechSynthesis records what the page says; a second page has no speechSynthesis.
 const VOICE = args.includes('--voice');
+// X6 --forecast: the Forecast lab card.
+const FORECAST = args.includes('--forecast');
 // M7: the 8 live sources, by the host each one's URL constant names in src/.
 const BLOCKABLE = {
   'celestrak.org': { key: 'celestrak', name: 'CelesTrak' },
@@ -135,7 +146,7 @@ if (args.includes('--block') && !BLOCKABLE[BLOCK]) {
   process.exit(1);
 }
 // The M7 first-screen checks run in the default mode (no other mode flag).
-const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y && !VOICE;
+const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y && !VOICE && !FORECAST;
 // --path: the click path rows from the presenter pack (M9). Columns: Step | When | Do | Where on screen |
 // Then you see | Say. "Do" is `look`, `click`, `key` (type the test key) or `tick`; "Where" is a backticked
 // CSS selector, optionally followed by the quoted words the element must show.
@@ -169,7 +180,7 @@ if (NET && OFFLINE) {
 }
 const defaultFile = OFFLINE ? 'docs/iss-ride-along-offline.html' : 'dist/index.html';
 const url = opt('--url', pathToFileURL(resolve(defaultFile)).href);
-const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : PATH ? 'evidence/m9-path.png' : A11Y ? 'evidence/c3.png' : VOICE ? 'evidence/x3.png' : BLOCK ? `evidence/m7-block-${BLOCK}.png` : 'evidence/m1.png'));
+const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : PATH ? 'evidence/m9-path.png' : A11Y ? 'evidence/c3.png' : VOICE ? 'evidence/x3.png' : FORECAST ? 'evidence/x6.png' : BLOCK ? `evidence/m7-block-${BLOCK}.png` : 'evidence/m1.png'));
 const [w, h] = opt('--size', '1366x768').split('x').map(Number);
 
 // Stale-build guard (M4 fix r2): a file:// page must carry the fingerprint of the current source
@@ -203,7 +214,7 @@ const tle = readFileSync(resolve('src/data/iss.tle'), 'utf8');
 const eonetSnapshot = readFileSync(resolve('src/data/eonet-open.json'), 'utf8');
 const blueMarbleTile = readFileSync(resolve('src/data/bluemarble-z0.jpg'));
 // --plan: the planner's services answered from the saved real replies in tests/fixtures/.
-const planFixtures = PLAN || PATH || FIRST || BLOCK || A11Y || VOICE
+const planFixtures = PLAN || PATH || FIRST || BLOCK || A11Y || VOICE || FORECAST
   ? {
       openMeteo: JSON.stringify(JSON.parse(readFileSync(resolve('tests/fixtures/openmeteo-ypsilanti.json'), 'utf8')).reply),
       exa: JSON.parse(readFileSync(resolve('tests/fixtures/exa-station-news.json'), 'utf8')).reply,
@@ -289,12 +300,12 @@ try {
       requests.refusedBlock = (requests.refusedBlock ?? 0) + 1;
       return route.abort('connectionrefused');
     }
-    if ((PATH || BLOCK || FIRST || A11Y || VOICE) && u.startsWith('https://api.wheretheiss.at/')) {
+    if ((PATH || BLOCK || FIRST || A11Y || VOICE || FORECAST) && u.startsWith('https://api.wheretheiss.at/')) {
       planRequests.wheretheiss = (planRequests.wheretheiss ?? 0) + 1;
       const sample = JSON.parse(readFileSync(resolve('src/data/wheretheiss-samples.json'), 'utf8')).samples[0];
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(sample) });
     }
-    const MOCK_PLAN = PLAN || PATH || FIRST || BLOCK || A11Y || VOICE;
+    const MOCK_PLAN = PLAN || PATH || FIRST || BLOCK || A11Y || VOICE || FORECAST;
     if (MOCK_PLAN && u.startsWith('https://api.open-meteo.com/')) {
       planRequests.openMeteo++;
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: planFixtures.openMeteo });
@@ -957,6 +968,76 @@ try {
   }
 
 
+  // ---- X6 --forecast: the Forecast lab card.
+  let x6 = null;
+  if (FORECAST) {
+    x6 = { checks: {} };
+    const MONEY_LINE = 'The planner does not give financial advice. The Forecast lab shows what satellites can and cannot forecast.';
+    const urlBefore = page.url();
+    await page.click('[data-tab="nasa"]').catch(() => {});
+    x6.before = await page.evaluate(() => ({
+      buttonText: document.getElementById('forecast-open')?.textContent ?? null,
+      cardHidden: document.getElementById('forecast-card')?.hidden ?? null,
+      beltLine: document.getElementById('forecast-belt')?.textContent ?? '',
+      cornBelt: document.body.dataset.cornBelt ?? null,
+    }));
+    x6.checks.buttonShown = x6.before.buttonText === 'Forecast lab' && x6.before.cardHidden === true;
+    await page.click('#forecast-open');
+    await page.waitForFunction(() => {
+      const imgs = [...document.querySelectorAll('#forecast-card img[data-ndvi-img]')];
+      return !document.getElementById('forecast-card').hidden && imgs.length === 2 && imgs.every((i) => i.complete);
+    }, null, { timeout: 10_000 });
+    // The card's top at the top of the window, as a reader who just opened it would scroll.
+    await page.evaluate(() => document.getElementById('forecast-card').scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(300);
+    x6.card = await page.evaluate(() => {
+      const card = document.getElementById('forecast-card');
+      const label = card.querySelector('[data-fc-label]');
+      const lr = label.getBoundingClientRect();
+      const cr = card.getBoundingClientRect();
+      const clone = card.cloneNode(true);
+      clone.querySelector('[data-fc-label]').remove();
+      return {
+        skillYield: card.querySelector('[data-skill-yield]')?.textContent ?? null,
+        skillPrice: card.querySelector('[data-skill-price]')?.textContent ?? null,
+        images: [...card.querySelectorAll('img[data-ndvi-img]')].map((i) => ({ day: i.dataset.ndviImg, w: i.naturalWidth, h: i.naturalHeight, shownW: Math.round(i.getBoundingClientRect().width), shownH: Math.round(i.getBoundingClientRect().height) })),
+        greenness: [...card.querySelectorAll('[data-ndvi]')].map((g) => g.textContent),
+        forecast: card.querySelector('[data-forecast]')?.textContent ?? null,
+        chartPaths: [...card.querySelectorAll('svg.fc-chart path')].map((p) => (p.getAttribute('d') ?? '').split(/[ML]/).length - 1),
+        label: label.textContent,
+        labelRect: { top: Math.round(lr.top), bottom: Math.round(lr.bottom) },
+        cardRect: { top: Math.round(cr.top), bottom: Math.round(cr.bottom) },
+        viewportH: window.innerHeight,
+        innerScroll: card.scrollHeight > card.clientHeight + 1,
+        scrollTop: card.scrollTop,
+        restText: clone.textContent,
+        expanded: document.getElementById('forecast-open').getAttribute('aria-expanded'),
+        creditsHaveSources: ['NOAA STAR Vegetation Health', 'MODIS Terra NDVI', 'USDA Economic Research Service', 'International Monetary Fund'].every((w) => document.getElementById('credits').textContent.includes(w)),
+      };
+    });
+    const c = x6.card;
+    x6.checks.sameUrl = page.url() === urlBefore;
+    x6.checks.opened = c.expanded === 'true';
+    x6.checks.skillYield = c.skillYield === '0.57';
+    x6.checks.skillPrice = c.skillPrice === '0.00';
+    x6.checks.imagesDrawn = c.images.length === 2 && c.images.every((i) => i.w === 256 && i.h === 128 && i.shownW > 0 && i.shownH > 0);
+    x6.checks.greenness = c.greenness.length === 2;
+    x6.checks.chart = c.chartPaths.length === 3 && c.chartPaths.every((n) => n === 31);
+    x6.checks.label = c.label.startsWith('Research demo, not investment advice.') && c.label.includes('This page shows no price forecast.');
+    x6.checks.labelVisibleWithoutScrolling = !c.innerScroll && c.scrollTop === 0 && c.labelRect.top >= 0 && c.labelRect.bottom <= c.viewportH && c.labelRect.bottom <= c.cardRect.bottom;
+    x6.checks.noPriceOutsideLabel = !/price|\$|dollar|cents|futures|buy|sell/i.test(c.restText);
+    x6.checks.credits = c.creditsHaveSources;
+    await page.screenshot({ path: out });
+    // Step 7 on the page: a money question gets the fixed line and no AI request.
+    const geminiBefore = planRequests.gemini;
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.fill('#plan-sentence', 'should I buy corn futures?');
+    await page.click('#plan-go');
+    await page.waitForFunction(() => document.body.dataset.planDeclined === 'money', null, { timeout: 5_000 }).catch(() => {});
+    x6.money = await page.evaluate(() => ({ note: document.getElementById('plan-note').textContent, resultHidden: document.getElementById('plan-result').hidden }));
+    x6.checks.moneyLine = x6.money.note === MONEY_LINE && x6.money.resultHidden && planRequests.gemini === geminiBefore;
+  }
+
   // ---- X3 --voice: the toggle, one call per minute with exactly the live region's text, one call per
   // finished plan with exactly the result line, and no toggle when the browser has no speechSynthesis.
   let voice = null;
@@ -1398,6 +1479,7 @@ try {
     block7,
     a11y,
     voice,
+    x6,
     blockedConsole,
     oem,
     c2,
@@ -1431,6 +1513,7 @@ try {
     (BLOCK && Object.values(block7.checks).includes(false)) ||
     (A11Y && Object.values(a11y.checks).includes(false)) ||
     (VOICE && Object.values(voice.checks).includes(false)) ||
+    (FORECAST && Object.values(x6.checks).includes(false)) ||
     Object.values(oem.checks).includes(false) ||
     Object.values(c2.checks).includes(false) ||
     Object.values(x5.checks).includes(false) ||
@@ -1457,6 +1540,7 @@ try {
           (FIRST ? `; game: round 1 "${game6.rounds[0].score}" (recomputed ${game6.rounds[0].recomputedKm.toFixed(1)} km; answer = satellite.js at +10 min), rounds ${game6.rounds.map((r) => r.score).join(' / ')}, ${game6.end.totalText.replace(/ That.*/, '')} on the device board (${game6.end.boardRows.length} row), evidence/m6${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png; orbit lab "${game6.lab.text}" at ${game6.lab.alt} km (formula ${game6.lab.recomputed.min.toFixed(2)} min, ${game6.lab.recomputed.kmS.toFixed(3)} km/s)` : '') +
           (A11Y ? `; a11y: sentence "${a11y.whereText}" changed ${a11y.whereChanges.length} time(s) in ${a11y.watchedS} s (other live regions: ${a11y.otherLiveChanges.length} change(s)); axe-core ${a11y.axeVersion} on ${a11y.axe.length} page states: ${a11y.axeTotals.critical} critical, ${a11y.axeTotals.serious} serious, ${a11y.axeTotals.moderate} moderate, ${a11y.axeTotals.minor} minor; keyboard: ${a11y.keyboard.reachedByTab} of ${a11y.keyboard.buttonsVisibleAtSomePoint} buttons seen reached by Tab (${a11y.keyboard.tabPresses} Tab presses, ${a11y.keyboard.passes.length} passes), Enter fired ${a11y.keyboard.enterPressed - a11y.keyboard.enterFailed.length} of ${a11y.keyboard.enterPressed}, focus ring on all, Space on ${Object.keys(a11y.keyboard.spaceOnLinkButtons).length} zoom buttons; keyboard game round "${a11y.game.score}"; evidence/c3.png` : '') +
           (VOICE ? `; voice: toggle shown, 1 call ${voice.minute.afterClickS} s after the click with exactly the sentence "${voice.minute.text}", plans: ${voice.plans.map((p) => `${p.newCalls} call "${p.text}"`).join(' / ')}, caption = spoken text, no speechSynthesis -> no toggle; ${voice.totalCalls} calls in all; evidence/x3.png` : '') +
+          (FORECAST ? `; forecast lab: the button opened the card in place, [data-skill-yield] ${x6.card.skillYield}, [data-skill-price] ${x6.card.skillPrice}, ${x6.card.images.length} NASA images drawn (${x6.card.images.map((i) => `${i.day} ${i.w}x${i.h} shown ${i.shownW}x${i.shownH}`).join(', ')}), chart lines of ${x6.card.chartPaths.join('/')} points, label at ${x6.card.labelRect.top}-${x6.card.labelRect.bottom} px of a ${x6.card.viewportH} px window with the card at the top and no inner scroll, no price text outside the label, the 4 sources in the credits; "should I buy corn futures?" -> "${x6.money.note}" with 0 AI requests; evidence/x6.png` : '') +
           (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : ''),
   );
 } finally {

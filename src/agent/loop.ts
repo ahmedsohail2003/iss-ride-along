@@ -7,9 +7,23 @@ import { audit, type AuditResult } from './audit';
 import { buildCard, runFixedPlan, type Controls, type PlanResult } from './fixedPlan';
 import { fmtClock, nextDates, weekdayOf } from './format';
 import { ProviderError, type Provider, type Turn } from './providers';
+import { isMoneyQuestion, MONEY_LINE } from './money';
 import { orbitDataAge, runTool, SEARCH_DAYS, TOOL_DEFS, type RunContext } from './tools';
 
 export const LIMITS = { maxCalls: 6, replyMs: 15_000, runMs: 30_000 };
+
+/** The result for a money question: the fixed line as the card, no pass, no model call. */
+export function declineMoney(): AgentResult {
+  return {
+    mode: 'fixed plan',
+    card: { kind: 'none', headline: MONEY_LINE, lines: [], why: '', orbitLine: null, passId: null, startMs: null },
+    fallbackReason: null,
+    audit: null,
+    modelCalls: 0,
+    seconds: 0,
+    text: '',
+  };
+}
 
 export interface AgentResult extends PlanResult {
   audit: AuditResult | null;
@@ -75,6 +89,8 @@ export interface AgentOptions {
 }
 
 export async function runAgent(o: AgentOptions): Promise<AgentResult> {
+  // X6 step 7: money questions get the fixed line before any model call (src/agent/money.ts).
+  if (isMoneyQuestion(o.sentence)) return declineMoney();
   const limits = o.limits ?? LIMITS;
   const ctx = o.ctx;
   ctx.sentence = o.sentence;

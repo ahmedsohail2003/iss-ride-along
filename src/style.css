@@ -259,3 +259,31 @@ button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align
 .voice-toggle[hidden], .voice-caption[hidden] { display: none; }
 .voice-caption { margin: 0; flex: 1 1 18rem; }
 .voice-said { font-weight: 600; }
+/* X6 Forecast lab */
+.fc-card-wrap { grid-column: 1 / -1; }
+.fc-card { margin-top: 0.6rem; }
+.fc-belt-on { color: #ffd166; opacity: 1; }
+.fc-title { margin: 0 0 0.5rem; font-size: 0.95rem; }
+.fc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
+@media (max-width: 860px) { .fc-grid { grid-template-columns: 1fr; } }
+.fc-imgs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.fc-img { margin: 0; }
+.fc-img img { display: block; width: 100%; height: auto; border-radius: 4px; background: #050814; image-rendering: auto; }
+.fc-img figcaption { margin-top: 0.3rem; }
+.fc-green { display: block; margin-top: 0.2rem; }
+.fc-forecast { margin: 0 0 0.3rem; }
+.fc-baselines { margin: 0.3rem 0; }
+.fc-label { margin: 0.5rem 0; padding: 0.5rem 0.7rem; border-left: 4px solid #f5b041; background: rgba(245, 176, 65, 0.12); border-radius: 4px; font-size: 0.85rem; }
+.fc-chart { display: block; width: 100%; max-width: 46rem; height: auto; margin-top: 0.6rem; }
+.fc-chart text { fill: #c9d4ee; font-size: 11px; }
+.fc-chart .fc-axis { font-size: 10px; opacity: 0.8; }
+.fc-chart .fc-gl { stroke: #23304d; stroke-width: 1; }
+.fc-chart path { fill: none; stroke-width: 2; }
+.fc-chart .fc-actual { stroke: #ffffff; }
+.fc-chart .fc-sat { stroke: #7fdbff; }
+.fc-chart .fc-trend { stroke: #f5b041; stroke-dasharray: 5 4; }
+.fc-legend { margin: 0.2rem 0 0; }
+.fc-key { display: inline-block; width: 1.2rem; height: 0; border-top: 2px solid; vertical-align: middle; margin: 0 0.2rem 0 0.6rem; }
+.fc-key-actual { border-color: #ffffff; }
+.fc-key-sat { border-color: #7fdbff; }
+.fc-key-trend { border-color: #f5b041; border-top-style: dashed; }
