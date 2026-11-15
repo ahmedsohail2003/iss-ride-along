@@ -92,6 +92,12 @@ styles a short monospace label sits next to the station (its height and speed co
 to the chosen town after a plan (the day and time from the plan card), a faint grid lies behind the page, and a
 soft rim of light runs round the edge of the globe.
 
+The type and the cards (G6): the whole page is set in Geist, with Geist Mono for the numbers (both under the SIL
+Open Font License 1.1, from npm, built into the page so no font is fetched). In the 3D view a two-tone headline,
+"Plan the one pass / worth going outside for.", sits above the globe, the cards are rounder with thin borders,
+the main button is white, the switches are segmented, and a "Code" link in the header opens this repo. Like G5,
+the look was modelled on Ahmed's earlier RoBuff page from his screenshots; all code was written new at this event.
+
 **When the flat page opens instead:** the device has no WebGL2, draws in software, is slow (30 frames
 drawn back to back take a median of more than 33 ms each), or asks for reduced motion; or the page was
 not being drawn when it checked (then it checks once more when it is shown). "Play" in the Game tab

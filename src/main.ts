@@ -15,6 +15,7 @@
 // G3: the Sky tab's stars behind the globe (src/globe/stars.ts) and, in the 3D view only, the scroll story #story
 // under the tabs (src/globe/storyUi.ts; the camera for each scene from src/globe/story.ts).
 import 'leaflet/dist/leaflet.css';
+import './fonts.css';
 import './style.css';
 import * as L from 'leaflet';
 import tleText from './data/iss.tle?raw';
@@ -41,7 +42,7 @@ import { initVoice, voiceHtml } from './ui/voice';
 import { initSkyPanel, skyPanelHtml } from './sky/skyPanel';
 import { initView } from './globe/view';
 import { createGlobe, type Globe, type GlobeStyle } from './globe/globe';
-import { DOTS_ON } from './globe/dots';
+import { DEFAULT_STYLE, DOTS_ON } from './globe/dots';
 import { passLabel, stationLabel } from './globe/hud';
 import { passTexts } from './agent/tools';
 import { orbitPoints, passPoints, type OrbitPoint } from './globe/geo';
@@ -50,6 +51,7 @@ import { subsolarPoint } from './orbit/daynight';
 import globeImageUrl from './data/globe/bluemarble-2048.jpg';
 import { STORY_ON } from './globe/story';
 import { initStory, storyHtml } from './globe/storyUi';
+import { codeLinkHtml, heroHtml, initLook2, markSvg } from './ui/hero';
 
 // M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
 // box, the next-pass line for the chosen place and a small "How accurate is this?" card. Everything
@@ -58,13 +60,15 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 applyLook(document.documentElement);
 app.innerHTML = `
   <header class="top">
-    <h1>ISS Ride-Along</h1>
+    <h1>${markSvg}ISS Ride-Along</h1>
     <span class="look-badge">3D globe</span>
     <p class="tag">Where the International Space Station is right now, and when you can see it, computed in your browser from public orbit data.</p>
+    ${codeLinkHtml}
   </header>
   ${warningsHtml}
   <main class="layout">
     <section class="map-wrap" aria-label="Where the station is">
+      ${heroHtml}
       <p id="where-now" class="where-now" aria-live="polite" aria-atomic="true"></p>
 ${voiceHtml}
       ${gameBarHtml}
@@ -136,6 +140,9 @@ ${voiceHtml}
   ${briefSheetHtml}
 `;
 
+// G6: the card look (body.look2) and the tag pills on three cards; the hero copy and the header are in the HTML above.
+initLook2();
+
 const $ = (id: string) => document.getElementById(id)!;
 
 // ---- Orbit elements: newest of embedded and saved now; one live fetch in the background.
@@ -198,13 +205,16 @@ function feedGlobe(g: Globe, now = new Date()) {
   g.setStyle(globeStyle);
   g.setLabels(stationLabel($('alt').textContent ?? '', $('speed').textContent ?? ''), passHud);
 }
-// ---- G5: the globe's style (Photo / Dots), kept for the tab like the view choice; Photo by default.
+// ---- G5: the globe's style (Photo / Dots), kept for the tab like the view choice. G6: the default is one
+// constant, DEFAULT_STYLE in src/globe/dots.ts (every smoke run names the style it wants).
 const STYLE_STORAGE_KEY = 'iss-ride-along-style';
 let globeStyle: GlobeStyle = (() => {
+  if (!DOTS_ON) return 'photo';
   try {
-    return DOTS_ON && sessionStorage.getItem(STYLE_STORAGE_KEY) === 'dots' ? 'dots' : 'photo';
+    const saved = sessionStorage.getItem(STYLE_STORAGE_KEY);
+    return saved === 'dots' || saved === 'photo' ? saved : DEFAULT_STYLE;
   } catch {
-    return 'photo';
+    return DEFAULT_STYLE;
   }
 })();
 /** G5: the chosen pass's label (the town, and the night and start as the plan card prints them). */

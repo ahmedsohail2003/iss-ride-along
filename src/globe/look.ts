@@ -7,6 +7,8 @@ export const LOOK = {
   page: '#000000',
   panel: '#0c0c0e',
   raised: '#17171a',
+  // G6: the pressed half of a segmented switch (a dark track, the pressed half lighter)
+  pressed: '#2c2c31',
   line: '#2e2e33',
   text: '#f4f4f5',
   muted: '#a1a1aa',
@@ -38,6 +40,15 @@ export const TEXT_ON: [text: LookKey, on: LookKey, where: string][] = [
   ['muted', 'line', 'the grey second line over a grid line or speck'],
   ['accent', 'line', 'links on the page over a grid line or speck'],
   ['pass', 'panel', 'the town on the pass label'],
+  // G6: the hero copy, the card look's buttons, pills, switches and inputs
+  ['text', 'page', 'the hero headline line one, the pill, the Code link'],
+  ['muted', 'page', 'the hero headline line two'],
+  ['text', 'panel', 'outline buttons and example pills in cards'],
+  ['muted', 'panel', 'the tag pills on the cards'],
+  ['onLight', 'text', 'the white main button (Plan my sighting) and its arrow'],
+  ['text', 'pressed', 'the pressed half of the view and style switches'],
+  ['muted', 'raised', 'the unpressed half of the switches, input placeholders'],
+  ['text', 'raised', 'input values in the mono face'],
 ];
 
 const lin = (c: number) => {

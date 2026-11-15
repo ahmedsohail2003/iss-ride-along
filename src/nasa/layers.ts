@@ -357,6 +357,7 @@ export function initNasaLayers(map: L.Map): NasaLayers {
       <li>${esc(C.CREDIT_GIBS_LAYERS)}</li>
       <li>${esc(C.creditGlobeImage(globeImageMeta.retrievedAt.slice(0, 10)))}</li>
       <li>${esc(C.CREDIT_THREE)}</li>
+      <li>${esc(C.CREDIT_FONTS)}</li>
       <li>${esc(C.CREDIT_EONET)}. ${esc(C.CREDIT_EONET_SOURCES)}</li>
       <li>${esc(C.CREDIT_PHOTOS)}
         <ul class="small">${photos.map((p) => `<li>${esc(p.place)}: ${esc(photoCreditLine(p))}</li>`).join('')}</ul></li>

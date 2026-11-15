@@ -103,7 +103,7 @@ Data: CelesTrak (US Space Force tracking data, not NASA), NASA GIBS, EONET, the 
 ## Box F: built with (Project details)
 
 ```text
-TypeScript, Vite, Leaflet, three.js, satellite.js, Vitest, Playwright, GitHub Actions, GitHub Pages, Gemini API, Exa
+TypeScript, Vite, Leaflet, three.js, Geist, satellite.js, Vitest, Playwright, GitHub Actions, GitHub Pages, Gemini API, Exa
 ```
 
 ## Box G: "Try it out" links (Project details)

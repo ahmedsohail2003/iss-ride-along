@@ -11,6 +11,8 @@ import { latLonToVec3, type Vec3 } from './geo';
 
 /** One constant switches the whole dotted style off (the Photo / Dots switch is then not shown). */
 export const DOTS_ON = true;
+/** G6: the style the globe opens in when the tab has no saved choice ('photo' or 'dots'); one line to change. */
+export const DEFAULT_STYLE: 'photo' | 'dots' = 'photo';
 /** About 40,000 points on the sphere; after the sea is thinned about 26,000 are drawn. */
 export const DOTS_N = 40_000;
 /** Dots sit just above the dark sphere that hides the far side. */

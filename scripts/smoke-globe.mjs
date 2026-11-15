@@ -351,6 +351,7 @@ export async function globeChecks({ page, w, h, evidence, subsolarAt }) {
     mapShown: getComputedStyle(document.getElementById('map')).display !== 'none',
     stationRgb: window.__iss3d?.STATION_RGB ?? null,
     headerH: document.querySelector('header.top').getBoundingClientRect().height,
+    headerTop: document.querySelector('header.top').getBoundingClientRect().top + window.scrollY, // on the page, not the window
   }));
   Object.assign(g, base);
   g.webgl = await glAlive(page);
@@ -444,10 +445,13 @@ export async function globeChecks({ page, w, h, evidence, subsolarAt }) {
     tracks: document.querySelectorAll('.leaflet-overlay-pane path.track-line').length,
     night: document.querySelectorAll('.leaflet-night-pane path.night-shade').length,
     headerH: document.querySelector('header.top').getBoundingClientRect().height,
+    headerTop: document.querySelector('header.top').getBoundingClientRect().top + window.scrollY, // on the page, not the window
   }));
   // G2: the new look keeps the header no taller than the flat page's (the planner stays on the first screen)
-  g.header = { h3d: base.headerH, hFlat: g.flat.headerH };
+  g.header = { h3d: base.headerH, hFlat: g.flat.headerH, top3d: base.headerTop, topFlat: g.flat.headerTop };
   C.headerNoTallerIn3d = g.header.h3d <= g.header.hFlat;
+  // G6: the fonts are page-wide, so header.top has the same top and height in both views
+  C.headerSameTopAndHeight = Math.abs(g.header.h3d - g.header.hFlat) < 0.5 && Math.abs(g.header.top3d - g.header.topFlat) < 0.5;
   g.flat.mapShown = await isShown(page, '#map');
   g.flat.globeShown = await isShown(page, '#globe');
   g.flat.tiles = await builtInTiles(page);
@@ -1070,5 +1074,119 @@ export async function fpsReading({ page }) {
   const wrap = (v) => ((((v + 180) % 360) + 360) % 360) - 180;
   r.turnedDeg = before.centre && now.centre ? Math.abs(wrap(now.centre.lon - before.centre.lon)) : null;
   r.checks = { globeShown: true, frames120: r.framesDrawn >= 121 && r.gapsUsed === 120, globeTurned: r.turnedDeg !== null && r.turnedDeg > 1 };
+  return r;
+}
+
+// G6: RoBuff's type and interface. Run in the default mode of both views at each size: the Geist fonts are loaded
+// and used (body in Geist, #lat in Geist Mono) and no request went to a font host; #hero-copy is shown in 3D with
+// the two headline lines and hidden on the flat page and in print; at 1366x768 in 3D the planner card's top is
+// within 8 px of where it was at commit 6472101 (`plannerTopBaseline`, measured on that build); no sideways
+// scroll, no clipped text in the header, hero, planner, next-pass card, switches and readouts; #hero-copy, the
+// globe and the planner card do not overlap; the Code link names the repo; nothing new animates.
+export async function g6Checks({ page, w, h, view, plannerTopBaseline, requestUrls, repoUrl, evidence }) {
+  const C = {};
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const r = await page.evaluate(() => {
+    const shown = (e) => !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0;
+    const box = (e) => {
+      if (!shown(e)) return null;
+      const b = e.getBoundingClientRect();
+      return { top: +b.top.toFixed(1), left: +b.left.toFixed(1), right: +b.right.toFixed(1), bottom: +b.bottom.toFixed(1) };
+    };
+    const key = (e) => (e.id ? `#${e.id}` : `${e.tagName.toLowerCase()}.${[...e.classList].join('.')}`);
+    const hero = document.getElementById('hero-copy');
+    const code = document.getElementById('code-link');
+    const roots = ['header.top', '#hero-copy', 'section.planner[aria-labelledby="planner-h"]', 'section.next-box', '#view-switch', '#style-switch', '.readout']
+      .map((s) => document.querySelector(s))
+      .filter(shown);
+    const clipped = [];
+    for (const root of roots)
+      for (const e of [root, ...root.querySelectorAll('*')]) {
+        if (!shown(e) || e.closest('svg') || e.matches('input, textarea, select')) continue;
+        const cs = getComputedStyle(e);
+        const hides = cs.overflowX !== 'visible' || cs.overflowY !== 'visible' || cs.textOverflow === 'ellipsis';
+        if (hides && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)) clipped.push(key(e));
+        const hasText = [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+        const b = e.getBoundingClientRect();
+        if (hasText && (b.right > window.innerWidth + 0.5 || b.left < -0.5)) clipped.push(`${key(e)} (past the window's edge)`);
+      }
+    const moving = ['#hero-copy', '#hero-copy *', '#code-link', '.g6-tag', 'header.top .mark']
+      .flatMap((s) => [...document.querySelectorAll(s)])
+      .filter((e) => {
+        const cs = getComputedStyle(e);
+        return cs.animationName !== 'none' || cs.transitionDuration.split(',').some((d) => parseFloat(d) > 0);
+      })
+      .map(key);
+    return {
+      fonts: {
+        geist: document.fonts.check('16px Geist'),
+        mono: document.fonts.check('16px "Geist Mono"'),
+        loaded: [...new Set([...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/["']/g, '')))],
+      },
+      bodyFont: getComputedStyle(document.body).fontFamily,
+      latFont: getComputedStyle(document.getElementById('lat')).fontFamily,
+      heroShown: shown(hero),
+      heroLines: hero ? [...hero.querySelectorAll('.hero-l1, .hero-l2')].map((s) => (shown(s) ? s.textContent : null)) : [],
+      heroPill: hero?.querySelector('.hero-pill')?.textContent ?? '',
+      boxes: {
+        hero: box(hero),
+        globe: box(document.getElementById('globe')),
+        planner: box(document.querySelector('section.planner[aria-labelledby="planner-h"]')),
+        header: box(document.querySelector('header.top')),
+      },
+      code: code
+        ? { shown: shown(code), href: code.href, rel: code.rel, target: code.target, name: code.getAttribute('aria-label') || code.textContent.trim(), text: code.textContent.trim() }
+        : null,
+      tags: [...document.querySelectorAll('.g6-tag')].map((t) => ({ text: t.textContent, hidden: t.getAttribute('aria-hidden'), shown: shown(t) })),
+      look2: document.body.classList.contains('look2'),
+      hScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      clipped,
+      moving,
+    };
+  });
+  // print: the hero copy, the Code link and the tag pills are not printed
+  await page.emulateMedia({ media: 'print' });
+  r.print = await page.evaluate(() =>
+    ['#hero-copy', '#code-link', '.g6-tag']
+      .flatMap((s) => [...document.querySelectorAll(s)])
+      .filter((e) => getComputedStyle(e).display !== 'none')
+      .map((e) => e.id || e.className),
+  );
+  await page.emulateMedia({ media: 'screen' });
+  const fontHost = /fonts\.googleapis|fonts\.gstatic|typekit|fonts\.bunny|fontsource|jsdelivr|unpkg|\.(woff2?|ttf|otf)([?#]|$)/i;
+  r.fontRequests = requestUrls.filter((u) => !/^(data|blob|file):/.test(u) && fontHost.test(u));
+  const overlap = (a, b) => !!a && !!b && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+  const { hero, globe, planner } = r.boxes;
+  r.overlaps = [
+    ['hero', hero, 'globe', globe],
+    ['hero', hero, 'planner', planner],
+    ['globe', globe, 'planner', planner],
+  ]
+    .filter(([, a, , b]) => overlap(a, b))
+    .map(([n, , m]) => `${n}/${m}`);
+  C.fontsLoaded = r.fonts.geist && r.fonts.mono && r.fonts.loaded.includes('Geist') && r.fonts.loaded.includes('Geist Mono');
+  C.bodyInGeist = /^"?Geist"?,/.test(r.bodyFont);
+  C.latInGeistMono = /^"?Geist Mono"?,/.test(r.latFont);
+  C.noFontHostRequest = r.fontRequests.length === 0;
+  C.heroOnlyIn3d =
+    view === '3d'
+      ? r.heroShown && r.heroLines.join('|') === 'Plan the one pass|worth going outside for.' && r.heroPill === 'Hack the Nest 2026 · Low Earth orbit'
+      : !r.heroShown;
+  C.notPrinted = r.print.length === 0;
+  C.noSidewaysScroll = !r.hScroll;
+  C.noClippedText = r.clipped.length === 0;
+  C.noOverlap = r.overlaps.length === 0;
+  C.codeLink =
+    !!r.code && r.code.shown && r.code.href === repoUrl && /\bnoopener\b/.test(r.code.rel) && r.code.target === '_blank' && r.code.text === 'Code' && r.code.name.startsWith(r.code.text);
+  C.tagsDecorative = r.tags.length === 3 && r.tags.every((t) => t.hidden === 'true') && (view === '3d' ? r.tags.every((t) => t.shown) : r.tags.every((t) => !t.shown));
+  C.nothingNewMoves = r.moving.length === 0;
+  if (view === '3d' && w === 1366 && h === 768) {
+    r.plannerTop = planner?.top ?? null;
+    r.plannerTopBaseline = plannerTopBaseline;
+    C.plannerTopWithin8px = r.plannerTop !== null && Math.abs(r.plannerTop - plannerTopBaseline) <= 8;
+  }
+  if (evidence) await page.screenshot({ path: evidence });
+  r.checks = C;
   return r;
 }

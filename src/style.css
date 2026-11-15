@@ -1,5 +1,5 @@
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans); /* since G6, Geist (src/fonts.css), with the system face as the fallback */
   color: #e8ecf1;
   background: #0b1020;
   line-height: 1.45;
@@ -34,7 +34,7 @@ button:disabled { opacity: 0.6; cursor: wait; }
 button:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
 .ref-result { min-height: 1.5rem; font-size: 0.92rem; }
 .ref-result strong { font-size: 1.15rem; color: #3ecf8e; }
-code { font-family: ui-monospace, Consolas, monospace; }
+code { font-family: var(--font-mono); }
 .small { font-size: 0.8rem; opacity: 0.75; }
 .iss-icon { position: relative; }
 .iss-dot {
@@ -348,7 +348,7 @@ body[data-view="3d"] .age-stale { border-color: var(--g-bad); }
 body[data-view="3d"] .place-form input { color: var(--g-text); background: var(--g-raised); border-color: var(--g-line); }
 body[data-view="3d"] .passes th, body[data-view="3d"] .passes td, body[data-view="3d"] .sources-table th, body[data-view="3d"] .sources-table td { border-bottom-color: var(--g-line); }
 body[data-view="3d"] .readout dd, body[data-view="3d"] .passes table, body[data-view="3d"] .countdown, body[data-view="3d"] #orbit-lab,
-body[data-view="3d"] .ref-result strong, body[data-view="3d"] .oem-gap strong { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-variant-numeric: tabular-nums; }
+body[data-view="3d"] .ref-result strong, body[data-view="3d"] .oem-gap strong { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 body[data-view="3d"] .ref-result strong, body[data-view="3d"] .oem-gap strong { color: var(--g-good); }
 body[data-view="3d"] .plan-fallback, body[data-view="3d"] .plan-orbit { color: var(--g-warn); }
 body[data-view="3d"] .trace-bad strong { color: var(--g-bad); }
@@ -364,7 +364,7 @@ body[data-view="3d"] #story { display: block; margin: 1.5rem 0 0; }
 .scene-card { max-width: 30rem; background: var(--g-page); border: 1px solid var(--g-line); border-radius: 10px; padding: 1rem 1.2rem; }
 .scene-card h2 { margin: 0 0 0.35rem; font-size: 1.35rem; color: var(--g-text); letter-spacing: -0.01em; }
 .scene-card p { margin: 0; color: var(--g-muted); }
-.scene-card span { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-variant-numeric: tabular-nums; color: var(--g-text); }
+.scene-card span { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--g-text); }
 body[data-view="3d"].story-on { background: transparent; }
 body[data-view="3d"].story-on #globe canvas { position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; cursor: default; }
 body[data-view="3d"].story-on .tabs-wrap, body[data-view="3d"].story-on footer { position: relative; background: var(--g-page); }
@@ -384,7 +384,7 @@ body[data-view="3d"] .style-switch button:last-child { border-radius: 0 999px 99
 body[data-view="3d"] .style-switch button[aria-pressed="true"] { color: var(--g-onLight); background: var(--g-text); }
 body[data-view="3d"] .style-switch button:focus-visible { position: relative; z-index: 1; }
 body[data-view="3d"].story-on .style-switch { display: none; }
-.hud { position: absolute; z-index: 2; left: 0; top: 0; pointer-events: none; display: flex; flex-direction: column; gap: 0.05rem; padding: 0.2rem 0.45rem; font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.68rem; line-height: 1.25; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--g-text); background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 4px; }
+.hud { position: absolute; z-index: 2; left: 0; top: 0; pointer-events: none; display: flex; flex-direction: column; gap: 0.05rem; padding: 0.2rem 0.45rem; font-family: var(--font-mono); font-size: 0.68rem; line-height: 1.25; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--g-text); background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 4px; }
 .hud[hidden] { display: none; }
 .hud .hud-l1 { color: var(--g-accent); }
 .hud .hud-l2 { color: var(--g-text); }
@@ -405,3 +405,58 @@ body[data-view="3d"]:not(.story-on) {
   background-attachment: fixed;
 }
 @media print { .style-switch, .hud { display: none !important; } }
+
+
+/* G6: RoBuff's type and interface on our page, written new at this event (modelled on the look of Ahmed's earlier
+   RoBuff page from his screenshots; nothing opened or copied from it). Page-wide, in both views: Geist for text,
+   Geist Mono for the readout numbers (src/fonts.css), and the header's mark and "Code" link (same size in both
+   views, so header.top keeps one height). 3D view only: the hero copy (#hero-copy, src/ui/hero.ts HERO_ON) and,
+   behind body.look2 (LOOK2_ON), the card look. Colours only from the --g-* set (tests/globe.test.ts and
+   tests/g6.test.ts check every text colour on its background). Nothing here moves or animates. */
+.readout dd { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.top h1 { display: inline-flex; align-items: center; gap: 0.4rem; }
+.top h1 .mark { flex: none; width: 1.1rem; height: 1.1rem; }
+.code-link {
+  align-self: center; margin-left: auto; display: inline-block; padding: 0.15rem 0.75rem; font-size: 0.82rem; font-weight: 600;
+  line-height: 1.3; color: inherit; text-decoration: none; border: 1px solid currentColor; border-radius: 8px; white-space: nowrap;
+}
+@media (max-width: 860px) { .top .code-link { order: 1; } .top .tag { order: 2; flex-basis: 100%; } }
+.hero-copy, .g6-tag { display: none; }
+body[data-view="3d"] .hero-copy { display: block; margin: 0.15rem 0 0.7rem; }
+body[data-view="3d"] .hero-pill {
+  display: inline-flex; align-items: center; gap: 0.45rem; margin: 0 0 0.55rem; padding: 0.18rem 0.7rem; font-size: 0.78rem;
+  color: var(--g-text); background: var(--g-page); border: 1px solid var(--g-line); border-radius: 999px;
+}
+body[data-view="3d"] .hero-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--g-text); }
+body[data-view="3d"] .hero-title { margin: 0; font-size: clamp(1.7rem, 2.9vw, 2.5rem); font-weight: 600; line-height: 1.04; letter-spacing: -0.035em; }
+body[data-view="3d"] .hero-l1 { display: block; color: var(--g-text); }
+body[data-view="3d"] .hero-l2 { display: block; color: var(--g-muted); }
+body[data-view="3d"] .code-link { color: var(--g-text); border-color: var(--g-line); background: var(--g-page); }
+body[data-view="3d"] .top h1 .mark { color: var(--g-text); }
+/* the card look (body.look2) */
+body.look2[data-view="3d"] .card, body.look2[data-view="3d"] .panel, body.look2[data-view="3d"] .credits { border-radius: 18px; border-color: var(--g-line); }
+body.look2[data-view="3d"] #globe { border-radius: 18px; }
+body.look2[data-view="3d"] .next-box { border-color: var(--g-good); }
+/* the tag pill sits on the card's top border, like a legend, so it adds no height (the planner and the next-pass
+   card stay where M7's first-screen check wants them) */
+body.look2[data-view="3d"] .side .card { position: relative; }
+body.look2[data-view="3d"] .g6-tag {
+  display: inline-block; position: absolute; top: 0; left: 0.9rem; transform: translateY(-50%); margin: 0; padding: 0.05rem 0.5rem; background: var(--g-panel); font-family: var(--font-mono); font-size: 0.62rem; font-weight: 500;
+  line-height: 1.5; letter-spacing: 0.1em; text-transform: uppercase; color: var(--g-muted); border: 1px solid var(--g-line); border-radius: 999px;
+}
+body.look2[data-view="3d"] button { color: var(--g-text); background: var(--g-panel); border: 1px solid var(--g-line); border-radius: 999px; }
+body.look2[data-view="3d"] #plan-go, body.look2[data-view="3d"] .voice-toggle[aria-pressed="true"] { color: var(--g-onLight); background: var(--g-text); border-color: var(--g-text); }
+body.look2[data-view="3d"] #plan-go::after { content: '\00a0\2192' / ''; }
+body.look2[data-view="3d"] button.linkish { color: var(--g-accent); background: none; border: 0; border-radius: 0; }
+body.look2[data-view="3d"] .planner .example { border-radius: 999px; font-weight: 500; }
+body.look2[data-view="3d"] .planner .plain-controls { border-color: var(--g-line); border-radius: 12px; }
+body.look2[data-view="3d"] .planner input:not([type="checkbox"]), body.look2[data-view="3d"] .place-form input {
+  font-family: var(--font-mono); color: var(--g-text); background: var(--g-raised); border: 1px solid var(--g-line); border-radius: 8px; color-scheme: dark;
+}
+body.look2[data-view="3d"] .planner input::placeholder, body.look2[data-view="3d"] .place-form input::placeholder { color: var(--g-muted); opacity: 1; }
+body.look2[data-view="3d"] .view-switch, body.look2[data-view="3d"] .style-switch { gap: 2px; padding: 2px; background: var(--g-raised); border: 1px solid var(--g-line); border-radius: 999px; }
+body.look2[data-view="3d"] .view-switch button, body.look2[data-view="3d"] .style-switch button { color: var(--g-muted); background: var(--g-raised); border: 0; border-radius: 999px; }
+body.look2[data-view="3d"] .view-switch button[aria-pressed="true"], body.look2[data-view="3d"] .style-switch button[aria-pressed="true"] { color: var(--g-text); background: var(--g-pressed); }
+body.look2[data-view="3d"] .readout dt { letter-spacing: 0.12em; }
+body.look2[data-view="3d"] .tabs .tab { border-color: var(--g-line); }
+@media print { .hero-copy, .g6-tag, .code-link { display: none !important; } }

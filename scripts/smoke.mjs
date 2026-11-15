@@ -135,7 +135,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { freemem, tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { armTurnWatch, autoCases, dotsChecks, fpsReading, globeChecks, gpuRun, globeKeyboard, globePassChecks, hudChecks, hudPassCheck, storyChecks, waitForGlobe } from './smoke-globe.mjs';
+import { armTurnWatch, autoCases, dotsChecks, fpsReading, globeChecks, gpuRun, globeKeyboard, globePassChecks, g6Checks, hudChecks, hudPassCheck, storyChecks, waitForGlobe } from './smoke-globe.mjs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { builtHash, sourceHash } from './source-hash.mjs';
@@ -323,6 +323,18 @@ const consoleErrors = [];
 const pageErrors = [];
 const requests = { file: 0, mockedCelestrak: 0, mockedEonet: 0, mockedGibs: 0, blocked: [], network: [], refusedOffline: [] };
 
+// G6: the style every run asks for (see the init script below).
+const STYLE_INIT = () => {
+  try {
+    if (!sessionStorage.getItem('iss-ride-along-style')) sessionStorage.setItem('iss-ride-along-style', 'photo');
+  } catch {}
+};
+// G6: the planner card's top in the 3D view at 1366x768 on the page built from commit 6472101 (before G6), measured
+// on that build at 8:52 AM Sun with the same window, SwiftShader flags and an empty warnings list, as in this
+// script's default runs (the workspace's .autopilot/scratch/g6-measure.mjs): 55.3 px in both views.
+const G6_PLANNER_TOP_6472101 = 55.3;
+const G6_REPO_URL = 'https://github.com/ahmedsohail2003/iss-ride-along';
+const allRequestUrls = [];
 const SWIFTSHADER = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
 const browser = await chromium.launch({ channel: 'chrome', headless: true, ...(VIEW !== 'flat' && !GPU ? { args: SWIFTSHADER } : {}) });
 if (GPU) console.log('R2 --gpu: Chrome launched headless with no extra flags (no SwiftShader flags, no --ignore-gpu-blocklist)');
@@ -332,6 +344,9 @@ try {
   const context = await browser.newContext({ viewport: { width: w, height: h }, offline: OFFLINE, ...(A11Y ? { reducedMotion: 'reduce' } : {}) });
   const page = await context.newPage();
   // M7: unhandled promise rejections are counted as uncaught errors too.
+  // G6: every run names the globe style it wants, so DEFAULT_STYLE (src/globe/dots.ts) can change in one line:
+  // Photo, unless this tab already chose (the --style dots run presses Dots itself and checks it is kept).
+  await page.addInitScript(STYLE_INIT);
   await page.addInitScript(() => {
     window.__unhandled = [];
     window.addEventListener('unhandledrejection', (e) => window.__unhandled.push(String(e.reason)));
@@ -368,6 +383,7 @@ try {
     else consoleErrors.push(m.text());
   });
   page.on('pageerror', (e) => pageErrors.push(String(e)));
+  page.on('request', (q) => allRequestUrls.push(q.url()));
   page.on('response', (r) => {
     const m = GIBS_TILE.exec(r.url());
     if (m) gibsResponses.push({ day: m[1], zyx: `${m[2]}/${m[3]}/${m[4]}`, status: r.status(), kind: r.request().resourceType() });
@@ -459,6 +475,7 @@ try {
       const errors = [];
       pg.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
       pg.on('pageerror', (e) => errors.push(String(e)));
+      await pg.addInitScript(STYLE_INIT);
       if (init) await pg.addInitScript(init, initArg);
       await pg.route('**/*', handleRoute);
       return { page: pg, errors, close: () => ctx.close() };
@@ -608,6 +625,14 @@ try {
     }
   } else if (VIEW === '3d') {
     globe = { checks: { view3d: (await waitForGlobe(page)) && (await page.evaluate(() => document.body.dataset.view)) === '3d' } };
+  }
+  // ---- G6: the type, the hero copy and the card look (default mode, both views, before anything is pressed).
+  let g6 = null;
+  if (FIRST) {
+    const sizeTag = w === 1366 && h === 768 ? '' : `-${w}x${h}`;
+    mkdirSync(resolve('evidence'), { recursive: true });
+    g6 = await g6Checks({ page, w, h, view: VIEW, plannerTopBaseline: G6_PLANNER_TOP_6472101, requestUrls: allRequestUrls, repoUrl: G6_REPO_URL, evidence: resolve(`evidence/g6-${VIEW}${sizeTag}.png`) });
+    if (VIEW === '3d' && globe?.checks?.headerSameTopAndHeight !== undefined) g6.checks.headerSameTopAndHeight = globe.checks.headerSameTopAndHeight;
   }
   const first = await read();
   await page.waitForTimeout(2500);
@@ -1715,6 +1740,26 @@ try {
     a11y.pair = pair;
     await page.evaluate(() => document.getElementById('__kb-start')?.remove());
     const reached = [...kb.reached];
+    // G6: the header's Code link is reached by Tab (it is a link, so the button walk above skips it).
+    await page.evaluate(() => {
+      let s = document.getElementById('__kb-start');
+      if (!s) {
+        s = document.createElement('span');
+        s.id = '__kb-start';
+        s.tabIndex = -1;
+        document.body.prepend(s);
+      }
+      window.scrollTo(0, 0);
+      s.focus();
+    });
+    const codeReached = await tabTo('#code-link', 60);
+    a11y.codeLink = {
+      reached: codeReached,
+      ...(await page.evaluate(() => {
+        const a = document.getElementById('code-link');
+        return { focused: document.activeElement === a, name: a?.getAttribute('aria-label') ?? '', text: a?.textContent.trim() ?? '', href: a?.href ?? '', ring: a ? getComputedStyle(a).outlineWidth : '' };
+      })),
+    };
     a11y.keyboard = {
       passes: kb.passes,
       tabPresses: kb.tabPresses,
@@ -1779,6 +1824,7 @@ try {
       axeNoSerious: a11y.axeTotals.serious === 0,
       axeNoCritical: a11y.axeTotals.critical === 0,
       everyButtonReachedByTab: a11y.keyboard.notReached.length === 0 && a11y.keyboard.reachedByTab > 0,
+      codeLinkByTab: a11y.codeLink.reached && a11y.codeLink.focused && a11y.codeLink.name.startsWith('Code') && a11y.codeLink.href === G6_REPO_URL && parseFloat(a11y.codeLink.ring) >= 2,
       everyEnterActivates: a11y.keyboard.enterFailed.length === 0 && a11y.keyboard.enterPressed >= a11y.keyboard.reachedByTab,
       focusRingOnEvery: a11y.keyboard.noFocusRing.length === 0,
       spaceOnZoomButtons: Object.keys(kb.spaceOk).length >= 2 && Object.values(kb.spaceOk).every(Boolean),
@@ -2012,7 +2058,9 @@ try {
     ids.missing.length > 0 ||
     (VIEW === 'flat' && info.storyShown) ||
     (VIEW === 'flat' && info.g5Shown.length > 0) ||
-    (globe && Object.values(globe.checks).includes(false));
+    (globe && Object.values(globe.checks).includes(false)) ||
+    (g6 && Object.values(g6.checks).includes(false));
+  if (g6) console.log(JSON.stringify({ g6 }, null, 2));
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
     failed
@@ -2038,6 +2086,14 @@ try {
           (VOICE ? `; voice: toggle shown, 1 call ${voice.minute.afterClickS} s after the click with exactly the sentence "${voice.minute.text}", plans: ${voice.plans.map((p) => `${p.newCalls} call "${p.text}"`).join(' / ')}, caption = spoken text, no speechSynthesis -> no toggle; ${voice.totalCalls} calls in all; evidence/x3.png` : '') +
           (FORECAST ? `; forecast lab: the button opened the card in place, [data-skill-yield] ${x6.card.skillYield}, [data-skill-price] ${x6.card.skillPrice}, ${x6.card.images.length} NASA images drawn (${x6.card.images.map((i) => `${i.day} ${i.w}x${i.h} shown ${i.shownW}x${i.shownH}`).join(', ')}), chart lines of ${x6.card.chartPaths.join('/')} points, label at ${x6.card.labelRect.top}-${x6.card.labelRect.bottom} px of a ${x6.card.viewportH} px window with the card at the top and no inner scroll, no price text outside the label, the 4 sources in the credits; "should I buy corn futures?" -> "${x6.money.note}" with 0 AI requests; evidence/x6.png` : '') +
           `; view ${VIEW}: 0 of ${ids.baseline} baseline ids missing (${ids.now} on the page)` +
+          (g6
+            ? `; G6: document.fonts.check Geist ${g6.fonts.geist}, Geist Mono ${g6.fonts.mono} (loaded faces: ${g6.fonts.loaded.join(', ')}), body font "${g6.bodyFont.split(',')[0]}", #lat font "${g6.latFont.split(',')[0]}", ${g6.fontRequests.length} font-host requests of ${allRequestUrls.length}; #hero-copy ${g6.heroShown ? `shown ("${g6.heroLines.join('" / "')}", pill "${g6.heroPill}")` : 'not shown'}, not printed; ` +
+              `boxes hero ${g6.boxes.hero ? `${g6.boxes.hero.top}-${g6.boxes.hero.bottom}` : '-'}, globe ${g6.boxes.globe ? `${g6.boxes.globe.top}-${g6.boxes.globe.bottom}` : '-'}, planner ${g6.boxes.planner ? `${g6.boxes.planner.top}-${g6.boxes.planner.bottom} x ${g6.boxes.planner.left}-${g6.boxes.planner.right}` : '-'}, no overlap, no clipped text, no sideways scroll` +
+              (g6.plannerTop !== undefined ? `; planner top ${g6.plannerTop} px vs ${g6.plannerTopBaseline} px at 6472101 (within 8)` : '') +
+              (globe?.header ? `; header.top top ${globe.header.top3d}/${globe.header.topFlat} px, height ${globe.header.h3d.toFixed(2)}/${globe.header.hFlat.toFixed(2)} px (3D/flat)` : '') +
+              `; Code link ${g6.code.href} rel "${g6.code.rel}"; ${g6.tags.length} tag pills aria-hidden; nothing new animates; evidence/g6-${VIEW}${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png`
+            : '') +
+          (A11Y ? `; G6 Code link reached by Tab ("${a11y.codeLink.name}", ${a11y.codeLink.href}, ring ${a11y.codeLink.ring}); ${a11y.keyboard.reachedList.length} buttons reached by Tab` : '') +
           (VIEW === 'flat' ? `; #story hidden; #style-switch, #hud-station, #hud-pass not shown (${info.g5Shown.length} shown)` : '') +
           (OUTPUTS ? '; print: #globe, #story and the view switch not shown' : '') +
           (globe?.image
