@@ -29,7 +29,7 @@ This pack is a review of the four study cards in [STUDY_CARDS.md](STUDY_CARDS.md
 - **Leaflet**: a small map library that draws the flat map, the station and its path. **three.js**: a 3D drawing library (MIT) that draws the globe from the same numbers; a drawing of computed positions, not a live camera.
 - **NASA GIBS, EONET, Image and Video Library**: the map (the cloud-free Blue Marble by default; the dated daily satellite photo with its clouds behind the switch "Daily satellite photo (with clouds)" under the map), the list of open natural events and the astronaut photos. **NASA's ISS trajectory file**: the check in number 2.
 - **Gemini** (Google's AI model): the planner's model, live-tested. **Exa**: a search engine built for AI, for station news. **Open-Meteo**: the free cloud forecast.
-- **Vitest**: runs the 193 automated tests (193 of 193 passed at 4:57 AM Sunday). **GitHub Actions**: runs them again on every push before the live page updates.
+- **Vitest**: runs the 198 automated tests (198 of 198 passed at 8:15 AM Sunday). **GitHub Actions**: runs them again on every push before the live page updates.
 - **Claude Code**: the AI coding tool that wrote the code (question 1 below).
 
 Full list with versions: [HOW_IT_WORKS.md](../HOW_IT_WORKS.md) "Each tool in one line". Tech stack and licences: [README.md](../README.md) "Built with" and `package.json`.

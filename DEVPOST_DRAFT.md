@@ -84,7 +84,7 @@ NASA's trajectory file uses a different reference frame from SGP4's output. Unco
 - Position: 0.0003 km at most from 10 of 10 positions saved from wheretheiss.at, on the same orbit numbers. This checks our math, not the station's true position.
 - NASA's trajectory: 0.870 km apart after 24 hours and 4.763 km after 72 hours. NASA's file is a prediction too, so this is a distance between two predictions, not a measured error.
 - The agent: 13 of the 14 live Gemini runs in our build log were finished by the AI, each with 0 unverified numbers. In the other, no reply came within 15 seconds; the page now asks once more, then falls back to the fixed plan and says why.
-- 193 of 193 automated tests pass.
+- 198 of 198 automated tests pass.
 
 ## What we learned
 
