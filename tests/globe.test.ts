@@ -8,7 +8,10 @@
 // null; (i) the chooseView table; (j) the speed decision needs a finished array of 30 gaps.
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { angleBetween, cameraFor, circleOnSphere, latLonToVec3, orbitPoints, raySphere, sunVector, vec3ToLatLon, type Vec3 } from '../src/globe/geo';
+import { angleBetween, cameraFor, circleOnSphere, latLonToVec3, orbitPoints, passPoints, raySphere, sunVector, vec3ToLatLon, type Vec3 } from '../src/globe/geo';
+import { contrast, LOOK, TEXT_ON } from '../src/globe/look';
+import { predictForPlace } from '../src/orbit/passes';
+import { YPSILANTI } from '../src/passes-ui';
 import { chooseView, DEFAULT_VIEW, speedDecision, type ProbeResult } from '../src/globe/view';
 import { EARTH_RADIUS_KM, satrecFromTle, stateAt } from '../src/orbit/orbit';
 import { nightLine, subsolarPoint } from '../src/orbit/daynight';
@@ -138,7 +141,7 @@ describe('G1 view choice (src/globe/view.ts)', () => {
     expect(chooseView({ ...base, flag: null, saved: '3d' })).toEqual({ view: '3d', why: 'saved' });
     expect(chooseView({ ...base, flag: 'nonsense', saved: 'flat', def: 'auto' })).toEqual({ view: 'flat', why: 'saved' });
     expect(chooseView({ ...base, flag: null, saved: null })).toEqual({ view: 'flat', why: 'default' });
-    expect(DEFAULT_VIEW).toBe('flat');
+    // (G2 replaces G1's "DEFAULT_VIEW is 'flat'" with its own test below: 'flat' or 'auto')
     // a press beats the flag (and the saved choice, and reduced motion)
     expect(chooseView({ ...base, press: 'flat', flag: '3d', saved: '3d' })).toEqual({ view: 'flat', why: 'press' });
     expect(chooseView({ ...base, press: '3d', flag: 'flat', reducedMotion: true })).toEqual({ view: '3d', why: 'press' });
@@ -170,5 +173,53 @@ describe('G1 view choice (src/globe/view.ts)', () => {
     expect(chooseView({ ...auto, probe: probe(gaps(34)) })).toEqual({ view: 'flat', why: 'slow' });
     expect(chooseView({ ...auto, probe: probe(gaps(33)) })).toEqual({ view: '3d', why: 'auto' });
     expect(chooseView({ ...auto, probe: probe(gaps(33).slice(0, 29)) })).toEqual({ view: 'probe', why: 'auto' });
+  });
+});
+
+// G2 acceptance: the chosen pass given to the globe is the engine's; the 3D look's text is readable; the default view.
+describe('G2 the chosen pass, the look and the default view', () => {
+  test('the pass points given to the globe equal stateAt at the same times within 1e-6 degree, rise to set', () => {
+    const from = new Date(epochMs);
+    const passes = predictForPlace(satrec, YPSILANTI, from, 5).passes;
+    expect(passes.length).toBeGreaterThan(0);
+    let worst = 0;
+    let n = 0;
+    for (const p of passes) {
+      const pts = passPoints(satrec, p.start, p.end);
+      // the flat map's pink arc steps 5 s from the rise; the globe's arc does too, and ends exactly at the set
+      expect(pts[0].t.getTime()).toBe(p.start.getTime());
+      expect(pts[pts.length - 1].t.getTime()).toBe(p.end.getTime());
+      expect(pts.length).toBe(Math.ceil((p.end.getTime() - p.start.getTime()) / 5000) + 1);
+      for (const q of pts) {
+        const s = stateAt(satrec, q.t)!;
+        worst = Math.max(worst, Math.abs(q.latDeg - s.latDeg), lonGap(q.lonDeg, s.lonDeg));
+        expect(Math.abs(q.altKm - s.altKm)).toBeLessThan(1e-6);
+        n++;
+      }
+    }
+    console.log(`G2: ${passes.length} passes, ${n} points, worst difference from stateAt ${worst.toExponential(2)} degree`);
+    expect(worst).toBeLessThan(1e-6);
+  });
+
+  test('each text colour of the 3D look on its panel colour has contrast of at least 4.5 to 1', () => {
+    const rows = TEXT_ON.map(([t, on, where]) => ({ t, on, where, ratio: contrast(LOOK[t], LOOK[on]) }));
+    for (const r of rows) console.log(`G2 contrast ${r.t} ${LOOK[r.t]} on ${r.on} ${LOOK[r.on]}: ${r.ratio.toFixed(2)} (${r.where})`);
+    expect(rows.length).toBeGreaterThanOrEqual(10);
+    for (const r of rows) expect(r.ratio, `${r.t} on ${r.on}`).toBeGreaterThanOrEqual(4.5);
+    // known values: white on black is 21, the formula is WCAG's
+    expect(contrast('#ffffff', '#000000')).toBeCloseTo(21, 9);
+    // and the look's CSS uses only the --g-* colours checked here: no literal colour, no unknown name
+    const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+    const block = css.slice(css.indexOf('/* G2:'));
+    expect(block.length).toBeGreaterThan(500);
+    const rules = block.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(rules.match(/#[0-9a-f]{3,8}|rgba?\(|hsla?\(/gi)).toBeNull();
+    const used = [...rules.matchAll(/var\(--g-([a-zA-Z]+)\)/g)].map((m) => m[1]);
+    expect(used.length).toBeGreaterThan(20);
+    for (const u of used) expect(Object.keys(LOOK), u).toContain(u);
+  });
+
+  test("DEFAULT_VIEW is 'flat' or 'auto'", () => {
+    expect(['flat', 'auto']).toContain(DEFAULT_VIEW);
   });
 });
