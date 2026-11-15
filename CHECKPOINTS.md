@@ -2,6 +2,31 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 7 — Saturday Nov 14, 9:00 PM EST
+
+**Time left:** 12.5 hours to our feature freeze (9:30 AM Sunday), 15 hours to the final Devpost deadline (12:00 PM Sunday).
+
+**Devpost: submitted.** Quinn uploaded the backup video and pressed Submit at 8:28 PM, so the midnight draft is done. The entry stays editable until noon tomorrow. On the project now: Ahmed, Quinn and Denim. **Armeis: please join with the link in the chat.**
+
+**New since checkpoint 6 (both passed an independent check):**
+- **A first screen a stranger can use.** The page now opens with the map, one box ("Where will you be, and when are you free?") and one line that answers the most common question: "Next time you can see it from Detroit: Sun, Nov 15 6:45 PM, look west, 4 min". Type a city and press Enter and that line answers in about a tenth of a second. Everything else sits in four tabs: All passes, What it is flying over, Accuracy and sources, Settings.
+- **Every data source is allowed to fail.** If any of the 8 outside services the page talks to cannot be reached, the page says which one in plain words and keeps working. All 8 were blocked one at a time in the check, and each time the marker kept moving.
+- **What the plan hands you.** After a plan, one button downloads a calendar file for the chosen pass with a reminder 10 minutes before, and another prints a one-page briefing: a family sheet or a class handout with three questions. Every number on the sheets comes from our engine and goes through the same audit.
+- **A new backup video**, 54 seconds, that opens with a real planner run: [docs/demo-backup.mp4](docs/demo-backup.mp4).
+- 92 of 92 automated tests pass.
+
+**Try it:** open https://ahmedsohail2003.github.io/iss-ride-along/ , type your city in the first box and press Enter. Then press "Plan my sighting" and try the calendar button.
+
+**Known small things** (noticed by the check, being fixed next): when the plan picks a later pass than the "next time" line, the page does not yet say why; and after you plan for another city the Place box still shows Ypsilanti.
+
+**Being built next:** those two fixes, then day and night on the map, a small game, accessibility, and, if the night keeps going this well, the star view from the station.
+
+**Still need from you tonight:**
+1. **Which laptop is the demo laptop**, and its owner's screenshot of the trip example running with their own Gemini key ([docs/DEMO_LAPTOP.md](docs/DEMO_LAPTOP.md)). The opening of the demo needs it.
+2. Study cards 3 and 4 out loud, then "card done" ([docs/STUDY_CARDS.md](docs/STUDY_CARDS.md)).
+3. Your own closing line, 12 words at most, about what you learned ([docs/PRESENTING.md](docs/PRESENTING.md) section 2).
+4. Denim and Armeis: your school, for the Devpost form.
+
 ## Checkpoint 6 — Saturday Nov 14, 8:15 PM EST
 
 **Time left:** under 4 hours to the Devpost draft (midnight tonight), 13 hours to our feature freeze (9:30 AM Sunday), 16 hours to the final Devpost deadline (12:00 PM Sunday).
