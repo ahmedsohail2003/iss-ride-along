@@ -116,6 +116,8 @@ const OEM = args.includes('--oem');
 const PATH = args.includes('--path');
 const OUTPUTS = PLAN && args.includes('--outputs');
 const A11Y = args.includes('--a11y');
+// X3 --voice: a stubbed speechSynthesis records what the page says; a second page has no speechSynthesis.
+const VOICE = args.includes('--voice');
 // M7: the 8 live sources, by the host each one's URL constant names in src/.
 const BLOCKABLE = {
   'celestrak.org': { key: 'celestrak', name: 'CelesTrak' },
@@ -133,7 +135,7 @@ if (args.includes('--block') && !BLOCKABLE[BLOCK]) {
   process.exit(1);
 }
 // The M7 first-screen checks run in the default mode (no other mode flag).
-const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y;
+const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y && !VOICE;
 // --path: the click path rows from the presenter pack (M9). Columns: Step | When | Do | Where on screen |
 // Then you see | Say. "Do" is `look`, `click`, `key` (type the test key) or `tick`; "Where" is a backticked
 // CSS selector, optionally followed by the quoted words the element must show.
@@ -167,7 +169,7 @@ if (NET && OFFLINE) {
 }
 const defaultFile = OFFLINE ? 'docs/iss-ride-along-offline.html' : 'dist/index.html';
 const url = opt('--url', pathToFileURL(resolve(defaultFile)).href);
-const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : PATH ? 'evidence/m9-path.png' : A11Y ? 'evidence/c3.png' : BLOCK ? `evidence/m7-block-${BLOCK}.png` : 'evidence/m1.png'));
+const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : PATH ? 'evidence/m9-path.png' : A11Y ? 'evidence/c3.png' : VOICE ? 'evidence/x3.png' : BLOCK ? `evidence/m7-block-${BLOCK}.png` : 'evidence/m1.png'));
 const [w, h] = opt('--size', '1366x768').split('x').map(Number);
 
 // Stale-build guard (M4 fix r2): a file:// page must carry the fingerprint of the current source
@@ -201,7 +203,7 @@ const tle = readFileSync(resolve('src/data/iss.tle'), 'utf8');
 const eonetSnapshot = readFileSync(resolve('src/data/eonet-open.json'), 'utf8');
 const blueMarbleTile = readFileSync(resolve('src/data/bluemarble-z0.jpg'));
 // --plan: the planner's services answered from the saved real replies in tests/fixtures/.
-const planFixtures = PLAN || PATH || FIRST || BLOCK || A11Y
+const planFixtures = PLAN || PATH || FIRST || BLOCK || A11Y || VOICE
   ? {
       openMeteo: JSON.stringify(JSON.parse(readFileSync(resolve('tests/fixtures/openmeteo-ypsilanti.json'), 'utf8')).reply),
       exa: JSON.parse(readFileSync(resolve('tests/fixtures/exa-station-news.json'), 'utf8')).reply,
@@ -235,6 +237,23 @@ try {
   // tab is closed" puts it), so "Plan my sighting" calls Gemini, whose host is refused.
   if (BLOCK === 'generativelanguage.googleapis.com')
     await page.addInitScript((k) => sessionStorage.setItem('iss-ride-along-keys', JSON.stringify({ gemini: k })), planFixtures.testKey);
+  // X3 --voice: replace the browser's speech with a recorder before the page's own code runs. Each call
+  // keeps the spoken text and what the C3 live region held at that moment.
+  if (VOICE)
+    await page.addInitScript(() => {
+      window.__spoken = [];
+      const synth = {
+        speak: (u) => window.__spoken.push({ text: u.text, region: document.getElementById('where-now')?.textContent ?? null, at: Date.now() }),
+        cancel: () => {},
+        getVoices: () => [],
+        speaking: false,
+        pending: false,
+        paused: false,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      };
+      Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true });
+    });
   const blockedConsole = [];
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
@@ -270,12 +289,12 @@ try {
       requests.refusedBlock = (requests.refusedBlock ?? 0) + 1;
       return route.abort('connectionrefused');
     }
-    if ((PATH || BLOCK || FIRST || A11Y) && u.startsWith('https://api.wheretheiss.at/')) {
+    if ((PATH || BLOCK || FIRST || A11Y || VOICE) && u.startsWith('https://api.wheretheiss.at/')) {
       planRequests.wheretheiss = (planRequests.wheretheiss ?? 0) + 1;
       const sample = JSON.parse(readFileSync(resolve('src/data/wheretheiss-samples.json'), 'utf8')).samples[0];
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(sample) });
     }
-    const MOCK_PLAN = PLAN || PATH || FIRST || BLOCK || A11Y;
+    const MOCK_PLAN = PLAN || PATH || FIRST || BLOCK || A11Y || VOICE;
     if (MOCK_PLAN && u.startsWith('https://api.open-meteo.com/')) {
       planRequests.openMeteo++;
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: planFixtures.openMeteo });
@@ -938,6 +957,78 @@ try {
   }
 
 
+  // ---- X3 --voice: the toggle, one call per minute with exactly the live region's text, one call per
+  // finished plan with exactly the result line, and no toggle when the browser has no speechSynthesis.
+  let voice = null;
+  if (VOICE) {
+    voice = { checks: {} };
+    const spoken = () => page.evaluate(() => window.__spoken.map((c) => ({ ...c })));
+    voice.toggleBefore = await page.evaluate(() => {
+      const t = document.getElementById('voice-toggle');
+      return { hidden: t.hidden, visible: t.getBoundingClientRect().width > 0, text: t.textContent, pressed: t.getAttribute('aria-pressed') };
+    });
+    voice.checks.toggleShown = !voice.toggleBefore.hidden && voice.toggleBefore.visible && voice.toggleBefore.pressed === 'false';
+    voice.checks.silentBeforeClick = (await spoken()).length === 0;
+    await page.click('#voice-toggle');
+    voice.toggleAfter = await page.evaluate(() => ({ text: document.getElementById('voice-toggle').textContent, pressed: document.getElementById('voice-toggle').getAttribute('aria-pressed') }));
+    voice.checks.toggleOn = voice.toggleAfter.pressed === 'true';
+    const clickedAt = Date.now();
+    // The sentence's next 60-second refresh (at most 60 s after load) is spoken.
+    await page.waitForFunction(() => window.__spoken.length >= 1, null, { timeout: 70_000 });
+    await page.waitForTimeout(2_000);
+    const s1 = await spoken();
+    voice.minute = { calls: s1.length, text: s1[0]?.text, region: s1[0]?.region, regionNow: await page.textContent('#where-now'), caption: await page.textContent('#voice-text'), afterClickS: Math.round((s1[0]?.at - clickedAt) / 100) / 10 };
+    voice.checks.oneMinuteCall = s1.length === 1;
+    voice.checks.minuteTextIsRegion = !!s1[0] && s1[0].text === s1[0].region && s1[0].text === voice.minute.regionNow;
+    voice.checks.minuteCaption = voice.minute.caption === s1[0]?.text;
+    // Two finished plans (fixed plan, no key): one call each, with exactly the result line on the card.
+    voice.plans = [];
+    for (let i = 1; i <= 2; i++) {
+      const before = (await spoken()).length;
+      await page.click('#plan-go');
+      await page.waitForFunction((n) => window.__spoken.length > n && !document.getElementById('plan-go').disabled, before, { timeout: 30_000 });
+      await page.waitForTimeout(500);
+      const all = await spoken();
+      const card = await page.evaluate(() => ({
+        headline: document.getElementById('plan-headline').textContent,
+        first: document.querySelector('#plan-lines li')?.textContent ?? null,
+        kind: document.body.dataset.planKind,
+        caption: document.getElementById('voice-text').textContent,
+      }));
+      // The card shows "<headline> (fixed plan, no AI)"; the spoken line is the headline and, for a pass, the first line.
+      const head = card.headline.replace(/ \((fixed plan, no AI|planned by the AI)\)$/, '');
+      const expected = card.kind === 'pass' && card.first ? `${head} ${card.first}` : head;
+      voice.plans.push({ newCalls: all.length - before, text: all[all.length - 1].text, expected, caption: card.caption });
+    }
+    voice.checks.onePerPlan = voice.plans.every((p) => p.newCalls === 1);
+    voice.checks.planTextIsResultLine = voice.plans.every((p) => p.text === p.expected && p.caption === p.text);
+    voice.totalCalls = (await spoken()).length;
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: out });
+    // Turned off: the caption goes away.
+    await page.click('#voice-toggle');
+    voice.checks.offHidesCaption = await page.evaluate(() => document.getElementById('voice-toggle').getAttribute('aria-pressed') === 'false' && document.getElementById('voice-caption').hidden);
+    // A browser with no speechSynthesis at all: same page, every web request answered 503, no toggle.
+    const bare = await context.newPage();
+    const bareErrors = [];
+    bare.on('pageerror', (e) => bareErrors.push(String(e)));
+    bare.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && bareErrors.push(m.text()));
+    await bare.addInitScript(() => {
+      delete Window.prototype.speechSynthesis;
+      delete window.speechSynthesis;
+    });
+    await bare.route('**/*', (route) => {
+      const u = route.request().url();
+      return u.startsWith('file:') || u.startsWith('data:') || u.startsWith('blob:') ? route.continue() : route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: '' });
+    });
+    await bare.goto(url, { waitUntil: 'load' });
+    await bare.waitForFunction(() => /^-?\d+(\.\d+)?$/.test(document.getElementById('lat')?.textContent ?? ''), null, { timeout: 15_000 });
+    voice.noSpeech = await bare.evaluate(() => ({ inWindow: 'speechSynthesis' in window, toggleHidden: document.getElementById('voice-toggle').hidden, toggleWidth: document.getElementById('voice-toggle').getBoundingClientRect().width, sentence: document.getElementById('where-now').textContent }));
+    voice.noSpeech.errors = bareErrors;
+    voice.checks.noSpeechNoToggle = !voice.noSpeech.inWindow && voice.noSpeech.toggleHidden && voice.noSpeech.toggleWidth === 0 && bareErrors.length === 0 && !!voice.noSpeech.sentence;
+    await bare.close();
+  }
+
   // ---- C3 --a11y: live regions, axe-core, keyboard only.
   let a11y = null;
   if (A11Y) {
@@ -1306,6 +1397,7 @@ try {
     game6,
     block7,
     a11y,
+    voice,
     blockedConsole,
     oem,
     c2,
@@ -1338,6 +1430,7 @@ try {
     (FIRST && Object.values(game6.checks).includes(false)) ||
     (BLOCK && Object.values(block7.checks).includes(false)) ||
     (A11Y && Object.values(a11y.checks).includes(false)) ||
+    (VOICE && Object.values(voice.checks).includes(false)) ||
     Object.values(oem.checks).includes(false) ||
     Object.values(c2.checks).includes(false) ||
     Object.values(x5.checks).includes(false) ||
@@ -1363,6 +1456,7 @@ try {
           (FIRST ? `; first screen ${w}x${h}: no horizontal scroll, planner box and next-pass line inside, "Detroit" + Enter -> "${first7.detroitText}" in ${first7.detroitMs} ms, ${first7.tabs.length} tabs open (${first7.tabs.map((t) => t.label).join(', ')}); after "Plan my sighting": Place control "${first7.placeAfter.placeControl}", passes table "${first7.placeAfter.tableCaption}" (${first7.placeAfter.tableRows} rows), City box "${first7.placeAfter.cityBox}"` : '') +
           (FIRST ? `; game: round 1 "${game6.rounds[0].score}" (recomputed ${game6.rounds[0].recomputedKm.toFixed(1)} km; answer = satellite.js at +10 min), rounds ${game6.rounds.map((r) => r.score).join(' / ')}, ${game6.end.totalText.replace(/ That.*/, '')} on the device board (${game6.end.boardRows.length} row), evidence/m6${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png; orbit lab "${game6.lab.text}" at ${game6.lab.alt} km (formula ${game6.lab.recomputed.min.toFixed(2)} min, ${game6.lab.recomputed.kmS.toFixed(3)} km/s)` : '') +
           (A11Y ? `; a11y: sentence "${a11y.whereText}" changed ${a11y.whereChanges.length} time(s) in ${a11y.watchedS} s (other live regions: ${a11y.otherLiveChanges.length} change(s)); axe-core ${a11y.axeVersion} on ${a11y.axe.length} page states: ${a11y.axeTotals.critical} critical, ${a11y.axeTotals.serious} serious, ${a11y.axeTotals.moderate} moderate, ${a11y.axeTotals.minor} minor; keyboard: ${a11y.keyboard.reachedByTab} of ${a11y.keyboard.buttonsVisibleAtSomePoint} buttons seen reached by Tab (${a11y.keyboard.tabPresses} Tab presses, ${a11y.keyboard.passes.length} passes), Enter fired ${a11y.keyboard.enterPressed - a11y.keyboard.enterFailed.length} of ${a11y.keyboard.enterPressed}, focus ring on all, Space on ${Object.keys(a11y.keyboard.spaceOnLinkButtons).length} zoom buttons; keyboard game round "${a11y.game.score}"; evidence/c3.png` : '') +
+          (VOICE ? `; voice: toggle shown, 1 call ${voice.minute.afterClickS} s after the click with exactly the sentence "${voice.minute.text}", plans: ${voice.plans.map((p) => `${p.newCalls} call "${p.text}"`).join(' / ')}, caption = spoken text, no speechSynthesis -> no toggle; ${voice.totalCalls} calls in all; evidence/x3.png` : '') +
           (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : ''),
   );
 } finally {

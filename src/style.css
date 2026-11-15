@@ -252,3 +252,10 @@ button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align
 .sky-picked { min-height: 1.4rem; font-weight: 600; }
 .sky-sun { margin: 0.3rem 0; }
 .sky-credit { opacity: 0.85; }
+/* X3: the speaker toggle under the sentence, and the caption with the words just spoken. */
+.voice-bar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.6rem; margin: 0 0 0.4rem; }
+.voice-toggle { width: auto; padding: 0.3rem 0.7rem; font-size: 0.85rem; }
+.voice-toggle[aria-pressed="true"] { background: #ffd166; }
+.voice-toggle[hidden], .voice-caption[hidden] { display: none; }
+.voice-caption { margin: 0; flex: 1 1 18rem; }
+.voice-said { font-weight: 600; }

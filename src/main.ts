@@ -30,7 +30,8 @@ import { briefSheetHtml } from './ui/outputs';
 import { accuracyHtml, recordReference, renderAccuracy } from './ui/accuracy';
 import { gameBarHtml, gameHtml, initGame } from './ui/game';
 import { orbitLabLine } from './orbit/lab';
-import { whereNow } from './ui/sentence';
+import { startWhereRegion } from './ui/whereRegion';
+import { initVoice, voiceHtml } from './ui/voice';
 import { initSkyPanel, skyPanelHtml } from './sky/skyPanel';
 
 // M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
@@ -46,6 +47,7 @@ app.innerHTML = `
   <main class="layout">
     <section class="map-wrap" aria-label="Where the station is">
       <p id="where-now" class="where-now" aria-live="polite" aria-atomic="true"></p>
+${voiceHtml}
       ${gameBarHtml}
       <div id="map" role="region" aria-label="World map with the space station's position and path. Arrow keys move the map; plus and minus zoom."></div>
       <p class="small legend">
@@ -210,22 +212,20 @@ function tick() {
   renderAge(now);
 }
 
-// ---- C3: the plain sentence above the map. Set once now and then only by the 60-second timer below
-// (not on every tick and not when fresh orbit numbers arrive), so a screen reader hears it at most once a minute.
-function renderWhere(now: Date) {
-  const w = whereNow(elements.satrec, now);
-  if (!w) return;
-  const el = $('where-now');
-  el.textContent = w.text;
-  el.dataset.city = w.city.name;
-  el.dataset.km = w.km.toFixed(1);
-  el.dataset.direction = w.direction;
-}
+// ---- X3: the speaker toggle (hidden when the browser has no speechSynthesis), off until clicked.
+const voice = initVoice({
+  win: window as unknown as Parameters<typeof initVoice>[0]['win'],
+  toggle: $('voice-toggle'),
+  caption: $('voice-caption'),
+  captionText: $('voice-text'),
+});
 
 tick();
 drawTrack(new Date());
 drawNight(new Date());
-renderWhere(new Date());
+// C3: the plain sentence above the map, set now and then once a minute (src/ui/whereRegion.ts); X3 reads
+// exactly that text aloud when the toggle is on.
+startWhereRegion({ el: $('where-now'), getSatrec: () => elements.satrec, onText: (t) => voice.sayWhere(t) });
 const passPanel = initPassPanel(() => elements.satrec);
 const oemPanel = initOemPanel(() => elements.satrec);
 renderAccuracy();
@@ -243,7 +243,6 @@ setInterval(tick, 1000);
 setInterval(() => {
   drawTrack(new Date());
   drawNight(new Date());
-  renderWhere(new Date());
 }, 60_000);
 
 // C3: Space activates the map's zoom buttons too (Leaflet draws them as links with role="button", which
@@ -264,6 +263,8 @@ initPlanner({
   getSatrec: () => elements.satrec,
   getEpoch: () => elements.epoch,
   getEvents: () => nasa.getEvents(),
+  // X3: once per finished plan, the result line is read aloud (when the toggle is on).
+  onResult: (card) => voice.sayPlan(card),
   onShow: (info, ctx) => {
     const p = info.pass;
     const mins = (p.end.getTime() - p.start.getTime()) / 60_000;

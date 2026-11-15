@@ -5,7 +5,7 @@
 import type { SatRec } from 'satellite.js';
 import { NO_NEWS_TEXT } from '../news/exaMcp';
 import { CREDIT_OPEN_METEO } from '../weather/openMeteo';
-import { runFixedPlan, type Controls, type PlanResult } from '../agent/fixedPlan';
+import { runFixedPlan, type Card, type Controls, type PlanResult } from '../agent/fixedPlan';
 import { nextDates, weekdayOf } from '../agent/format';
 import { runAgent, type AgentResult } from '../agent/loop';
 import { gemini, GEMINI_MODELS, openai, OPENAI_MODEL } from '../agent/providers';
@@ -115,6 +115,8 @@ export interface PlannerHooks {
   onShow: (info: PassInfo, ctx: RunContext) => void;
   /** M7: the place the run is for (a built-in match before the run, the found place after it). */
   onPlace?: (p: AgentPlace) => void;
+  /** X3: called once per finished plan with the card just shown (the voice reads its result line). */
+  onResult?: (card: Card) => void;
 }
 
 const viewerTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -366,6 +368,7 @@ export function initPlanner(h: PlannerHooks) {
         else if (!p) $('plan-note').textContent = 'Fixed plan, no AI: the plain controls below the box were used.';
       }
       showResult(r, ctx);
+      h.onResult?.(r.card);
       showOutputs(ctx, r.card.kind === 'pass' ? r.card.passId : null);
       const where = ctx.shown?.place ?? [...ctx.places.values()][0];
       if (where) {
