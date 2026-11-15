@@ -13,6 +13,12 @@
 // 7. (M8) README.md has a "## How we test" section, and every command it names exists: each
 //    `node scripts/*.mjs` file, each `npm run <script>` and `npm test` in package.json, `npx tsc` as a
 //    devDependency, and the workflow file it points to.
+// 8. (M9) docs/PRESENTER_PACK.md has exactly 10 judge questions; question 1 is the fixed "Who wrote the
+//    code and how did you use AI?" and its answer names Claude Code, Fable 5.2, Opus 5.5, Ahmed and Zach;
+//    the three agent questions and the provider question (with the status words) are among them; every
+//    answer has a "File:" line whose backticked files all exist, and every `name()` on that line is
+//    defined in one of those files. Its 90-second click path has at least 8 rows (smoke.mjs --path
+//    presses them on the built page).
 // Exit 0 when everything holds, 1 otherwise. Offline, no dependencies.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -112,7 +118,7 @@ if (existsSync(join(root, 'RUN.md'))) {
 
 // ---- 6. Wording next to the NASA trajectory gap (C1).
 {
-  const files = ['README.md', 'HOW_IT_WORKS.md', 'CODE_TOUR.md', 'RUN.md', 'DEVPOST_DRAFT.md', 'docs/STUDY_CARDS.md', 'src/oem-ui.ts', 'src/orbit/oemAgreement.ts'];
+  const files = ['README.md', 'HOW_IT_WORKS.md', 'CODE_TOUR.md', 'RUN.md', 'DEVPOST_DRAFT.md', 'docs/STUDY_CARDS.md', 'docs/PRESENTER_PACK.md', 'src/oem-ui.ts', 'src/orbit/oemAgreement.ts'];
   let checked = 0;
   for (const f of files) {
     if (!existsSync(join(root, f))) continue;
@@ -161,6 +167,73 @@ if (existsSync(join(root, 'README.md'))) {
     }
     if (n === 0) problems.push('README "How we test" names no command');
     passes.push(`README "How we test": ${n} commands and files checked against the repo`);
+  }
+}
+
+// ---- 8. Presenter pack (M9): 10 questions, question 1 fixed, a real file behind every answer.
+{
+  const PACK = 'docs/PRESENTER_PACK.md';
+  if (!existsSync(join(root, PACK))) problems.push(`${PACK} is missing`);
+  else {
+    const pack = read(PACK);
+    const section = (heading) => {
+      const start = pack.search(new RegExp(`^## ${heading}`, 'm'));
+      if (start < 0) return null;
+      const rest = pack.slice(start + 3);
+      const end = rest.search(/^## /m);
+      return end < 0 ? rest : rest.slice(0, end);
+    };
+    const qs = section('10 judge questions');
+    if (qs === null) problems.push(`${PACK} has no "## 10 judge questions" section`);
+    else {
+      const blocks = qs.split(/^### /m).slice(1);
+      if (blocks.length !== 10) problems.push(`${PACK}: ${blocks.length} judge questions, expected 10`);
+      const allCode = new Set([...codeFiles('src'), ...codeFiles('scripts'), ...codeFiles('tests')]);
+      let files = 0;
+      let fns = 0;
+      blocks.forEach((b, i) => {
+        const title = b.split('\n')[0].trim();
+        const fileLine = b.split('\n').find((l) => /^Files?:/.test(l));
+        if (!fileLine) {
+          problems.push(`${PACK} question ${i + 1} ("${title}") has no "File:" line`);
+          return;
+        }
+        const named = [...fileLine.matchAll(/`([\w./-]+\.(?:ts|mjs|js|json|md|yml))`/g)].map((m) => m[1]);
+        if (!named.length) problems.push(`${PACK} question ${i + 1}: the File: line names no file`);
+        for (const f of named) {
+          files++;
+          if (existsSync(join(root, f))) passes.push(`[pack Q${i + 1}] file exists: ${f}`);
+          else problems.push(`[pack Q${i + 1}] file not found: ${f}`);
+        }
+        for (const [, name] of fileLine.matchAll(CALL_RE)) {
+          fns++;
+          const where = named.filter((f) => allCode.has(f) && defines(read(f), name));
+          if (where.length) passes.push(`[pack Q${i + 1}] ${name}() defined in ${where.join(', ')}`);
+          else problems.push(`[pack Q${i + 1}] ${name}() is not defined in any file on its File: line (${named.join(', ')})`);
+        }
+      });
+      const q1 = blocks[0] ?? '';
+      if (q1.split('\n')[0].trim() !== '1. Who wrote the code and how did you use AI?') problems.push(`${PACK}: question 1 is not the fixed "Who wrote the code and how did you use AI?"`);
+      for (const must of ['Claude Code', 'Fable 5.2', 'Opus 5.5', 'Ahmed', 'Zach']) {
+        if (!q1.includes(must)) problems.push(`${PACK}: question 1's answer does not name "${must}"`);
+      }
+      const titles = blocks.map((b) => b.split('\n')[0].toLowerCase());
+      for (const [label, re] of [
+        ['why an agent', /why an agent/],
+        ['making numbers up', /making numbers up/],
+        ['no key or a failed search', /no key.*failed search/],
+        ['which AI / provider', /which ai/],
+      ]) {
+        if (!titles.some((t) => re.test(t))) problems.push(`${PACK}: no question about "${label}"`);
+      }
+      const provider = blocks.find((b) => /which ai/i.test(b.split('\n')[0])) ?? '';
+      if (!/live-tested/.test(provider) || !/tested with saved replies, not live-tested/.test(provider)) problems.push(`${PACK}: the provider answer does not use the status words`);
+      passes.push(`${PACK}: ${blocks.length} questions, question 1 fixed, ${files} file references and ${fns} function references behind the answers checked`);
+    }
+    const path = section('The 90-second click path');
+    const rows = path === null ? [] : path.split('\n').filter((l) => /^\|\s*\d+\s*\|/.test(l));
+    if (rows.length < 8) problems.push(`${PACK}: the 90-second click path has ${rows.length} rows (expected at least 8)`);
+    else passes.push(`${PACK}: click path has ${rows.length} rows (pressed by node scripts/smoke.mjs --path)`);
   }
 }
 

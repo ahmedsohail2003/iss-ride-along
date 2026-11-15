@@ -38,6 +38,7 @@ node scripts/smoke.mjs --net --out evidence/m4.png  # real network; also presses
 node scripts/smoke.mjs --offline  # network off, on docs/iss-ride-along-offline.html
 node scripts/smoke.mjs --plan     # network mocked; presses Plan my sighting (no key), the trip example, then a keyed run -> evidence/a1.png
 node scripts/smoke.mjs --oem      # network mocked; the NASA trajectory panel (gap, row time, age recomputed) -> evidence/c1.png
+node scripts/smoke.mjs --path     # network mocked; presses every row of the presenter pack's 90-second click path (docs/PRESENTER_PACK.md) -> evidence/m9-path.png
 node scripts/check-agent.mjs --provider openai   # the planner's live check; with no key it prints SKIPPED no key
 node scripts/make-offline.mjs # copy dist/index.html to docs/; checks size and no http(s) tags
 node scripts/check-live.mjs   # our position for "now" vs wheretheiss.at; prints SKIPPED offline without network
