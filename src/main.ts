@@ -8,8 +8,8 @@
 // writes the plain sentence above the map ("110 km northeast of Detroit, ..."), which is the page's one
 // screen-reader live region for the position and changes once a minute; the per-second numbers are not announced.
 // X5: src/sky/skyPanel.ts draws the stars and constellations above the station right now (the Sky tab).
-// G1: src/globe/ is the 3D globe (three.js) in the map's place, fed by the same calls as the flat map; the
-// page still opens flat, and src/globe/view.ts holds the switch and the rule for which view shows.
+// G1: src/globe/ is the 3D globe (three.js) in the map's place, fed by the same calls as the flat map; since G2 the
+// page opens on it where the device can (DEFAULT_VIEW 'auto'); src/globe/view.ts holds the switch and that rule.
 // G2: the chosen pass is drawn on the globe too (src/globe/geo.ts passPoints), and the 3D view wears its own
 // black look (src/globe/look.ts, the colours; src/style.css, the rules under body[data-view="3d"]).
 import 'leaflet/dist/leaflet.css';

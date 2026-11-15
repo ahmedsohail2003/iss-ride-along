@@ -5,7 +5,7 @@
 //      the flat map: "Play" and ticking the daily photo); the press is saved in sessionStorage;
 //   2. at load, the address flag ?view=flat|3d|auto (3d skips the device check, for headless runs and demos);
 //   3. the saved choice;
-//   4. DEFAULT_VIEW ('flat' until G2's checks pass).
+//   4. DEFAULT_VIEW ('auto' since G2's checks passed: the device check below picks the view).
 // 'auto' runs a short device check first (the flat page is already drawn, so the screen is never blank):
 // flat when reduced motion is on, there is no WebGL2, the browser refuses a context without a "major
 // performance caveat", the renderer is a software one, or 30 frames drawn back to back take a median of
@@ -26,7 +26,7 @@ export type Why =
   | 'lost';
 
 /** What the page opens on when nothing else says. */
-export const DEFAULT_VIEW: Choice = 'flat';
+export const DEFAULT_VIEW: Choice = 'auto';
 export const VIEW_STORAGE_KEY = 'iss-ride-along-view';
 /** A frame gap above this (ms) means the device is too slow for the globe (30 frames a second). */
 export const SLOW_MS = 33;
