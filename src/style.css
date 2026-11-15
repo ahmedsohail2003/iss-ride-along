@@ -179,3 +179,21 @@ button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align
   .readout { grid-template-columns: repeat(3, auto); }
   .tag { font-size: 0.8rem; }
 }
+
+/* A2: the result card's take-away buttons and the one-page sheet (printed alone). */
+.plan-outputs { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.plan-outputs p { flex-basis: 100%; margin: 0.2rem 0 0; }
+.brief-sheet { background: #fff; color: #111; max-width: 52rem; margin: 1rem auto; padding: 1rem 1.5rem 1.4rem; border-radius: 8px; }
+.brief-sheet h2 { margin: 0.4rem 0 0.6rem; font-size: 1.35rem; }
+.brief-sheet h3 { margin: 0.9rem 0 0.25rem; font-size: 1rem; }
+.brief-sheet ul, .brief-sheet ol { margin: 0; padding-left: 1.3rem; }
+.brief-sheet a { color: #0b3d91; }
+.brief-sheet .sheet-link { font-size: 0.8rem; word-break: break-all; }
+.sheet-bar { display: flex; gap: 0.6rem; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
+.sheet-bar .linkish { color: #0b3d91; }
+@media print {
+  :root { background: #fff; color: #000; }
+  body[data-sheet] #app > :not(#brief-sheet) { display: none !important; }
+  body[data-sheet] #brief-sheet { display: block !important; margin: 0; padding: 0; max-width: none; border-radius: 0; }
+  .no-print { display: none !important; }
+}

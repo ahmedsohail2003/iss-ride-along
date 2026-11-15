@@ -15,7 +15,7 @@ Needs Node 22 (built with 22.14.0) and npm. In this folder:
 
 ```
 npm install        # once; installs the exact versions in package-lock.json
-npm test           # 78 unit tests, offline, a few seconds
+npm test           # 92 unit tests, offline, a few seconds
 npm run build      # type check + one self-contained file: dist/index.html
 npm run offline    # build, then copy it to docs/iss-ride-along-offline.html (fails at 8 MB or more)
 npm run dev        # local dev server with reload; open the address Vite prints
@@ -39,6 +39,7 @@ node scripts/smoke.mjs --block celestrak.org  # M7: that source refused (or gibs
 node scripts/smoke.mjs --net --out evidence/m4.png  # real network; also presses "Check against reference"
 node scripts/smoke.mjs --offline  # network off, on docs/iss-ride-along-offline.html
 node scripts/smoke.mjs --plan     # network mocked; presses Plan my sighting (no key), the trip example, then a keyed run -> evidence/a1.png
+node scripts/smoke.mjs --plan --outputs   # also the calendar download and the printed class handout -> evidence/a2.png
 node scripts/smoke.mjs --oem      # network mocked; the NASA trajectory panel (gap, row time, age recomputed) -> evidence/c1.png
 node scripts/smoke.mjs --path     # network mocked; presses every row of the presenter pack's 90-second click path (docs/PRESENTER_PACK.md) -> evidence/m9-path.png
 node scripts/check-agent.mjs --provider openai   # the planner's live check; with no key it prints SKIPPED no key

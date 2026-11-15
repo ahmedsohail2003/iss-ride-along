@@ -7,6 +7,11 @@
 //   node scripts/smoke.mjs --plan               mocked network; presses "Plan my sighting" with no key
 //                                               (fixed plan), then the trip example, then a keyed run
 //                                               with the test key (Gemini mocked); evidence/a1.png
+//   node scripts/smoke.mjs --plan --outputs     A2: after the fixed plan, presses "Add to calendar" (a download
+//                                               named iss-pass-*.ics must fire, CRLF calendar text) and "Class
+//                                               handout", then emulates print: the sheet shows, the map and its
+//                                               controls and the planner do not; evidence/a2.png (print view) and
+//                                               evidence/a2-card.png (the card with its buttons); a1.png untouched
 //   node scripts/smoke.mjs --oem                mocked network; the NASA trajectory panel (C1): a gap in km,
 //                                               its row time, and the orbit numbers' age, which must equal
 //                                               row time minus the TLE epoch (recomputed here) within 0.1 h;
@@ -62,6 +67,7 @@ const OFFLINE = args.includes('--offline');
 const PLAN = args.includes('--plan');
 const OEM = args.includes('--oem');
 const PATH = args.includes('--path');
+const OUTPUTS = PLAN && args.includes('--outputs');
 // M7: the 8 live sources, by the host each one's URL constant names in src/.
 const BLOCKABLE = {
   'celestrak.org': { key: 'celestrak', name: 'CelesTrak' },
@@ -311,6 +317,7 @@ try {
 
   // ---- --plan: the sighting planner (A1)
   let plan = null;
+  let outputs = null;
   if (PLAN) {
     plan = {};
     plan.buttonText = await page.textContent('#plan-go');
@@ -332,7 +339,65 @@ try {
       })),
     );
     mkdirSync(dirname(out), { recursive: true });
-    await page.screenshot({ path: out, fullPage: true });
+    if (!OUTPUTS) await page.screenshot({ path: out, fullPage: true });
+    // ---- --outputs (A2): the calendar download and the printed sheet, each from a click.
+    if (OUTPUTS) {
+      outputs = {};
+      outputs.buttonsShown = await page.isVisible('#plan-outputs');
+      await page.locator('#plan-outputs').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: resolve('evidence/a2-card.png') });
+      const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10_000 }), page.click('#out-ics')]);
+      outputs.download = dl.suggestedFilename();
+      const icsText = readFileSync(await dl.path(), 'utf8');
+      const icsLines = icsText.split('\r\n');
+      outputs.ics = {
+        bytes: Buffer.byteLength(icsText),
+        startsCalendar: icsText.startsWith('BEGIN:VCALENDAR\r\n'),
+        vevents: (icsText.match(/BEGIN:VEVENT/g) ?? []).length,
+        alarm: icsText.replace(/\r\n /g, '').includes('TRIGGER:-PT10M'),
+        bareLf: /[^\r]\n/.test(icsText),
+        longestLineBytes: Math.max(...icsLines.map((l) => Buffer.byteLength(l))),
+        dtstart: /^DTSTART:(\S+)$/m.exec(icsText.replace(/\r/g, ''))?.[1] ?? null,
+      };
+      outputs.icsNote = await page.textContent('#out-note');
+      await page.click('#out-class');
+      await page.waitForSelector('#brief-sheet:not([hidden])', { timeout: 5000 });
+      outputs.sheetAudit = await page.textContent('#sheet-audit');
+      outputs.sheetTitle = await page.textContent('#sheet-body h2');
+      await page.emulateMedia({ media: 'print' });
+      outputs.print = await page.evaluate(() => {
+        const shown = (e) => {
+          if (!e) return false;
+          const cs = getComputedStyle(e);
+          const r = e.getBoundingClientRect();
+          return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+        };
+        const any = (sel) => [...document.querySelectorAll(sel)].some(shown);
+        return {
+          sheet: shown(document.getElementById('brief-sheet')),
+          sheetLines: document.querySelectorAll('#sheet-body li').length,
+          questions: [...document.querySelectorAll('#sheet-body ol li')].map((e) => e.textContent),
+          mapControls: any('.leaflet-control-container .leaflet-control'),
+          map: shown(document.getElementById('map')),
+          planner: shown(document.getElementById('plan-form')),
+          printButton: shown(document.getElementById('sheet-print')),
+        };
+      });
+      await page.screenshot({ path: resolve('evidence/a2.png'), fullPage: true });
+      await page.emulateMedia({ media: 'screen' });
+      outputs.screenAgain = { map: await page.isVisible('#map'), mapControls: await page.isVisible('.leaflet-control-zoom') };
+      await page.click('#sheet-close');
+      outputs.checks = {
+        buttonsShown: outputs.buttonsShown,
+        downloadName: /^iss-pass-.+\.ics$/.test(outputs.download ?? ''),
+        calendarText: outputs.ics.startsCalendar && outputs.ics.vevents === 1 && outputs.ics.alarm && !outputs.ics.bareLf && outputs.ics.longestLineBytes <= 75,
+        sheetShowsInPrint: outputs.print.sheet && outputs.print.sheetLines > 0,
+        threeQuestionsNoDigits: outputs.print.questions.length === 3 && outputs.print.questions.every((q) => !/\d/.test(q)),
+        mapControlsHiddenInPrint: !outputs.print.mapControls && !outputs.print.map && !outputs.print.planner && !outputs.print.printButton,
+        sheetAudit0: /^audit: 0 unverified numbers$/.test(outputs.sheetAudit ?? ''),
+        screenRestored: outputs.screenAgain.map && outputs.screenAgain.mapControls,
+      };
+    }
     await page.click('button.example[data-example="trip"]');
     plan.tripNote = await page.textContent('#plan-note');
     // Keys: a run with the typed test key (Gemini mocked), the tick box, a reload, then sessionStorage cleared.
@@ -612,6 +677,7 @@ try {
     offlineLabelOk,
     nasaChecks,
     plan,
+    outputs,
     clickRun,
     first7,
     block7,
@@ -638,6 +704,7 @@ try {
     !offlineLabelOk ||
     Object.values(nasaChecks).includes(false) ||
     (PLAN && Object.values(plan.checks).includes(false)) ||
+    (OUTPUTS && Object.values(outputs.checks).includes(false)) ||
     (PATH && clickRun.problems.length > 0) ||
     (FIRST && Object.values(first7.checks).includes(false)) ||
     (BLOCK && Object.values(block7.checks).includes(false)) ||
@@ -651,6 +718,7 @@ try {
           `; NASA trajectory: ${oem.kmShown} km apart at ${oem.rowTime?.slice(11, 16)} UTC, orbit numbers ${oem.ageShownH} h old` +
           (OEM ? ` (recomputed ${oem.ageRecomputedH?.toFixed(2)} h)` : '') +
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : '') +
+          (OUTPUTS ? `; outputs: download "${outputs.download}" (${outputs.ics.bytes} bytes, 1 VEVENT, TRIGGER:-PT10M, CRLF, longest line ${outputs.ics.longestLineBytes} bytes, DTSTART ${outputs.ics.dtstart}), print view: sheet shown with ${outputs.print.sheetLines} lines and ${outputs.print.questions.length} questions, map and its controls hidden, sheet "${outputs.sheetAudit}"` : '') +
           (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s` : '') +
           (FIRST ? `; first screen ${w}x${h}: no horizontal scroll, planner box and next-pass line inside, "Detroit" + Enter -> "${first7.detroitText}" in ${first7.detroitMs} ms, ${first7.tabs.length} tabs open (${first7.tabs.map((t) => t.label).join(', ')})` : '') +
           (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : ''),

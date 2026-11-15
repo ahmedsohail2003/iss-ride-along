@@ -20,6 +20,7 @@ import { fmtClock, fmtDay } from './agent/format';
 import { initOemPanel, oemPanelHtml } from './oem-ui';
 import { clearSource, warningsHtml, warnSource } from './ui/warnings';
 import { initTabs, tabsHtml } from './ui/tabs';
+import { briefSheetHtml } from './ui/outputs';
 import { accuracyHtml, recordReference, renderAccuracy } from './ui/accuracy';
 
 // M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
@@ -77,6 +78,7 @@ app.innerHTML = `
   ${creditsHtml}
   <p class="small foot">Orbit data: CelesTrak (US Space Force data, not NASA). Reference: wheretheiss.at
     (not NASA). Not affiliated with or endorsed by NASA.</p>
+  ${briefSheetHtml}
 `;
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -179,6 +181,7 @@ const passPeak = L.circleMarker([0, 0], { radius: 7, color: '#ff5fa2', fillOpaci
 initPlanner({
   getSatrec: () => elements.satrec,
   getEpoch: () => elements.epoch,
+  getEvents: () => nasa.getEvents(),
   onShow: (info, ctx) => {
     const p = info.pass;
     const mins = (p.end.getTime() - p.start.getTime()) / 60_000;

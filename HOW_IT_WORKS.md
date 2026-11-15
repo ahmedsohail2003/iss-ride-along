@@ -56,7 +56,7 @@ There is no server and no account. The only key is one a visitor may type into t
 - **Why an agent.** The pass table answers for one place. The box takes a week in your own words ("Ypsilanti until Monday,
   then Chicago Tuesday to Thursday, kids in bed by 8:30"). The model (Gemini; an OpenAI adapter behind the same code) splits
   it into legs, calls our tools and picks one pass. Tools: `findCity`, `planLeg` (our pass engine, Open-Meteo cloud at each
-  peak, the fixed score), `stationNews` (Exa web search, last 7 days), `orbitDataAge` (with the NASA-measured gap), `showPass`.
+  peak, the fixed score), `stationNews` (Exa web search, last 7 days), `orbitDataAge` (with the NASA-measured gap), `showPass`, and `makeCalendarFile` / `writeBriefing` (a calendar file and a one-page sheet, handed over only on your click).
 - **The fixed rule** (both modes): a pass counts if it starts on your nights inside your times; score = (peak ÷ 90) ×
   (1 − cloud ÷ 100), unknown cloud = 50%; under 0.05 everywhere means "no pass worth going out for in your window".
 - **Numbers.** Every number on the card is written by the engine. The audit checks each number in the model's words

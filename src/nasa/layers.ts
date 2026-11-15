@@ -74,6 +74,8 @@ export const creditsHtml = `
 export interface NasaLayers {
   /** Call every tick with the station's position; redraws the footprint, refreshes lists every 5 s. */
   update(latDeg: number, lonDeg: number, altKm: number): void;
+  /** A2: the events on the map now (live list or saved copy) and where they came from. */
+  getEvents(): { list: EonetEvent[]; source: string };
 }
 
 export function initNasaLayers(map: L.Map): NasaLayers {
@@ -294,6 +296,10 @@ export function initNasaLayers(map: L.Map): NasaLayers {
   } else goOnline();
 
   return {
+    getEvents: () => ({
+      list: events,
+      source: eventsSource.startsWith('Live') ? eventsSource.replace(/^Live from NASA EONET, fetched (.*)\.$/, 'NASA EONET, live list fetched $1') : `NASA EONET, saved copy from ${utcMinute(new Date(snapMeta.retrievedAt))}`,
+    }),
     update(lat, lon, altKm) {
       footprint.setLatLng([lat, lon]);
       footprint.setRadius(footprintRadiusKm(altKm) * 1000);

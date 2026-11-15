@@ -15,6 +15,8 @@ import { builtInMatches, type AgentPlace } from '../agent/places';
 import { NEWS_DOWN_TEXT } from '../news/exaMcp';
 import { clearSource, warnSource } from './warnings';
 import { recordPlanRun } from './accuracy';
+import { initOutputs, outputsHtml } from './outputs';
+import type { EonetEvent } from '../nasa/eonet';
 
 export const EXAMPLES = {
   trip: 'Ypsilanti until Monday, then Chicago Tuesday to Thursday, kids in bed by 8:30',
@@ -71,6 +73,7 @@ export const plannerResultHtml = `
       <p id="plan-orbit" class="plan-orbit" hidden></p>
       <p id="plan-countdown" class="countdown" aria-live="off"></p>
       <p id="plan-audit" class="audit" hidden></p>
+${outputsHtml}
     </div>
     <div id="plan-cols" class="plan-cols" hidden>
       <div class="news-box">
@@ -106,6 +109,8 @@ export const plannerSettingsHtml = `
 export interface PlannerHooks {
   getSatrec: () => SatRec;
   getEpoch: () => Date;
+  /** A2: the NASA EONET events on the map (live list or saved copy), for the briefing. */
+  getEvents?: () => { list: EonetEvent[]; source: string };
   /** Draw the chosen pass on the map (arc + peak) and return nothing. */
   onShow: (info: PassInfo, ctx: RunContext) => void;
   /** M7: the place the run is for (a built-in match before the run, the found place after it). */
@@ -119,6 +124,7 @@ export function initPlanner(h: PlannerHooks) {
   const store = new KeyStore(sessionStorage);
   let aiCalls = 0;
   let countdownTimer: ReturnType<typeof setInterval> | undefined;
+  const showOutputs = initOutputs();
 
   // ---- nights check boxes (today plus 5 days)
   const dates = nextDates(new Date(), viewerTz(), SEARCH_DAYS);
@@ -203,7 +209,7 @@ export function initPlanner(h: PlannerHooks) {
     head.textContent = r.tool;
     const by = document.createElement('span');
     by.className = 'small';
-    by.textContent = ` (${r.by === 'loop' ? 'added by the loop' : r.by === 'model' ? 'chosen by the AI' : 'fixed plan'}, ${r.ms} ms) `;
+    by.textContent = ` (${r.by === 'loop' ? 'added by the loop' : r.by === 'model' ? 'chosen by the AI' : r.by === 'button' ? 'your click' : 'fixed plan'}, ${r.ms} ms) `;
     const input = document.createElement('code');
     input.textContent = r.input;
     const sum = document.createElement('div');
@@ -322,6 +328,7 @@ export function initPlanner(h: PlannerHooks) {
       exaKey: store.get('exa') || undefined,
       onShow: h.onShow,
       onTrace: addRow,
+      events: h.getEvents,
     });
     const p = activeProvider();
     const text = sentence.value.trim();
@@ -359,6 +366,7 @@ export function initPlanner(h: PlannerHooks) {
         else if (!p) $('plan-note').textContent = 'Fixed plan, no AI: the plain controls below the box were used.';
       }
       showResult(r, ctx);
+      showOutputs(ctx, r.card.kind === 'pass' ? r.card.passId : null);
       const where = ctx.shown?.place ?? [...ctx.places.values()][0];
       if (where) h.onPlace?.(where);
       warnFromRun(r, ctx, p);
