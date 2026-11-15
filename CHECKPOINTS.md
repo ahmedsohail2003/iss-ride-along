@@ -2,6 +2,19 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 11 — Saturday Nov 14, 11:50 PM EST
+
+**Time left:** 9.5 hours to our feature freeze (9:30 AM Sunday), 12 hours to the final Devpost deadline (12:00 PM Sunday). This one is posted quietly because you are asleep; a summary with what each of you needs before the 9:00 AM run comes at about 7:00 AM.
+
+**New since checkpoint 10 (both passed an independent check):**
+- **Drag and zoom the sky.** In the Sky tab you can now drag to look around the whole sky, scroll or pinch to zoom, click a star for its name ("Procyon: magnitude 0.4, 53° above the station's horizon, one of the stars of Canis Minor"), and press "Back to the station's view" to return to what is straight above the station. It also works from the keyboard. The sky is drawn the way star charts are (a stereographic projection, which keeps the shapes of constellations true): measured on screen, the distance between Dubhe and Merak came out 5.374 degrees against a true 5.375.
+- **Read aloud.** A "Read aloud" button makes the page speak the sentence for where the station is, once a minute, and speak the plan when one is made. It uses the browser's own voice, needs no account and no microphone, and is off until you press it.
+- 147 of 147 automated tests pass.
+
+**Try it:** open https://ahmedsohail2003.github.io/iss-ride-along/ , go to the Sky tab, drag the sky around and click a bright star. Then press "Read aloud".
+
+**Overnight:** a small "forecast lab" card, then a full re-test of every part, fresh orbit numbers, a new backup video, and the final versions of the demo script, the cue sheet and the presenter pack, posted by 6:30 AM. Nothing new gets added after that; from 7:15 AM it is fixes only.
+
 ## Checkpoint 10 — Saturday Nov 14, 10:40 PM EST
 
 **Time left:** 11 hours to our feature freeze (9:30 AM Sunday), 13.5 hours to the final Devpost deadline (12:00 PM Sunday).
