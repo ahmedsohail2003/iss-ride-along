@@ -165,7 +165,9 @@ describe('curated NASA photos', () => {
       expect(/insignia|meatball|logo|worm/i.test(img), img).toBe(false);
       // X6: the two NASA GIBS MODIS greenness images of the corn belt (map data images, no insignia).
       const x6 = img === 'src/data/ndvi-cornbelt-2012.png' || img === 'src/data/ndvi-cornbelt-2026.png';
-      const allowed = img === 'src/data/bluemarble-z0.jpg' || /^src\/data\/bluemarble\/\d-\d-\d\.jpg$/.test(img) || curated.has(img) || x6;
+      // G1: the 3D globe's one Blue Marble picture of the whole Earth (the same GIBS layer as the tiles).
+      const g1 = img === 'src/data/globe/bluemarble-2048.jpg';
+      const allowed = img === 'src/data/bluemarble-z0.jpg' || /^src\/data\/bluemarble\/\d-\d-\d\.jpg$/.test(img) || curated.has(img) || x6 || g1;
       expect(allowed, img).toBe(true);
     }
     expect(images.filter((i) => i.startsWith('src/data/photos/'))).toHaveLength(photos.length);

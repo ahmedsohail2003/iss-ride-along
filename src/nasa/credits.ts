@@ -28,6 +28,10 @@ export const CREDIT_ERFA =
 /** X5: the star view's catalogue and constellation lines (neither is NASA data). */
 export const CREDIT_SKY =
   'Star view: star positions and brightness from the XHIP catalogue (Anderson and Francis 2012, VizieR V/137D) and constellation lines from the IAU charts with changes by Olaf Frohn, both as packaged in d3-celestial by Olaf Frohn (BSD 3-Clause licence; notice in docs/THIRD_PARTY_NOTICES.md). Not NASA data.';
+/** G1: the 3D globe's library and its Earth picture. */
+export const CREDIT_THREE = '3D globe: drawn with three.js 0.187.0 (MIT licence; notice in docs/THIRD_PARTY_NOTICES.md).';
+export const creditGlobeImage = (savedOn: string) =>
+  `3D globe image: NASA Blue Marble Shaded Relief and Bathymetry from NASA EOSDIS GIBS, one 2048x1024 picture saved into the page on ${savedOn}.`;
 /** X6 Forecast lab sources. */
 export const CREDIT_NOAA_VHI =
   'Crop signal: NOAA STAR Vegetation Health Index (VHI), weekly by state, cropland only, from the AVHRR and VIIRS instruments (star.nesdis.noaa.gov). NOAA marks this data for experimental use only.';

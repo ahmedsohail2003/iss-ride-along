@@ -287,3 +287,23 @@ button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align
 .fc-key-actual { border-color: #ffffff; }
 .fc-key-sat { border-color: #7fdbff; }
 .fc-key-trend { border-color: #f5b041; border-top-style: dashed; }
+
+/* G1: the 3D globe in the map's slot (same size), and the view switch over its top-right corner. Exactly one of
+   #map and #globe is shown: body[data-view="3d"] shows the globe; anything else shows the flat map. */
+.map-slot { position: relative; }
+#globe { display: none; position: relative; height: min(58vh, 540px); min-height: 260px; border-radius: 8px; overflow: hidden; background: #03050c; border: 1px solid #23304d; }
+#globe canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+#globe canvas:active { cursor: grabbing; }
+#globe:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
+body[data-view="3d"] #globe { display: block; }
+body[data-view="3d"] #map { display: none; }
+.view-switch { position: absolute; z-index: 1050; top: 0.5rem; right: 0.5rem; display: flex; gap: 0; border: 1px solid #7fdbff; border-radius: 999px; background: #0b1020; }
+.view-switch button { width: auto; border-radius: 0; padding: 0.3rem 0.75rem; font-size: 0.85rem; background: #0b1020; color: #e8ecf1; font-weight: 600; }
+.view-switch button:first-child { border-radius: 999px 0 0 999px; }
+.view-switch button:last-child { border-radius: 0 999px 999px 0; }
+.view-switch button:focus-visible { position: relative; z-index: 1; }
+.view-switch button[aria-pressed="true"] { background: #7fdbff; color: #0b1020; }
+.view-note { position: absolute; z-index: 1050; top: 2.6rem; right: 0.5rem; max-width: min(24rem, 80%); margin: 0; padding: 0.35rem 0.6rem; font-size: 0.8rem; background: #0b1020; color: #e8ecf1; border: 1px solid #23304d; border-radius: 6px; }
+.view-note[hidden] { display: none; }
+@media (max-width: 860px) { #globe { height: 46vh; } }
+@media print { #globe, .view-switch, .view-note { display: none !important; } }

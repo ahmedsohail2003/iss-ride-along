@@ -6,6 +6,7 @@ import * as L from 'leaflet';
 import worldTile from '../data/bluemarble-z0.jpg';
 import eonetSnapshot from '../data/eonet-open.json';
 import photosData from '../data/photos.json';
+import globeImageMeta from '../data/globe/bluemarble-2048.json';
 import meta from '../data/snapshot-meta.json';
 import { footprintRadiusKm, splitByFootprint, type WithDistance } from './footprint';
 import { EONET_SET, eonetRawCount, fetchEonet, parseEonet, type EonetEvent } from './eonet';
@@ -354,6 +355,8 @@ export function initNasaLayers(map: L.Map): NasaLayers {
     <ul>
       <li>${esc(C.CREDIT_GIBS)}</li>
       <li>${esc(C.CREDIT_GIBS_LAYERS)}</li>
+      <li>${esc(C.creditGlobeImage(globeImageMeta.retrievedAt.slice(0, 10)))}</li>
+      <li>${esc(C.CREDIT_THREE)}</li>
       <li>${esc(C.CREDIT_EONET)}. ${esc(C.CREDIT_EONET_SOURCES)}</li>
       <li>${esc(C.CREDIT_PHOTOS)}
         <ul class="small">${photos.map((p) => `<li>${esc(p.place)}: ${esc(photoCreditLine(p))}</li>`).join('')}</ul></li>

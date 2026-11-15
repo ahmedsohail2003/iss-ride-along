@@ -8,6 +8,8 @@
 // writes the plain sentence above the map ("110 km northeast of Detroit, ..."), which is the page's one
 // screen-reader live region for the position and changes once a minute; the per-second numbers are not announced.
 // X5: src/sky/skyPanel.ts draws the stars and constellations above the station right now (the Sky tab).
+// G1: src/globe/ is the 3D globe (three.js) in the map's place, fed by the same calls as the flat map; the
+// page still opens flat, and src/globe/view.ts holds the switch and the rule for which view shows.
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import * as L from 'leaflet';
@@ -33,6 +35,11 @@ import { orbitLabLine } from './orbit/lab';
 import { startWhereRegion } from './ui/whereRegion';
 import { initVoice, voiceHtml } from './ui/voice';
 import { initSkyPanel, skyPanelHtml } from './sky/skyPanel';
+import { initView } from './globe/view';
+import { createGlobe, type Globe } from './globe/globe';
+import { orbitPoints } from './globe/geo';
+import { subsolarPoint } from './orbit/daynight';
+import globeImageUrl from './data/globe/bluemarble-2048.jpg';
 
 // M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
 // box, the next-pass line for the chosen place and a small "How accurate is this?" card. Everything
@@ -49,7 +56,15 @@ app.innerHTML = `
       <p id="where-now" class="where-now" aria-live="polite" aria-atomic="true"></p>
 ${voiceHtml}
       ${gameBarHtml}
-      <div id="map" role="region" aria-label="World map with the space station's position and path. Arrow keys move the map; plus and minus zoom."></div>
+      <div class="map-slot">
+        <div id="view-switch" class="view-switch" role="group" aria-label="How to show the Earth">
+          <button type="button" id="view-3d" aria-pressed="false">3D</button>
+          <button type="button" id="view-flat" aria-pressed="true">Flat page</button>
+        </div>
+        <p id="view-note" class="view-note" hidden></p>
+        <div id="map" role="region" aria-label="World map with the space station's position and path. Arrow keys move the map; plus and minus zoom."></div>
+        <div id="globe" role="region" tabindex="0" aria-label="3D globe with the space station's position, its last and next orbit, the night side and the area the crew can see. Arrow keys turn the globe; plus and minus zoom."></div>
+      </div>
       <p class="small legend">
         <span class="key key-iss"></span> ISS now
         <span class="key key-past"></span> last orbit
@@ -139,13 +154,30 @@ function drawNight(now: Date) {
   const n = nightLine(now);
   nightShade.setLatLngs(n.polygon);
   terminator.setLatLngs(n.line);
+  const sun = subsolarPoint(now);
+  view?.globe()?.setSun(sun.latDeg, sun.lonDeg);
   document.body.dataset.nightPoints = String(n.polygon.length);
 }
 const nightToggle = document.getElementById('night-toggle') as HTMLInputElement;
 nightToggle.addEventListener('change', () => {
   if (nightToggle.checked) nightLayer.addTo(map);
   else nightLayer.remove();
+  view?.globe()?.setNight(nightToggle.checked);
 });
+
+// ---- G1: the 3D globe in the map's place (src/globe/). `view` is set further down, once the map is drawn.
+type ViewApi = ReturnType<typeof initView<Globe>>;
+let view: ViewApi | undefined;
+/** Hand the globe everything the flat map shows, from the same engine calls. */
+function feedGlobe(g: Globe, now = new Date()) {
+  const s = stateAt(elements.satrec, now);
+  if (s) g.setStation(s.latDeg, s.lonDeg, s.altKm);
+  const sun = subsolarPoint(now);
+  g.setSun(sun.latDeg, sun.lonDeg);
+  const t = orbitPoints(elements.satrec, now, periodMinutes(elements.satrec));
+  g.setTrack(t.past, t.next);
+  g.setNight(nightToggle.checked);
+}
 
 // M7: a larger marker with an "ISS" label, so a stranger finds it at once.
 const issIcon = L.divIcon({
@@ -162,6 +194,11 @@ function drawTrack(now: Date) {
   const p = periodMinutes(elements.satrec);
   pastLine.setLatLngs(groundTrack(elements.satrec, now, -p, 0));
   nextLine.setLatLngs(groundTrack(elements.satrec, now, 0, p));
+  const g = view?.globe();
+  if (g) {
+    const t = orbitPoints(elements.satrec, now, p);
+    g.setTrack(t.past, t.next);
+  }
 }
 
 // ---- Readout, refreshed every second.
@@ -201,6 +238,13 @@ function tick() {
   $('clock').textContent = `${now.toISOString().slice(11, 19)} UTC`;
   marker.setLatLng([s.latDeg, s.lonDeg]);
   nasa.update(s.latDeg, s.lonDeg, s.altKm);
+  // G1: the globe gets the same state every second (and the Sun, which moves 0.25 degree a minute).
+  const g = view?.globe();
+  if (g) {
+    g.setStation(s.latDeg, s.lonDeg, s.altKm);
+    const sun = subsolarPoint(now);
+    g.setSun(sun.latDeg, sun.lonDeg);
+  }
   // C2: the same shadow test as the pass list, so the label and the passes never disagree.
   const sun = sunlightLabel(elements.satrec, now);
   if (sun) {
@@ -223,6 +267,20 @@ const voice = initVoice({
 tick();
 drawTrack(new Date());
 drawNight(new Date());
+// G1: the view switch decides now that the flat page is drawn (so the screen is never blank).
+view = initView<Globe>({
+  host: $('globe'),
+  btn3d: $('view-3d') as HTMLButtonElement,
+  btnFlat: $('view-flat') as HTMLButtonElement,
+  note: $('view-note'),
+  makeGlobe: (canvas, gl, renderer) => createGlobe({ host: $('globe'), canvas, gl, renderer, imageUrl: globeImageUrl, sizeFrom: $('map') }),
+  onGlobe: (g) => feedGlobe(g),
+  onFlat: () => map.invalidateSize(),
+});
+// The two actions that need the flat map open it first (a press: it wins over ?view=3d and is saved).
+($('daily-toggle') as HTMLInputElement).addEventListener('change', (e) => {
+  if ((e.target as HTMLInputElement).checked && view?.current() === '3d') view.press('flat');
+});
 // C3: the plain sentence above the map, set now and then once a minute (src/ui/whereRegion.ts); X3 reads
 // exactly that text aloud when the toggle is on.
 startWhereRegion({ el: $('where-now'), getSatrec: () => elements.satrec, onText: (t) => voice.sayWhere(t) });
@@ -238,7 +296,7 @@ initTabs((id) => {
 });
 setInterval(renderAccuracy, 30_000);
 // M6: the game plays on the main map (a tap places the guess); its panel is the Game tab.
-initGame({ map, getSatrec: () => elements.satrec });
+initGame({ map, getSatrec: () => elements.satrec, onStart: () => view?.current() === '3d' && view.press('flat') });
 setInterval(tick, 1000);
 setInterval(() => {
   drawTrack(new Date());
