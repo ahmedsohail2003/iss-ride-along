@@ -45,7 +45,8 @@ node scripts/check-agent.mjs --provider openai   # the planner's live check; wit
 node scripts/make-offline.mjs # copy dist/index.html to docs/; checks size and no http(s) tags
 node scripts/check-live.mjs   # our position for "now" vs wheretheiss.at; prints SKIPPED offline without network
 node scripts/check-oem.mjs    # our math vs NASA's trajectory at 0/12/24/36/72 h, and with no conversion; writes src/data/oem-agreement.json
-node scripts/record-demo.mjs  # backup demo capture -> docs/demo-backup.mp4 (needs ffmpeg and AC power)
+node scripts/record-demo.mjs  # backup demo capture -> docs/demo-backup.mp4 + caption in docs/demo-backup.txt (needs ffmpeg and AC power); opens with a planner run, the AI one when GEMINI_API_KEY is loaded with node --env-file
+node scripts/scan-secrets.mjs # the publish workflow's key pattern over evidence/ and docs/ (json, txt, har, log); prints nothing when clean
 node scripts/check-docs.mjs   # every file and function named in CODE_TOUR.md exists; docs under 120 lines
 ```
 
