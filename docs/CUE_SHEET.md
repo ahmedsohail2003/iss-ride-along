@@ -1,8 +1,17 @@
 # Cue sheet (print this page, one per person)
 
+**Demo from this address:** https://ahmedsohail2003.github.io/iss-ride-along/?view=3d
+Spare (the flat page): https://ahmedsohail2003.github.io/iss-ride-along/?view=flat
+
 **ISS Ride-Along:** tell it your week in your own words, and it plans the one space-station pass worth going outside for, and shows where every number came from.
 
-Final version, Sun Nov 15, 12:30 AM EST (version 1: Sat 7:59 PM). Full plan: [PRESENTING.md](PRESENTING.md). Answers to judge questions: [PRESENTER_PACK.md](PRESENTER_PACK.md).
+Final version, Sun Nov 15, 5:15 AM EST, the 3D refresh (before it: 12:30 AM; version 1: Sat 7:59 PM). New on the first screen; the spoken lines and clicks are unchanged:
+
+- **The globe** in the map's place: the station, its orbits, the night side, from the same orbit math.
+- **The dark look:** black page, white type, a "3D globe" badge.
+- **The "3D / Flat page" switch** (`#view-3d`, `#view-flat`): the flat page is one press away.
+- **The scroll story below the tool** (`#story`): six scenes that turn the globe as you scroll.
+ Full plan: [PRESENTING.md](PRESENTING.md). Answers to judge questions: [PRESENTER_PACK.md](PRESENTER_PACK.md).
 
 ## The three numbers (say what each one counts)
 
@@ -24,9 +33,9 @@ If a judge asks "so how accurate are you?": "About a kilometre from NASA's own p
 
 | Time | Who | Do | Say (short form; full words in PRESENTING.md) |
 |---|---|---|---|
-| 0:00-0:35 | Denim | Press the trip example "Ypsilanti until Monday...", then "Plan my sighting" (`#plan-go`), first thing | "Pass apps tell you when it flies over one place..." Read the Steps (`#plan-trace`) as they fill in. |
+| 0:00-0:35 | Denim | Press the trip example "Ypsilanti until Monday...", then "Plan my sighting" (`#plan-go`), first thing; the globe turns to the chosen pass | "Pass apps tell you when it flies over one place..." Read the Steps (`#plan-trace`) as they fill in. |
 | 0:35-1:15 | Denim, then Quinn | Point at the audit badge (`#plan-audit`), then the NASA panel (`#oem-panel`), then press "Check against reference" (`#check-ref`) | Audit: "anything the AI made up would be marked." NASA: read the gap and the age on the panel; "1.03 km at most within 12 hours." |
-| 1:15-1:35 | Armeis | Point at the shaded night side, then tick "Daily satellite photo (with clouds)" (`#daily-toggle`), point at its date (`#gibs-date`), untick it; then the events (`#events-list`), the photo (`#photo-card`), the credits (`#credits`) | "The clear map is NASA's Blue Marble; the shaded half is night. This switch shows NASA's photo of the day. Under the station: NASA's open natural events, an astronaut photo." |
+| 1:15-1:35 | Armeis | Point at the shaded night side, then tick "Daily satellite photo (with clouds)" (`#daily-toggle`), point at its date (`#gibs-date`), untick it (the page changes to the flat map when you tick it; that is meant to happen); then the events (`#events-list`), the photo (`#photo-card`), the credits (`#credits`) | "The clear map is NASA's Blue Marble; the shaded half is night. This switch shows NASA's photo of the day. Under the station: NASA's open natural events, an astronaut photo." |
 | 1:35-2:00 | everyone | Hands off the laptop | Who built it and how; one line each from your own "What I learned" box. Then: "What would you like to see?" |
 
 Live trip runs took 11.0, 13.2 and 15.4 seconds (4 AI calls each). If the run is cut off at 30 seconds, say "that is the plan for one city without AI" and go on to beat 2.
@@ -37,7 +46,8 @@ Live trip runs took 11.0, 13.2 and 15.4 seconds (4 AI calls each). If the run is
 
 ## If something breaks (in this order)
 
-- **Page will not load:** reload → the spare device → a teammate's phone hotspot (ask first) → the backup video `docs/demo-backup.mp4` (132 seconds, no sound: talk over it; it shows every part) → last, the offline file `docs/iss-ride-along-offline.html` (an older build without the planner).
+- **Globe misbehaves or does not appear:** press "Flat page" (`#view-flat`) or open the spare address. After beat 3, press "3D" (`#view-3d`) before the next judge.
+- **Page will not load:** reload → the spare device → a teammate's phone hotspot (ask first) → the backup video `docs/demo-backup.mp4` (147 seconds, recorded 5:05 AM Sunday on the 3D globe, no sound: talk over it; it shows every part) → last, the offline file `docs/iss-ride-along-offline.html` (an older build without the planner).
 - **Planner key gone after a reload:** it stays if "keep until this tab is closed" was ticked. Otherwise type it again from the password manager, between judges, screen turned away, never read aloud. Only then: "Plan my sighting" with no key gives the fixed plan: "this is the plan for one city without AI; the trip sentence needs the AI."
 - **AI slow:** one slow reply is asked again by itself ("asked again" in the Steps list); if that fails too, the page cuts over by 30 seconds and says why: press the trip example again. **Web search down:** the plan still runs and says so.
 

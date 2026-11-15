@@ -158,6 +158,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 From npm (`three`), named imports only. The globe's Earth picture is NASA imagery from GIBS (no licence notice needed; credited on the page).
 
+The globe is a drawing of computed positions, not a live camera. Its Earth is one 2048x1024 copy of NASA's Blue Marble (GIBS layer `BlueMarble_ShadedRelief_Bathymetry`) saved on Nov 15, 2026 at 1:32 AM EST (`src/data/globe/bluemarble-2048.json`); everything else on it is computed by this project's own engine. The dark look was modelled on Ahmed's earlier RoBuff page; no code, styles or assets were copied from it. Not affiliated with or endorsed by NASA.
+
 ```
 The MIT License
 

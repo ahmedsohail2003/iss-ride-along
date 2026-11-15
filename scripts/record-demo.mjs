@@ -21,6 +21,13 @@
 // sentence, day and night, the daily-photo switch, the NASA layers, the Forecast lab, the sky from the
 // station with a drag and a zoom, one game round, read aloud, the calendar file and sheets). A scene
 // that fails is printed and makes the script exit 1, as do a file of 25 MB or more and a video over 180 s.
+//
+// G4: the video opens the demo address (?view=3d) the way the team will, on this laptop's own graphics
+// chip (headless Chrome with no SwiftShader flags, as `smoke.mjs --view auto --gpu` launches it). It
+// waits for the globe, shows the globe turning to the chosen pass and one drag, scrolls once through the
+// story below the tool, then the rest as before (the daily-photo switch and Play open the flat page, as
+// built); at the end it presses "3D" to come back to the globe. If the globe never appears (no frames,
+// no image), the recording stops with GLOBE FAIL and exit 1, and docs/demo-backup.mp4 is not replaced.
 import { chromium } from 'playwright-core';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -30,7 +37,7 @@ import { pathToFileURL } from 'node:url';
 
 const FORCE = process.argv.includes('--force');
 const OUT = resolve('docs/demo-backup.mp4');
-const url = pathToFileURL(resolve('dist/index.html')).href;
+const url = pathToFileURL(resolve('dist/index.html')).href + '?view=3d';
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
 const FFPROBE = process.env.FFPROBE || 'ffprobe';
 
@@ -80,6 +87,19 @@ try {
   });
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => /\d/.test(document.getElementById('lat')?.textContent ?? ''));
+  // G4: the globe, drawn on the real chip, before any scene is recorded.
+  const globeOk = await page
+    .waitForFunction(() => document.body.dataset.view === '3d' && document.getElementById('globe')?.dataset.image === 'loaded' && Number(document.getElementById('globe')?.dataset.frames ?? 0) > 3, null, { timeout: 20_000 })
+    .then(() => true)
+    .catch(() => false);
+  const renderer = await page.evaluate(() => document.getElementById('globe')?.dataset.renderer ?? null);
+  console.log(`globe: ${globeOk ? 'shown' : 'NOT shown'}; renderer ${renderer}`);
+  if (!globeOk) {
+    console.log('GLOBE FAIL: the globe did not appear; docs/demo-backup.mp4 is not replaced');
+    await browser.close();
+    rmSync(workDir, { recursive: true, force: true });
+    process.exit(1);
+  }
   await page.evaluate(() => {
     const c = document.createElement('div');
     c.id = 'demo-caption';
@@ -108,7 +128,7 @@ try {
   const model = [...models][0] ?? null;
   const caption = aiUsed && model ? `recorded ${clock} with Gemini ${model}` : `recorded ${clock}, fixed plan, no AI`;
   await pause(Math.max(0, 3 - planSeconds));
-  await say(`The plan card and the next-pass line (${caption})`);
+  await say(`The globe turns to the chosen pass; the plan card and the next-pass line (${caption})`);
   await pause(7);
   await page.locator('#plan-trace').scrollIntoViewIfNeeded();
   await say('Steps: which tool ran, who chose it and what came back');
@@ -139,6 +159,34 @@ try {
     await toView(`#tab-btn-${id}`);
   };
 
+  // G4: the globe itself (one drag) and one pass through the scroll story below the tool.
+  await scene('the 3D globe (G1, G2)', async () => {
+    await top();
+    await page.locator('#globe').scrollIntoViewIfNeeded();
+    await say('A 3D globe drawn from our own orbit math: the station, its last and next orbit, the night side, what the crew can see');
+    await pause(3);
+    const b = await page.locator('#globe canvas').boundingBox();
+    await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.5);
+    await page.mouse.down();
+    for (let k = 1; k <= 30; k++) {
+      await page.mouse.move(b.x + b.width * (0.5 - 0.008 * k), b.y + b.height * (0.5 + 0.002 * k));
+      await page.waitForTimeout(30);
+    }
+    await page.mouse.up();
+    await say('Drag to turn it: computed positions drawn on NASA\'s Blue Marble, not a live camera. "Flat page" is one press away');
+    await pause(4);
+  });
+  await scene('scroll story (G3)', async () => {
+    const ids = await page.$$eval('#story .scene', (es) => es.map((e) => e.id));
+    if (ids.length !== 6) throw new Error(`#story has ${ids.length} scenes`);
+    await say('Below the tool, a short story turns the globe as you scroll, with the real stars behind it');
+    for (const id of ids) {
+      await page.evaluate((i) => document.getElementById(i).scrollIntoView({ block: 'center', behavior: 'smooth' }), id);
+      await pause(2.5);
+    }
+    await top();
+    await pause(1);
+  });
   await scene('plain sentence (C3)', async () => {
     await top();
     const where = (await page.textContent('#where-now'))?.trim();
@@ -148,13 +196,13 @@ try {
   });
   await scene('day and night (C2)', async () => {
     const sunlit = (await page.textContent('#sunlit'))?.trim();
-    await say(`The shaded half of the map is night right now. The station: ${sunlit}`);
+    await say(`The shaded half of the Earth is night right now. The station: ${sunlit}`);
     await pause(6);
   });
   await scene('daily photo switch (P2)', async () => {
     await page.waitForFunction(() => !document.getElementById('daily-toggle')?.disabled, null, { timeout: 8000 });
     await page.check('#daily-toggle');
-    await say('A clear NASA Blue Marble map by default; one switch shows NASA\'s satellite photo of the day, clouds and all');
+    await say('One switch shows NASA\'s satellite photo of the day, clouds and all, on the flat page (it opens there by design)');
     await pause(6);
     await page.uncheck('#daily-toggle');
   });
@@ -224,6 +272,13 @@ try {
     await pause(5);
   });
 
+  await scene('back to the globe (G4)', async () => {
+    await top();
+    await page.click('#view-3d');
+    await page.waitForFunction(() => document.body.dataset.view === '3d', null, { timeout: 5000 });
+    await say('Press "3D" and the globe is back');
+    await pause(3);
+  });
   await top();
   await say(`ISS Ride-Along: ${caption}`);
   await pause(4);

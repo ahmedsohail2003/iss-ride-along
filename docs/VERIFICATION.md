@@ -20,6 +20,16 @@ G2 the chosen pass on the globe, the new look and 3D by default where the device
 G3 the real stars behind the globe and the scroll story,
 R2 the 3D default decides only on frames it actually saw (and the check on the real graphics chip).
 
+**The 3D view (G1 to G3, R2), in one paragraph.** The globe is drawn with three.js 0.187.0 (MIT) and is a
+drawing of computed positions, not a live camera: the Earth is NASA's Blue Marble (GIBS), one 2048x1024
+copy saved on Nov 15, 2026 at 1:32 AM EST; the station, its last and next orbit, the night side, the
+area the crew can see and the chosen pass come from the same tested functions as the flat map
+(`stateAt`, `subsolarPoint`, `footprintRadiusKm`, the pass predictor); the stars are the Sky tab's 1,627.
+The flat page stays one press away (`#view-flat`) or at `?view=flat`, and opens by itself when the device
+has no WebGL2, draws in software, is slow or asks for reduced motion. The dark look was modelled on
+Ahmed's earlier RoBuff page; all code was written new at this event. Not affiliated with or endorsed by
+NASA.
+
 - M0 VERIFIED 14:12 ET — fresh-shell re-run 2:10-2:12 PM: npm test 5/5 passed; build exit 0, dist/index.html 23,866 bytes single-file, 0 external script/link; src/data TLE/OMM/10 samples/150 cities/256x256 tile/snapshot-meta present; git clean, commit 3bfbfb5 by Ahmed, no trailers; headless Chrome file:// shows title, lat -48.38 lon 175.33, 0 console errors, 0 non-file requests (evidence/m0-r0.png). Notes: findPasses test not ported (logged deviation, M5); orbit data from 12:36 PM fetch (CelesTrak unreachable 2:07 PM).
 
 - M1 VERIFIED 14:23 ET — fresh-shell re-run 2:20-2:23 PM: npm test 14/14 (position 0.0003 km, alt 0.0020 km, speed 0.0000 km/h max on the 10-sample fixture); build single-file 220,924 B; smoke.mjs PASS mocked and --net (0 console errors, marker moves, 2 track paths, #lat numeric); check-live.mjs PASS error_km 0.736; evidence/m1.png + .autopilot/evidence/m1-r0.png. Open: docs/demo-backup.mp4 DEFERRED (on battery, PLAN section 3 AC rule) — run `node scripts/record-demo.mjs` in iss-ride-along/ once plugged in at the BnB; the script has never run end to end. Notes (non-blocking): on 390x844 the map does not follow the marker (station sits at the left edge, half cut off); at 1366x768 a dark strip shows left of the zoom-0 world image; CelesTrak still unreachable from this network, so the page runs on the 04:10 UTC element set.

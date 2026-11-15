@@ -2,7 +2,11 @@
 
 **ISS Ride-Along in two sentences:** you tell it where you will be this week and when you are free, in your own words, and it plans the one space-station pass worth going outside for. Every number on the result comes from our own orbit math, which we checked against an independent tracker, against Heavens-Above and against NASA mission control's own trajectory file.
 
-This pack is a review of the four study cards in [STUDY_CARDS.md](STUDY_CARDS.md), not new material. Version 1, Sat Nov 14, 7:45 PM EST. Every fact here comes from a file in this repository, and the file is named next to each answer, so you can open it if a judge asks "show me". `node scripts/check-docs.mjs` checks that each of those files exists, and `node scripts/smoke.mjs --path` presses every click in the 90-second path below on the built page.
+**Demo from this address:** https://ahmedsohail2003.github.io/iss-ride-along/?view=3d (spare, the flat page: https://ahmedsohail2003.github.io/iss-ride-along/?view=flat).
+
+**New on the first screen (Sun 5:15 AM refresh):** the globe in the map's place, from the same orbit math; the dark look; the "3D / Flat page" switch (`#view-3d`, `#view-flat`), so the flat page is one press away; the scroll story below the tool (`#story`), six scenes that turn the globe. The click path below is unchanged and passes in both views.
+
+This pack is a review of the four study cards in [STUDY_CARDS.md](STUDY_CARDS.md), not new material. Version 1, Sat Nov 14, 7:45 PM EST; refreshed Sun Nov 15, 12:30 AM and 5:15 AM EST. Every fact here comes from a file in this repository, and the file is named next to each answer, so you can open it if a judge asks "show me". `node scripts/check-docs.mjs` checks that each of those files exists, and `node scripts/smoke.mjs --path` presses every click in the 90-second path below on the built page.
 
 ## The one page
 
@@ -22,17 +26,17 @@ This pack is a review of the four study cards in [STUDY_CARDS.md](STUDY_CARDS.md
 
 - **satellite.js** (SGP4): the standard model that moves a station's published orbit numbers forward to any second, so we compute the position ourselves.
 - **CelesTrak**: where the orbit numbers come from (US Space Force tracking data, not NASA). **wheretheiss.at**: an independent tracker we compare against.
-- **Leaflet**: a small map library that draws the map, the station and its path.
+- **Leaflet**: a small map library that draws the flat map, the station and its path. **three.js**: a 3D drawing library (MIT) that draws the globe from the same numbers; a drawing of computed positions, not a live camera.
 - **NASA GIBS, EONET, Image and Video Library**: the map (the cloud-free Blue Marble by default; the dated daily satellite photo with its clouds behind the switch "Daily satellite photo (with clouds)" under the map), the list of open natural events and the astronaut photos. **NASA's ISS trajectory file**: the check in number 2.
 - **Gemini** (Google's AI model): the planner's model, live-tested. **Exa**: a search engine built for AI, for station news. **Open-Meteo**: the free cloud forecast.
-- **Vitest**: runs the 159 automated tests (159 of 159 passed at 12:14 AM Sunday). **GitHub Actions**: runs them again on every push before the live page updates.
+- **Vitest**: runs the 193 automated tests (193 of 193 passed at 4:57 AM Sunday). **GitHub Actions**: runs them again on every push before the live page updates.
 - **Claude Code**: the AI coding tool that wrote the code (question 1 below).
 
 Full list with versions: [HOW_IT_WORKS.md](../HOW_IT_WORKS.md) "Each tool in one line". Tech stack and licences: [README.md](../README.md) "Built with" and `package.json`.
 
 ## The 90-second click path
 
-On the demo laptop, with the live page https://ahmedsohail2003.github.io/iss-ride-along/ open. The first four rows are done before judges arrive (docs/DEMO_LAPTOP.md, step 4). `node scripts/smoke.mjs --path` reads this table and does each row on the built page: it finds the element, checks it shows the quoted words, does the action, and waits for the "then you see" element.
+On the demo laptop, with the demo address https://ahmedsohail2003.github.io/iss-ride-along/?view=3d open. The first four rows are done before judges arrive (docs/DEMO_LAPTOP.md, step 4). `node scripts/smoke.mjs --path` reads this table and does each row on the built page: it finds the element, checks it shows the quoted words, does the action, and waits for the "then you see" element.
 
 | Step | When | Do | Where on screen | Then you see | Say |
 |---|---|---|---|---|---|
@@ -122,6 +126,7 @@ File: `src/main.ts` (`tick()`), `src/orbit/orbit.ts` (`stateAt()`)
 
 ## If something breaks at the table
 
+- **The globe misbehaves or does not appear:** press "Flat page" (`#view-flat`) or open the spare address; the whole click path works there.
 - **The page will not load:** open it on the spare device within 30 seconds; if that fails too, play the backup video `docs/demo-backup.mp4`.
 - **The reference check fails:** say what it normally shows and point to the saved test: 10 of 10 samples within 1 metre of the other tracker (question 6).
 - **The AI does not answer:** the page falls back to the fixed plan by itself and names the reason. Say: "this is the plan for one city without AI; the scoring rule is the same." Paste the key again between judges.
@@ -133,6 +138,7 @@ No written explain-backs had arrived by 7:45 PM, so these come from the correcti
 
 | Easy to say | Say instead |
 |---|---|
+| "This is a live view from space" | The globe is a drawing of our computed positions on NASA's Blue Marble picture, not a live camera. |
 | "NASA's orbit data" | Orbit numbers from CelesTrak (US Space Force data); the NASA parts are the imagery, events, photos and the trajectory file. |
 | "We know the true position to within a kilometre" | "About a kilometre apart from NASA's own prediction when our orbit numbers are under a day old." |
 | "It runs on OpenAI" | "Live-tested on Gemini; the OpenAI adapter is tested with saved replies, not live-tested." |

@@ -3,8 +3,8 @@
 Built at Hack the Nest 2026 (Eastern Michigan University, Nov 14-15, 2026).
 
 **In one paragraph.** Tell the page where you will be this week and when you are free, in your own
-words, and it plans the one International Space Station pass worth going outside for, then moves the
-map to it and starts a countdown. Everything it shows is computed in your browser from public orbit
+words, and it plans the one International Space Station pass worth going outside for, then turns the
+3D globe (or moves the flat map) to it and starts a countdown. Everything it shows is computed in your browser from public orbit
 data, and every number carries its source: where the station is right now, what NASA data says it is
 flying over, when you can see it from a city, and how far our math is from NASA mission control's
 own trajectory file. Live page: https://ahmedsohail2003.github.io/iss-ride-along/
@@ -63,6 +63,35 @@ for a parent, a teacher or a first-time stargazer, starting with us in Michigan 
   scored: NOAA's satellite crop-health index forecast the US corn harvest better than a trend line,
   a skill of 0.57 over 31 test years (0 = no better, 1 = perfect); on the corn price the same data
   scored 0.00 over 23 years, so no price forecast is shown. Details: `HOW_IT_WORKS.md`.
+
+## The 3D view and what it is drawn from
+
+**In short:** where the device can draw it smoothly, the page opens on a 3D globe in the map's place,
+in a dark look; the flat page is one press away ("Flat page", `#view-flat`) or at `?view=flat`. The
+globe is a drawing of computed positions, not a live camera: every shape on it is a number our tested
+engine already produces for the flat map.
+
+| On the globe | Where it comes from |
+|---|---|
+| The Earth | NASA's cloud-free Blue Marble (GIBS layer `BlueMarble_ShadedRelief_Bathymetry`, the flat map's layer), one 2048x1024 copy saved on Nov 15, 2026 at 1:32 AM EST and built into the page |
+| The station at its true height | `stateAt`, our SGP4 engine, the same call that fills the latitude, longitude and altitude |
+| The last and the next orbit | `stateAt` every 30 s for one orbital period back and forward |
+| Day and night | `subsolarPoint`, our own Sun math (the flat map's night shade) |
+| The area the crew can see | `footprintRadiusKm` |
+| The chosen pass over your city | the pass predictor's rise-to-set points, the same as the pink arc on the flat map |
+| The stars behind it | the Sky tab's 1,627 catalogue stars, turned by sidereal time (precession since 2000, about 0.37 degree, is left out) |
+
+Below the tool, in the 3D view only, a six-scene scroll story turns the globe as you read (the station
+now, one orbit, day and night, what the crew can see, the stars, what is computed and what is fetched).
+
+**When the flat page opens instead:** the device has no WebGL2, draws in software, is slow (30 frames
+drawn back to back take a median of more than 33 ms each), or asks for reduced motion; or the page was
+not being drawn when it checked (then it checks once more when it is shown). "Play" in the Game tab
+and the daily satellite photo switch open the flat map, where those parts were checked. `?view=3d`
+skips the check.
+
+Drawn with [three.js](https://threejs.org/) 0.187.0 (MIT). The look was modelled on Ahmed's earlier
+RoBuff page; all of this page's code was written new at this event, and nothing was copied from it.
 
 ## Who can use it
 
@@ -191,6 +220,7 @@ so the page falls back to that copy and its age label says so.
   the page builds into one HTML file that also opens from `file://`.
 - [satellite.js](https://github.com/shashwatak/satellite-js) 7.2.0: SGP4 orbit propagation.
 - [Leaflet](https://leafletjs.com/) 1.9.4: the 2D map.
+- [three.js](https://threejs.org/) 0.187.0: the 3D globe (see "The 3D view and what it is drawn from").
 - [axe-core](https://github.com/dequelabs/axe-core) 4.14.0: the accessibility checker the smoke test
   injects into the page (`--a11y`); not part of the page itself.
 - [Vitest](https://vitest.dev/) 5.1.0: the unit tests. playwright-core 1.65.1: drives the Chrome
@@ -220,7 +250,9 @@ or reading the code: `HOW_IT_WORKS.md` (what is computed and what is fetched) an
 - OpenAI and keyed Exa calls are not live-tested.
 - When CelesTrak cannot be reached, the page runs on older orbit numbers; the gap to NASA's
   trajectory grows with their age (table above), and the page prints the age.
-- The offline file `docs/iss-ride-along-offline.html` is not rebuilt after every change.
+- The offline file `docs/iss-ride-along-offline.html` is not rebuilt after every change (it has no globe).
+- The 3D view was checked on one laptop's graphics chip (Intel Iris Xe) and in a software renderer;
+  other devices may open on the flat map, and "3D" (`#view-3d`) or `?view=3d` still opens the globe.
 
 ## THIRD_PARTY_NOTICES
 
@@ -231,6 +263,7 @@ or reading the code: `HOW_IT_WORKS.md` (what is computed and what is fetched) an
 - Natural Earth: public domain (the city list in `src/data/cities.json`).
 - ERFA (the 106-term IAU 1980 nutation table in `src/orbit/nut80-table.ts`, copied by script): BSD
   3-Clause, derived from the IAU SOFA library.
+- three.js 0.187.0: MIT License, Copyright (c) 2010-2026 three.js authors. Bundled into the built page.
 - d3-celestial data (the star catalogue and constellation lines in `src/data/sky/`): BSD 3-Clause, Copyright (c) 2015,
   Olaf Frohn. Bundled into the built page.
 - astronomy-engine 2.1.19: MIT License; tests only, not in the built page.

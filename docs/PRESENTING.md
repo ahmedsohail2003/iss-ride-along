@@ -1,16 +1,26 @@
 # Presenting ISS Ride-Along at the table (Quinn, Denim, Armeis)
 
+**Demo from this address:** https://ahmedsohail2003.github.io/iss-ride-along/?view=3d
+Spare (the flat page, if the globe does not appear): https://ahmedsohail2003.github.io/iss-ride-along/?view=flat
+
 **In short:** judging is Sunday 1:15 to 2:15 PM at our table in the Student Center Ballroom. Judges walk up, watch about 2 minutes, ask questions and may come back more than once. This file says what is on the table, the 2-minute script with who says what, a short opening for each kind of judge, 12 likely questions, what to do when something breaks, what to show on a second visit, and the Sunday rehearsal plan. The one-page version to print is [CUE_SHEET.md](CUE_SHEET.md); the longer answers and the 90-second click path are in [PRESENTER_PACK.md](PRESENTER_PACK.md).
 
-Final version, Sun Nov 15, 12:30 AM EST (version 1 was Sat 7:59 PM). Every part of the page passed its separate verification run by 12:12 AM Sunday, and only those parts are named here (`node scripts/check-docs.mjs` checks this, every number against the build log, and every file and screen element named here). What is new since version 1: the planner's newest live runs (beat 1), the test count, and a longer list of what to show on a second visit (section 6: the game, the sky from the station, the Forecast lab, the calendar file). If a judge asks for something not in this file, say "that is not built yet" and show the next part.
+Final version, Sun Nov 15, 5:15 AM EST, the 3D refresh (before it: 12:30 AM; version 1 was Sat 7:59 PM). Every part of the page passed its separate verification run by 4:52 AM Sunday, and only those parts are named here (`node scripts/check-docs.mjs` checks this, every number against the build log, and every file and screen element named here). What is new since version 1: the planner's newest live runs (beat 1), the test count, and a longer list of what to show on a second visit (section 6: the game, the sky from the station, the Forecast lab, the calendar file). If a judge asks for something not in this file, say "that is not built yet" and show the next part.
+
+**New on the first screen since 12:30 AM (the spoken lines and the clicks are unchanged):**
+
+- **The globe:** a 3D Earth in the map's place, with the station, its two orbits, the night side and the area the crew can see, from the same orbit math as the map.
+- **The dark look:** black background, white and grey type, a "3D globe" badge in the header.
+- **The "3D / Flat page" switch** above the globe (`#view-3d`, `#view-flat`): the flat page is one press away, and pressing "3D" brings the globe back.
+- **The scroll story below the tool** (`#story`): six short scenes that turn the globe as you scroll, shown in the 3D view only.
 
 ## 1. The table
 
 | What | Which | Status |
 |---|---|---|
 | The demo laptop (one, for every run) | Denim's laptop (the planner ran there with his own Gemini key at 8:58 PM Saturday) | Denim; (to fill: its screen size) |
-| The spare device | a second teammate's laptop or a phone, with the live page https://ahmedsohail2003.github.io/iss-ride-along/ already open | (to fill: whose) |
-| On screen when a judge walks up | the live page scrolled to "Where will you be, and when are you free?" (`#planner-h`), the Gemini key already in, "Settings: AI keys" closed; a second tab with [CODE_TOUR.md](../CODE_TOUR.md) on GitHub | set up by [DEMO_LAPTOP.md](DEMO_LAPTOP.md) |
+| The spare device | a second teammate's laptop or a phone, with the spare address https://ahmedsohail2003.github.io/iss-ride-along/?view=flat already open | (to fill: whose) |
+| On screen when a judge walks up | the demo address (the globe) scrolled to "Where will you be, and when are you free?" (`#planner-h`), the Gemini key already in, "Settings: AI keys" closed; a second tab with [CODE_TOUR.md](../CODE_TOUR.md) on GitHub | set up by [DEMO_LAPTOP.md](DEMO_LAPTOP.md) |
 | Power | charger in, sleep and notifications off | |
 | On paper | one printed [CUE_SHEET.md](CUE_SHEET.md) per person | |
 
@@ -22,7 +32,7 @@ Four beats and no more. Read the "> " lines aloud; the rest is what to do. Read 
 
 > **Denim:** Pass apps tell you when the space station flies over one place. You still have to match that to your week, your sky and where you will be. I just gave it a week with two cities, in my own words. A form cannot take a week like that; an agent can. Watch the steps: it found both places, ran our own orbit engine for each on the nights we are there, checked the cloud, searched the web, and picked one.
 
-The map moves to the chosen pass (`#plan-card` shows it). Say a cloud line only if the Steps list shows a cloudy night being ruled out ("that night was too cloudy"). If the page says it cut the AI off at 30 seconds, say "that is the plan for one city without AI" and go on.
+The globe turns to the chosen pass (`#plan-card` shows it). Say a cloud line only if the Steps list shows a cloudy night being ruled out ("that night was too cloudy"). If the page says it cut the AI off at 30 seconds, say "that is the plan for one city without AI" and go on.
 
 **Beat 2: how we know the numbers are right (0:35-1:15, Denim then Quinn).** Point at the audit badge (`#plan-audit`), then scroll to the NASA panel (`#oem-panel`), then press "Check against reference" (`#check-ref`).
 
@@ -32,7 +42,7 @@ The map moves to the chosen pass (`#plan-card` shows it). Say a cloud line only 
 
 Read the km it shows (`#ref-km`): "that is how far our answer is from the other tracker."
 
-**Beat 3: what it is flying over (1:15-1:35, Armeis).** Scroll to the map and the NASA layers: tick the switch "Daily satellite photo (with clouds)" (`#daily-toggle`) under the map and point at the image date that appears (`#gibs-date`), untick it to go back to the clear map, then the events list (`#events-list`), the photo (`#photo-card`), then open the credits (`#credits`).
+**Beat 3: what it is flying over (1:15-1:35, Armeis).** Scroll to the map and the NASA layers: tick the switch "Daily satellite photo (with clouds)" (`#daily-toggle`) under the map and point at the image date that appears (`#gibs-date`), untick it to go back to the clear map, then the events list (`#events-list`), the photo (`#photo-card`), then open the credits (`#credits`). The page changes to the flat map when you tick it; that is meant to happen. Before the next judge, press "3D" (`#view-3d`) to bring the globe back.
 
 > **Armeis:** The clear map is NASA's Blue Marble; the shaded half is night right now. This switch shows NASA's satellite photo of the day, clouds and all. Under the station: NASA's natural events in the station's view, and an astronaut photo of a place in view. Every NASA source is dated and credited here.
 
@@ -65,7 +75,7 @@ Then the 2-minute script. What these judges look for: NASA data used correctly (
 
 Rehearse three questions for them (answers in section 4): "why an agent and not an if-statement?", "what stops it making numbers up?", "what happens with no key or a failed search?".
 
-**EMU Computer Science track.** Lead with the orbit engine and the tests: 159 automated tests in 20 files (159 of 159 passed at 12:14 AM Sunday), run again by GitHub Actions on every push before the live page updates (`README.md`, "How we test"). One test to name: the Forecast lab's no-peeking test (`tests/altdata.test.ts`) catches a version that is allowed to look at future years; exactly 2 tests fail on it. Then a 60-second code walk: each of you shows your own stop in [CODE_TOUR.md](../CODE_TOUR.md) (Denim stop 9, `src/agent/loop.ts`; Quinn stop 10, `src/orbit/frames.ts`; Armeis stop 5 or 6).
+**EMU Computer Science track.** Lead with the orbit engine and the tests: 193 automated tests in 23 files (193 of 193 passed at 4:57 AM Sunday), run again by GitHub Actions on every push before the live page updates (`README.md`, "How we test"). One test to name: the Forecast lab's no-peeking test (`tests/altdata.test.ts`) catches a version that is allowed to look at future years; exactly 2 tests fail on it. Then a 60-second code walk: each of you shows your own stop in [CODE_TOUR.md](../CODE_TOUR.md) (Denim stop 9, `src/agent/loop.ts`; Quinn stop 10, `src/orbit/frames.ts`; Armeis stop 5 or 6).
 
 **The overall prize.** The 2-minute script as written.
 
@@ -76,7 +86,7 @@ Rehearse three questions for them (answers in section 4): "why an agent and not 
 ## 4. Thirteen likely questions (two sentences each; answer aloud before reading)
 
 1. **Who wrote the code?** Claude Code, an AI coding tool, wrote it (the Fable 5.2 model planned, the Opus 5.5 model wrote the code), directed by our teammate Ahmed, who could not be here for judging. Every part had to pass checks that do not trust the AI, and here is what each of us did: (your own confirmed sentence, PRESENTER_PACK.md question 1).
-2. **How do you know it is right?** We compare it with three outside sources: an independent tracker (10 of 10 saved samples within 1 metre), Heavens-Above's pass list (8 of 8 passes, start times within 1.3 seconds) and NASA's own trajectory (1.03 km apart at most within 12 hours). The numbers are re-run by 159 automated tests on every push.
+2. **How do you know it is right?** We compare it with three outside sources: an independent tracker (10 of 10 saved samples within 1 metre), Heavens-Above's pass list (8 of 8 passes, start times within 1.3 seconds) and NASA's own trajectory (1.03 km apart at most within 12 hours). The numbers are re-run by 193 automated tests on every push.
 3. **Is this NASA's data?** The orbit numbers are not: they come from CelesTrak, which publishes US Space Force tracking data. The NASA parts are the map (GIBS: the cloud-free Blue Marble, and the daily satellite photo behind the switch), the natural events (EONET), the astronaut photos and the ISS trajectory file, each credited, and we are not affiliated with or endorsed by NASA.
 4. **Why an agent and not an if-statement?** The form takes one place and one latest time; the agent takes a week in your own words with several places, runs our engine once per place and picks one pass across them. In our trip test the agent picks a Chicago pass on a night you are in Chicago, while the form picks a Ypsilanti pass for that night.
 5. **What stops it making numbers up?** The AI can only choose among pass ids our engine returned, and every number on the card is written by our code, not the model. The audit then marks any number in the AI's sentences that no tool gave: 0 in 5 of 5 live runs, and in a test with 2 made-up numbers put in, exactly those 2 were marked.
@@ -92,7 +102,9 @@ Rehearse three questions for them (answers in section 4): "why an agent and not 
 
 ## 5. When something breaks
 
-**The page will not load,** in this order: reload → the spare device (within 30 seconds) → a teammate's phone hotspot, if someone has one (ask) → the backup video `docs/demo-backup.mp4` (132 seconds, no sound: talk over it; it shows every part) → last, the offline file `docs/iss-ride-along-offline.html` as last built (an older build without the planner; it is not kept up to date).
+**The globe misbehaves or does not appear:** press "Flat page" (`#view-flat`) or open the spare address; everything in the script works there.
+
+**The page will not load,** in this order: reload → the spare device (within 30 seconds) → a teammate's phone hotspot, if someone has one (ask) → the backup video `docs/demo-backup.mp4` (147 seconds, recorded 5:05 AM Sunday on the 3D globe, no sound: talk over it; it shows every part) → last, the offline file `docs/iss-ride-along-offline.html` as last built (an older build without the planner; it is not kept up to date).
 
 **The planner,** in this order:
 
@@ -123,6 +135,7 @@ To spare the Gemini key's daily limit, the AI runs once in each timed run and on
 | Time | What |
 |---|---|
 | tonight, if still at the venue | 10 min reading the script and this cue sheet, then 20 min saying your own part aloud once (otherwise the same 30 minutes at 8:30 AM) |
+| 8:50 AM | open the demo address on Denim's laptop and drag the globe once: if it appears within 3 seconds and follows the drag, demo from it; if not, use the spare address (the flat page) all day |
 | 9:00 AM | the owner presses the trip example once (the key still works), then the **first timed 2-minute run**, all three speaking |
 | by 9:30 | pick who leads the demo from that run; the speaker names in section 2 change to match |
 | 9:30-9:45 | read the final PRESENTING.md and CUE_SHEET.md |
