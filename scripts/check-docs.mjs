@@ -19,6 +19,13 @@
 //    answer has a "File:" line whose backticked files all exist, and every `name()` on that line is
 //    defined in one of those files. Its 90-second click path has at least 8 rows (smoke.mjs --path
 //    presses them on the built page).
+// 9. (M9b) docs/PRESENTING.md and docs/CUE_SHEET.md: every number in them appears in the build log's
+//    evidence (`.autopilot/PROGRESS.md` beside the repo; a number with decimals may be a rounding of a
+//    logged one; clock times, timecodes, list numbers and `code` are not counted as numbers); no part
+//    that has not passed its verification run is named (the verdicts are read from the same log, or
+//    from docs/VERIFICATION.md where the log is not present, as in CI, which then skips the number
+//    rule and says so); every file path they name exists; every `#id` they name is an element id in
+//    src/; the 2-minute script's spoken lines (the "> " lines) are 300 words or fewer.
 // Exit 0 when everything holds, 1 otherwise. Offline, no dependencies.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -234,6 +241,108 @@ if (existsSync(join(root, 'README.md'))) {
     const rows = path === null ? [] : path.split('\n').filter((l) => /^\|\s*\d+\s*\|/.test(l));
     if (rows.length < 8) problems.push(`${PACK}: the 90-second click path has ${rows.length} rows (expected at least 8)`);
     else passes.push(`${PACK}: click path has ${rows.length} rows (pressed by node scripts/smoke.mjs --path)`);
+  }
+}
+
+// ---- 9. Presentation plan and cue sheet (M9b).
+{
+  const DOCS = ['docs/PRESENTING.md', 'docs/CUE_SHEET.md'];
+  const LOG = join(root, '..', '.autopilot', 'PROGRESS.md');
+  const haveLog = existsSync(LOG);
+  const log = haveLog ? readFileSync(LOG, 'utf8') : '';
+
+  // Parts that must not be named until their milestone's verdict line says VERIFIED.
+  const UNBUILT = [
+    ['M6', 'the game', /\bgame\b|orbit lab|leaderboard|guessing/i],
+    ['M7', 'the new first screen', /first screen|where are you\?/i],
+    ['A2', 'the calendar file and briefing', /calendar file|\.ics\b|briefing|class handout/i],
+    ['C2', 'day and night', /day[ -]and[ -]night|day\/night|terminator|earth.s shadow/i],
+    ['C3', 'the plain sentence and screen-reader region', /screen[ -]reader|plain sentence for where/i],
+    ['X5', 'the sky view', /sky view|constellation|sky from the station/i],
+    ['X3', 'reading the answer aloud', /speech synthesis|text to speech|reads? the answer aloud/i],
+    ['X6', 'the forecast lab', /forecast lab|harvest/i],
+  ];
+  const verdictSource = haveLog ? log : existsSync(join(root, 'docs/VERIFICATION.md')) ? read('docs/VERIFICATION.md') : '';
+  const verified = new Set([...verdictSource.matchAll(/^(?:- )?([A-Z]\d+[a-z]?) VERIFIED\b/gm)].map((m) => m[1]));
+
+  // Numbers: strip code, links and addresses, clock times and timecodes, list and heading numbers.
+  const NUM_RE = /(?<![\w.,])\d[\d,]*(?:\.\d+)?(?![\w])/g;
+  const numbers = (text) =>
+    [...text.matchAll(NUM_RE)].map((m) => m[0].replace(/,+$/, '').replace(/,/g, '')).filter((s) => /\d$/.test(s));
+  const prose = (text) =>
+    text
+      .replace(/`[^`\n]*`/g, ' ')
+      .replace(/\]\([^)]*\)/g, '] ')
+      .replace(/https?:\/\/\S+/g, ' ')
+      .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, ' ')
+      .replace(/^(\s*(?:#+\s*|[-*>]\s*)?)\d+[.)](?=\s)/gm, '$1');
+  const logNums = numbers(log);
+  const decimals = (s) => (s.includes('.') ? s.split('.')[1].length : 0);
+  const inLog = (s) => {
+    const x = Number(s);
+    const d = decimals(s);
+    return logNums.some((p) => (d === 0 ? Number(p) === x : decimals(p) >= d && Number(p).toFixed(d) === Number(s).toFixed(d)));
+  };
+
+  const srcIds = new Set(codeFiles('src').flatMap((f) => [...read(f).matchAll(/\bid="([\w-]+)"/g)].map((m) => m[1])));
+
+  for (const doc of DOCS) {
+    if (!existsSync(join(root, doc))) {
+      problems.push(`${doc} is missing`);
+      continue;
+    }
+    const text = read(doc);
+    const plain = prose(text);
+
+    if (haveLog) {
+      const nums = numbers(plain);
+      const missing = [...new Set(nums.filter((n) => !inLog(n)))];
+      for (const n of missing) problems.push(`${doc}: the number ${n} is not in .autopilot/PROGRESS.md`);
+      if (!missing.length) passes.push(`${doc}: all ${nums.length} numbers found in .autopilot/PROGRESS.md (clock times and list numbers not counted)`);
+    } else passes.push(`${doc}: number rule SKIPPED (.autopilot/PROGRESS.md is not in this checkout)`);
+
+    let named = 0;
+    for (const [id, label, re] of UNBUILT) {
+      if (verified.has(id)) continue;
+      const m = text.match(re);
+      if (m) problems.push(`${doc}: names ${label} ("${m[0]}"), but ${id} is not VERIFIED`);
+      else named++;
+    }
+    passes.push(`${doc}: names none of the ${named} parts that are not VERIFIED (verdicts from ${haveLog ? 'PROGRESS.md' : 'docs/VERIFICATION.md'}: ${[...verified].join(', ')})`);
+
+    const paths = new Set();
+    for (const [, p] of text.matchAll(/`([\w./-]+\.(?:ts|mjs|js|json|css|html|md|yml|mp4|png|tle|txt))`/g)) paths.add(p);
+    for (const [, p] of text.matchAll(/\]\(((?!https?:|#)[^)\s#]+)(?:#[^)]*)?\)/g)) paths.add(relative(root, join(root, dirname(doc), p)).replace(/\\/g, '/'));
+    let found = 0;
+    for (const p of paths) {
+      if (existsSync(join(root, p))) found++;
+      else problems.push(`${doc}: file not found: ${p}`);
+    }
+    passes.push(`${doc}: ${found} of ${paths.size} file paths exist`);
+
+    const ids = [...new Set([...text.matchAll(/`#([\w-]+)`/g)].map((m) => m[1]))];
+    for (const id of ids) if (!srcIds.has(id)) problems.push(`${doc}: #${id} is not an element id in src/`);
+    passes.push(`${doc}: ${ids.filter((i) => srcIds.has(i)).length} of ${ids.length} element ids found in src/`);
+  }
+
+  if (existsSync(join(root, DOCS[0]))) {
+    const text = read(DOCS[0]);
+    const start = text.search(/^## .*2-minute/m);
+    if (start < 0) problems.push(`${DOCS[0]} has no "## ... 2-minute ..." script section`);
+    else {
+      const rest = text.slice(start + 3);
+      const end = rest.search(/^## /m);
+      const section = end < 0 ? rest : rest.slice(0, end);
+      const spoken = section
+        .split('\n')
+        .filter((l) => /^>\s/.test(l))
+        .map((l) => l.replace(/^>\s*/, '').replace(/\*\*[^*]+:\*\*/g, ''))
+        .join(' ');
+      const words = spoken.split(/\s+/).filter((w) => /[\w\d]/.test(w)).length;
+      if (words === 0) problems.push(`${DOCS[0]}: the 2-minute script has no spoken ("> ") lines`);
+      else if (words > 300) problems.push(`${DOCS[0]}: the 2-minute script is ${words} spoken words (limit 300)`);
+      else passes.push(`${DOCS[0]}: the 2-minute script is ${words} spoken words (limit 300)`);
+    }
   }
 }
 
