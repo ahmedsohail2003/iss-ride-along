@@ -6,7 +6,11 @@
 //                                               defaults to docs/iss-ride-along-offline.html
 //   node scripts/smoke.mjs --plan               mocked network; presses "Plan my sighting" with no key
 //                                               (fixed plan), then the trip example, then a keyed run
-//                                               with the test key (Gemini mocked); evidence/a1.png
+//                                               with the test key (Gemini mocked); evidence/a1.png. R3: then a
+//                                               key set, every Gemini request answered 429, "Detroit, this weekend
+//                                               after dinner": the fixed plan for Detroit, the note names the
+//                                               refusal, no place search gets "weekend"; the model picker is
+//                                               labelled and readable (contrast 4.5:1 or more)
 //   node scripts/smoke.mjs --plan --outputs     A2: after the fixed plan, presses "Add to calendar" (a download
 //                                               named iss-pass-*.ics must fire, CRLF calendar text) and "Class
 //                                               handout", then emulates print: the sheet shows, the map and its
@@ -313,7 +317,7 @@ const planFixtures = PLAN || PATH || FIRST || BLOCK || A11Y || VOICE || FORECAST
     }
   : null;
 const tripReplies = PATH ? JSON.parse(readFileSync(resolve('tests/fixtures/gemini-trip-from-docs.json'), 'utf8')).replies : [];
-const planRequests = { openMeteo: 0, exa: 0, gemini: 0, geminiUrls: [], geminiKeyHeader: 0 };
+const planRequests = { openMeteo: 0, exa: 0, gemini: 0, geminiUrls: [], geminiKeyHeader: 0, refuseGemini: false, refusedGemini: [], refusedConsole: [] };
 const GIBS_TILE = /^https:\/\/gibs\.earthdata\.nasa\.gov\/wmts\/epsg3857\/best\/MODIS_Terra_CorrectedReflectance_TrueColor\/default\/(\d{4}-\d{2}-\d{2})\/GoogleMapsCompatible_Level9\/(\d+)\/(\d+)\/(\d+)\.jpg$/;
 const BM_TILE = /^https:\/\/gibs\.earthdata\.nasa\.gov\/wmts\/epsg3857\/best\/BlueMarble_ShadedRelief_Bathymetry\/default\/GoogleMapsCompatible_Level8\/(\d+)\/(\d+)\/(\d+)\.jpeg$/;
 const TRANSPARENT_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
@@ -380,6 +384,8 @@ try {
       host = new URL(m.location().url).hostname;
     } catch {}
     if (BLOCK && host === BLOCK && /Failed to load resource/.test(m.text())) blockedConsole.push(m.text());
+    // R3: the 429s the harness itself sends for Gemini in the --plan refusal case are expected, not page errors.
+    else if (planRequests.refuseGemini && host === 'generativelanguage.googleapis.com' && /Failed to load resource.*429/.test(m.text())) planRequests.refusedConsole.push(m.text());
     else consoleErrors.push(m.text());
   });
   page.on('pageerror', (e) => pageErrors.push(String(e)));
@@ -426,6 +432,12 @@ try {
       planRequests.gemini++;
       planRequests.geminiUrls.push(u);
       if (route.request().headers()['x-goog-api-key'] === planFixtures.testKey) planRequests.geminiKeyHeader++;
+      // R3 --plan: every Gemini request answered 429 (a used-up free quota), the way Google words it.
+      if (planRequests.refuseGemini) {
+        planRequests.refusedGemini.push(u);
+        const body = JSON.stringify({ error: { code: 429, message: 'Resource has been exhausted (e.g. check quota).', status: 'RESOURCE_EXHAUSTED' } });
+        return route.fulfill({ status: 429, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body });
+      }
       // --path: the trip sentence's hand-built replies (tests/fixtures/gemini-trip-from-docs.json, "from docs,
       // not live"), one per call in order, so the Steps list fills the way it does at the table.
       const body = PATH ? JSON.stringify(tripReplies[Math.min(planRequests.gemini - 1, tripReplies.length - 1)]) : planFixtures.gemini;
@@ -1062,6 +1074,76 @@ try {
       keptAfterReload: plan.keptAfterReload,
       goneAfterClear: plan.goneAfterClear,
     };
+    // R3: a key set, every Gemini request answered 429 by the harness, "Detroit, this weekend after dinner":
+    // the fixed plan for Detroit, the note names the refusal, and no place search is sent the sentence.
+    const r3 = {};
+    await page.click('#tab-btn-settings');
+    await page.evaluate(() => (document.getElementById('plan-settings').open = true));
+    // the model picker: a labelled select with Automatic plus the three ids, readable in this look
+    r3.picker = await page.evaluate(() => {
+      const sel = document.getElementById('gemini-model');
+      const rgb = (c) => (c.match(/[\d.]+/g) ?? []).map(Number);
+      const lum = ([r, g, b]) => {
+        const f = (v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      let el = sel;
+      let bg = getComputedStyle(el).backgroundColor;
+      while (el && (rgb(bg)[3] === 0 || bg === 'transparent')) {
+        el = el.parentElement;
+        bg = el ? getComputedStyle(el).backgroundColor : 'rgb(255, 255, 255)';
+      }
+      const fg = getComputedStyle(sel).color;
+      const [a, b] = [lum(rgb(fg)), lum(rgb(bg))].sort((x, y) => y - x);
+      const r = sel.getBoundingClientRect();
+      return {
+        label: sel.closest('label')?.firstChild?.textContent.trim() ?? null,
+        options: [...sel.options].map((o) => [o.value, o.textContent]),
+        value: sel.value,
+        color: fg,
+        background: bg,
+        contrast: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100,
+        shown: r.width > 0 && r.height > 0 && getComputedStyle(sel).visibility !== 'hidden',
+      };
+    });
+    await page.fill('#key-gemini', k);
+    planRequests.refuseGemini = true;
+    const geminiBefore = planRequests.gemini;
+    await page.fill('#plan-sentence', 'Detroit, this weekend after dinner');
+    await page.click('#plan-go');
+    await page.waitForFunction(() => /Fixed plan in|Planned by the AI|planner hit an error/.test(document.getElementById('plan-note')?.textContent ?? '') && !document.getElementById('plan-go').disabled, null, { timeout: 40_000 });
+    planRequests.refuseGemini = false;
+    Object.assign(
+      r3,
+      await page.evaluate(() => ({
+        note: document.getElementById('plan-note').textContent,
+        headline: document.getElementById('plan-headline').textContent,
+        fallback: document.getElementById('plan-fallback').textContent,
+        rows: [...document.querySelectorAll('#plan-trace li')].map((li) => ({ tool: li.querySelector('strong')?.textContent, input: li.querySelector('code')?.textContent, summary: li.querySelector('div')?.textContent })),
+        place: document.getElementById('plan-place').value,
+      })),
+    );
+    r3.geminiRequests = planRequests.gemini - geminiBefore;
+    r3.geminiIds = planRequests.refusedGemini.map((u) => /models\/([^:]+):/.exec(u)?.[1]);
+    r3.placeSearch = allRequestUrls.filter((u) => u.startsWith('https://geocoding-api.open-meteo.com/'));
+    r3.findCity = r3.rows.filter((x) => x.tool === 'findCity').map((x) => x.input);
+    r3.switchRows = r3.rows.filter((x) => x.tool === 'switchModel').map((x) => x.summary);
+    r3.localStorage = await lsScan(k);
+    r3.urlHasKeyOrModel = page.url().includes(k) || /gemini-/.test(page.url());
+    plan.r3 = r3;
+    Object.assign(plan.checks, {
+      r3PickerLabelled: r3.picker.label === 'Gemini model' && r3.picker.shown,
+      r3PickerOptions: JSON.stringify(r3.picker.options) === JSON.stringify([['', 'Automatic (the first that answers)'], ['gemini-4-hydrogen', 'gemini-4-hydrogen'], ['gemini-3.8-flash', 'gemini-3.8-flash'], ['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite']]),
+      r3PickerReadable: r3.picker.contrast >= 4.5,
+      r3EveryIdAsked: JSON.stringify(r3.geminiIds) === JSON.stringify(['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']) && r3.geminiRequests === 3,
+      r3FixedPlanForDetroit: /\(fixed plan, no AI\)$/.test(r3.headline) && /this is the plan for Detroit without AI/.test(r3.fallback),
+      r3NoteNamesRefusal: /Gemini refused all 3 model names \(429\)/.test(r3.note) && /Wait a minute, or pick another model in Settings/.test(r3.note),
+      r3StepsRows: r3.switchRows.length === 3 && r3.switchRows[0] === 'gemini-4-hydrogen was refused (429, quota); using gemini-3.8-flash',
+      r3PlaceIsDetroit: r3.findCity.length > 0 && r3.findCity.every((x) => x === 'name: "Detroit"'),
+      r3NoSentenceToPlaceSearch: !r3.placeSearch.some((u) => /weekend/i.test(u)),
+      r3KeyNotStored: r3.localStorage.withKey === 0 && !r3.urlHasKeyOrModel,
+    });
+    console.log(JSON.stringify({ r3 }, null, 2));
   } else if (!OEM && !PATH && !BLOCK && !FIRST) {
     mkdirSync(dirname(out), { recursive: true });
     await page.screenshot({ path: out });
@@ -1760,6 +1842,37 @@ try {
         return { focused: document.activeElement === a, name: a?.getAttribute('aria-label') ?? '', text: a?.textContent.trim() ?? '', href: a?.href ?? '', ring: a ? getComputedStyle(a).outlineWidth : '' };
       })),
     };
+    // R3: the Gemini model picker in Settings is reached by Tab and has a label (the tab and the box are
+    // opened by script, then put back, so the rest of the run sees the page as it was).
+    const before = await page.evaluate(() => {
+      const tab = document.querySelector('.tabs .tab[aria-selected="true"]')?.id ?? null;
+      const box = document.getElementById('plan-settings');
+      const wasOpen = box.open;
+      document.getElementById('tab-btn-settings').click();
+      box.open = true;
+      let s = document.getElementById('__kb-start');
+      if (!s) {
+        s = document.createElement('span');
+        s.id = '__kb-start';
+        s.tabIndex = -1;
+        document.body.prepend(s);
+      }
+      window.scrollTo(0, 0);
+      s.focus();
+      return { tab, wasOpen };
+    });
+    const pickerReached = await tabTo('#gemini-model', 200);
+    a11y.modelPicker = {
+      reached: pickerReached,
+      ...(await page.evaluate(() => {
+        const sel = document.getElementById('gemini-model');
+        return { focused: document.activeElement === sel, label: sel.labels?.[0]?.firstChild?.textContent.trim() ?? '', ring: getComputedStyle(sel).outlineWidth };
+      })),
+    };
+    await page.evaluate((b) => {
+      document.getElementById('plan-settings').open = b.wasOpen;
+      if (b.tab) document.getElementById(b.tab)?.click();
+    }, before);
     a11y.keyboard = {
       passes: kb.passes,
       tabPresses: kb.tabPresses,
@@ -1824,6 +1937,7 @@ try {
       axeNoSerious: a11y.axeTotals.serious === 0,
       axeNoCritical: a11y.axeTotals.critical === 0,
       everyButtonReachedByTab: a11y.keyboard.notReached.length === 0 && a11y.keyboard.reachedByTab > 0,
+      modelPickerByTab: a11y.modelPicker.reached && a11y.modelPicker.focused && a11y.modelPicker.label === 'Gemini model',
       codeLinkByTab: a11y.codeLink.reached && a11y.codeLink.focused && a11y.codeLink.name.startsWith('Code') && a11y.codeLink.href === G6_REPO_URL && parseFloat(a11y.codeLink.ring) >= 2,
       everyEnterActivates: a11y.keyboard.enterFailed.length === 0 && a11y.keyboard.enterPressed >= a11y.keyboard.reachedByTab,
       focusRingOnEvery: a11y.keyboard.noFocusRing.length === 0,
@@ -2077,6 +2191,7 @@ try {
           `; NASA trajectory: ${oem.kmShown} km apart at ${oem.rowTime?.slice(11, 16)} UTC, orbit numbers ${oem.ageShownH} h old` +
           (OEM ? ` (recomputed ${oem.ageRecomputedH?.toFixed(2)} h)` : '') +
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : '') +
+          (PLAN && plan.r3 ? `; R3: every Gemini request answered 429 (${plan.r3.geminiRequests} requests: ${plan.r3.geminiIds.join(', ')}), "Detroit, this weekend after dinner" -> "${plan.r3.headline}", findCity ${plan.r3.findCity.join(' / ')}, ${plan.r3.placeSearch.length} place-search request(s), none with "weekend"; note "${plan.r3.note}"; model picker "${plan.r3.picker.label}" (${plan.r3.picker.options.length} options, contrast ${plan.r3.picker.contrast}:1, ${plan.r3.picker.color} on ${plan.r3.picker.background})` : '') +
           (PLAN && plan.globePass ? `; globe pass: ${plan.globePass.points} points, first ${plan.globePass.firstOffDeg.toFixed(4)} deg from the rise and last ${plan.globePass.lastOffDeg.toFixed(4)} deg from the set (pass ${plan.globePass.node.start} to ${plan.globePass.node.end} recomputed in Node), city ${plan.globePass.city.lat}/${plan.globePass.city.lon} vs ${plan.globePass.place.name} ${plan.globePass.place.lat}/${plan.globePass.place.lon}, centre within 5 deg of the highest point after ${plan.globePass.reachedMs} ms (${plan.globePass.finalOffDeg.toFixed(2)} deg at 2 s), ${plan.globePass.framesIn500} frames in the first 0.5 s of the turn; evidence/g2-pass.png` : '') +
           (OUTPUTS ? `; outputs: download "${outputs.download}" (${outputs.ics.bytes} bytes, 1 VEVENT, TRIGGER:-PT10M, CRLF, longest line ${outputs.ics.longestLineBytes} bytes, DTSTART ${outputs.ics.dtstart}), print view: sheet shown with ${outputs.print.sheetLines} lines and ${outputs.print.questions.length} questions, map and its controls hidden, sheet "${outputs.sheetAudit}"` : '') +
           (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s; row cue-3 (tick #daily-toggle): ${clickRun.rows.at(-1).viewBefore} -> ${clickRun.rows.at(-1).after?.view} with "${clickRun.rows.at(-1).after?.label?.slice(0, 40)}..."` : '') +
@@ -2093,6 +2208,7 @@ try {
               (globe?.header ? `; header.top top ${globe.header.top3d}/${globe.header.topFlat} px, height ${globe.header.h3d.toFixed(2)}/${globe.header.hFlat.toFixed(2)} px (3D/flat)` : '') +
               `; Code link ${g6.code.href} rel "${g6.code.rel}"; ${g6.tags.length} tag pills aria-hidden; nothing new animates; evidence/g6-${VIEW}${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png`
             : '') +
+          (A11Y ? `; R3 model picker reached by Tab (label "${a11y.modelPicker.label}", ring ${a11y.modelPicker.ring})` : '') +
           (A11Y ? `; G6 Code link reached by Tab ("${a11y.codeLink.name}", ${a11y.codeLink.href}, ring ${a11y.codeLink.ring}); ${a11y.keyboard.reachedList.length} buttons reached by Tab` : '') +
           (VIEW === 'flat' ? `; #story hidden; #style-switch, #hud-station, #hud-pass not shown (${info.g5Shown.length} shown)` : '') +
           (OUTPUTS ? '; print: #globe, #story and the view switch not shown' : '') +
