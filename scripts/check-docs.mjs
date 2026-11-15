@@ -30,6 +30,13 @@
 //    and dusk" and "only visible near dawn and dusk" (near midsummer at our latitude the station can be in
 //    sunlight all night). The page's own wording: "You can see it only when you are in the dark and it is
 //    still in sunlight, which happens in the hours after sunset and before sunrise."
+// 11. (B3) The "## What we learned" section of the submission kit (`SUBMISSION.md` beside the repo; the
+//    Best Beginner words): every number in it appears in the build log (same rule as 9); its
+//    `- Who wrote the code: "..."` line is word for word from question 1 of docs/PRESENTER_PACK.md and
+//    names Claude Code, Fable 5.2, Opus 5.5 and Ahmed; it keeps one line each for Quinn, Denim and
+//    Armeis, and no line they wrote says "we coded", "I programmed" or "we wrote the code". A line still
+//    marked [FILL] is printed as "wait", not as a failure: those words are the teammate's own. Skipped,
+//    and said so, where the kit is not present (CI).
 // Exit 0 when everything holds, 1 otherwise. Offline, no dependencies.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -39,6 +46,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_LINES = 120;
 const problems = [];
 const passes = [];
+const waits = []; // not failures: words a named person still has to write
 const read = (rel) => readFileSync(join(root, rel), 'utf8');
 const lineCount = (text) => text.replace(/\n$/, '').split('\n').length;
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -262,12 +270,32 @@ if (existsSync(join(root, 'README.md'))) {
   }
 }
 
+// ---- The build log and the number rule, shared by checks 9 and 11.
+const LOG = join(root, '..', '.autopilot', 'PROGRESS.md');
+const haveLog = existsSync(LOG);
+const log = haveLog ? readFileSync(LOG, 'utf8') : '';
+// Numbers: strip code, links and addresses, clock times and timecodes, list and heading numbers.
+const NUM_RE = /(?<![\w.,])\d[\d,]*(?:\.\d+)?(?![\w])/g;
+const numbers = (text) =>
+  [...text.matchAll(NUM_RE)].map((m) => m[0].replace(/,+$/, '').replace(/,/g, '')).filter((s) => /\d$/.test(s));
+const prose = (text) =>
+  text
+    .replace(/`[^`\n]*`/g, ' ')
+    .replace(/\]\([^)]*\)/g, '] ')
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, ' ')
+    .replace(/^(\s*(?:#+\s*|[-*>]\s*)?)\d+[.)](?=\s)/gm, '$1');
+const logNums = numbers(log);
+const decimals = (s) => (s.includes('.') ? s.split('.')[1].length : 0);
+const inLog = (s) => {
+  const x = Number(s);
+  const d = decimals(s);
+  return logNums.some((p) => (d === 0 ? Number(p) === x : decimals(p) >= d && Number(p).toFixed(d) === Number(s).toFixed(d)));
+};
+
 // ---- 9. Presentation plan and cue sheet (M9b).
 {
   const DOCS = ['docs/PRESENTING.md', 'docs/CUE_SHEET.md'];
-  const LOG = join(root, '..', '.autopilot', 'PROGRESS.md');
-  const haveLog = existsSync(LOG);
-  const log = haveLog ? readFileSync(LOG, 'utf8') : '';
 
   // Parts that must not be named until their milestone's verdict line says VERIFIED.
   const UNBUILT = [
@@ -282,25 +310,6 @@ if (existsSync(join(root, 'README.md'))) {
   ];
   const verdictSource = haveLog ? log : existsSync(join(root, 'docs/VERIFICATION.md')) ? read('docs/VERIFICATION.md') : '';
   const verified = new Set([...verdictSource.matchAll(/^(?:- )?([A-Z]\d+[a-z]?) VERIFIED\b/gm)].map((m) => m[1]));
-
-  // Numbers: strip code, links and addresses, clock times and timecodes, list and heading numbers.
-  const NUM_RE = /(?<![\w.,])\d[\d,]*(?:\.\d+)?(?![\w])/g;
-  const numbers = (text) =>
-    [...text.matchAll(NUM_RE)].map((m) => m[0].replace(/,+$/, '').replace(/,/g, '')).filter((s) => /\d$/.test(s));
-  const prose = (text) =>
-    text
-      .replace(/`[^`\n]*`/g, ' ')
-      .replace(/\]\([^)]*\)/g, '] ')
-      .replace(/https?:\/\/\S+/g, ' ')
-      .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, ' ')
-      .replace(/^(\s*(?:#+\s*|[-*>]\s*)?)\d+[.)](?=\s)/gm, '$1');
-  const logNums = numbers(log);
-  const decimals = (s) => (s.includes('.') ? s.split('.')[1].length : 0);
-  const inLog = (s) => {
-    const x = Number(s);
-    const d = decimals(s);
-    return logNums.some((p) => (d === 0 ? Number(p) === x : decimals(p) >= d && Number(p).toFixed(d) === Number(s).toFixed(d)));
-  };
 
   const srcIds = new Set(codeFiles('src').flatMap((f) => [...read(f).matchAll(/\bid="([\w-]+)"/g)].map((m) => m[1])));
 
@@ -364,7 +373,74 @@ if (existsSync(join(root, 'README.md'))) {
   }
 }
 
+// ---- 11. "What we learned", the Best Beginner words in the submission kit (B3).
+{
+  const KIT = join(root, '..', 'SUBMISSION.md'); // beside the repo, like the build log
+  const PACK = 'docs/PRESENTER_PACK.md';
+  const LABEL = 'SUBMISSION.md "What we learned"';
+  const PEOPLE = ['Quinn', 'Denim', 'Armeis']; // the three at their first hackathon
+  const MUST = ['Claude Code', 'Fable 5.2', 'Opus 5.5', 'Ahmed'];
+  const OVERCLAIM = /\b(?:we|i)\s+(?:all\s+)?(?:coded|programmed|wrote\s+(?:all\s+)?(?:of\s+)?(?:the|this|our|its)\s+code)\b/i;
+  const flat = (s) => s.replace(/\s+/g, ' ').trim();
+
+  if (!existsSync(KIT)) passes.push(`${LABEL}: SKIPPED (the submission kit is not in this checkout)`);
+  else {
+    const kit = readFileSync(KIT, 'utf8');
+    const start = kit.search(/^## What we learned\b/m);
+    if (start < 0) problems.push('SUBMISSION.md has no "## What we learned" section');
+    else {
+      const rest = kit.slice(start + 3);
+      const end = rest.search(/^## /m);
+      const section = '## ' + (end < 0 ? rest : rest.slice(0, end));
+
+      // (a) Every number in the section is in the build log.
+      if (haveLog) {
+        const nums = numbers(prose(section));
+        const missing = [...new Set(nums.filter((n) => !inLog(n)))];
+        for (const n of missing) problems.push(`${LABEL}: the number ${n} is not in .autopilot/PROGRESS.md`);
+        if (!missing.length) passes.push(`${LABEL}: all ${nums.length} numbers found in .autopilot/PROGRESS.md (clock times and list numbers not counted)`);
+      } else passes.push(`${LABEL}: number rule SKIPPED (.autopilot/PROGRESS.md is not in this checkout)`);
+
+      // (b) "Who wrote the code" is question 1's own sentence, not a new wording.
+      const q1 = existsSync(join(root, PACK))
+        ? flat(read(PACK).split(/^### /m).find((b) => b.startsWith('1. Who wrote the code')) ?? '')
+        : '';
+      const who = section.match(/^- Who wrote the code: "([^"\n]+)"/m);
+      if (!q1) problems.push(`${LABEL}: question 1 ("Who wrote the code ...") not found in ${PACK}, so the line cannot be compared`);
+      else if (!who) problems.push(`${LABEL}: no line of the form - Who wrote the code: "..."`);
+      else {
+        const said = flat(who[1]).replace(/[.!]+$/, '');
+        const lacks = MUST.filter((m) => !said.includes(m));
+        if (!q1.includes(said)) problems.push(`${LABEL}: "Who wrote the code" is not worded as in question 1 of ${PACK}: "${said}"`);
+        else if (lacks.length) problems.push(`${LABEL}: "Who wrote the code" does not name ${lacks.join(', ')}`);
+        else passes.push(`${LABEL}: "Who wrote the code" is word for word from question 1 of ${PACK} and names ${MUST.join(', ')}`);
+      }
+
+      // (c) One line per first-timer, in their own words; none of them says the team wrote the code.
+      const filled = [];
+      const waiting = [];
+      for (const name of PEOPLE) {
+        const at = section.search(new RegExp(`^- ${name}:`, 'm'));
+        if (at < 0) {
+          problems.push(`${LABEL}: no "- ${name}:" line`);
+          continue;
+        }
+        const own = section.slice(at).split(/\n(?=- |\s*\n|#)/)[0].replace(new RegExp(`^- ${name}:`), '').trim();
+        if (!own || /\[FILL\]/.test(own)) waiting.push(name);
+        else {
+          filled.push(name);
+          const m = own.match(OVERCLAIM);
+          if (m) problems.push(`${LABEL}: ${name}'s line says "${m[0]}"; question 1 says who wrote the code (say what you tested, checked or learned)`);
+        }
+      }
+      if (filled.length) passes.push(`${LABEL}: ${filled.length} of ${PEOPLE.length} first-timers' own lines are in (${filled.join(', ')})`);
+      if (waiting.length) waits.push(`${LABEL}: ${waiting.length} of ${PEOPLE.length} lines still to be written by the person named (${waiting.join(', ')}); the Best Beginner words are not complete until all are in`);
+    }
+  }
+}
+
 for (const p of passes) console.log(`ok   ${p}`);
+for (const p of waits) console.log(`wait ${p}`);
 for (const p of problems) console.log(`FAIL ${p}`);
 console.log(problems.length ? `DOCS FAIL: ${problems.length} problem(s)` : 'DOCS PASS');
 process.exit(problems.length ? 1 : 0);
