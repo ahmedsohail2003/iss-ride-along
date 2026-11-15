@@ -146,13 +146,13 @@ if all of them pass. Latest local results, Sat Nov 14 and Sun Nov 15, 2026 (EST)
 |---|---|---|
 | `npm test` | Vitest unit tests, offline, on saved data: position, passes, footprint, NASA data parsing, the planner (fixed and AI, with saved replies), the NASA trajectory conversion, the sky, the game, the Forecast lab | 159 of 159 passed, 20 files (Sun 12:14 AM) |
 | `npx tsc --noEmit` | the TypeScript compiler in strict mode (`"strict": true` in `tsconfig.json`) over `src/` | 0 errors (Sun 12:14 AM) |
-| `node scripts/check-docs.mjs` | every file and function named in `CODE_TOUR.md` exists; every command in `RUN.md` and in this section exists; the NASA gap is worded as a distance apart, never as accuracy | DOCS PASS (7:24 PM) |
+| `node scripts/check-docs.mjs` | every file and function named in `CODE_TOUR.md` exists; every command in `RUN.md` and in this section exists; the NASA gap is worded as a distance apart, never as accuracy | DOCS PASS (Sun 12:27 AM) |
 | `node scripts/check-live.mjs` | our position for "now" vs wheretheiss.at (needs the network) | 1.110 km, under the 2 km limit (Sun 12:14 AM) |
 | `node scripts/check-oem.mjs` | our position vs NASA's trajectory file at 0, 12, 24, 36 and 72 h, and with the conversion off | 0.485 / 0.308 / 0.870 / 1.767 / 4.763 km; off: 26.10-45.19 km (Sun 12:14 AM) |
 | `node scripts/smoke.mjs` | opens the built page in headless Chrome (Playwright drives it), network mocked: the dot moves, both orbit lines, the NASA panel, 0 console errors | SMOKE PASS, and with `--path` the 13 rows of the presenters' click path (Sun 12:22 AM) |
 | `node scripts/smoke.mjs --a11y` | axe-core on 7 states of the page; Tab and Enter on every button; the screen-reader sentence changes at most once a minute; 0 console errors | 0 critical, 0 serious; 22 of 22 buttons by Tab, Enter on each; 1 change in 65 s (9:49 PM) |
 | `node scripts/check-agent.mjs --provider gemini` | the planner against the real Gemini API (key from the environment, never printed) | 3 runs (Sun 12:15-12:18 AM): one place 10.3 s and a trip 15.4 s, both finished by the AI with audit 0; one trip ended in the fixed plan after 15 s with no model reply |
-| secret scan (a `git grep` step in `.github/workflows/pages.yml`) | no tracked file holds text shaped like a Google, OpenAI or GitHub key, a NASA demo key, a key assignment, or a key header or `Bearer` line with a value | no hits (7:24 PM) |
+| secret scan (a `git grep` step in `.github/workflows/pages.yml`) | no tracked file holds text shaped like a Google, OpenAI or GitHub key, a NASA demo key, a key assignment, or a key header or `Bearer` line with a value | no hits (Sun 12:26 AM) |
 
 The commands, their options and what to do when one fails are in `RUN.md`.
 
