@@ -2,6 +2,30 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 6 — Saturday Nov 14, 8:15 PM EST
+
+**Time left:** under 4 hours to the Devpost draft (midnight tonight), 13 hours to our feature freeze (9:30 AM Sunday), 16 hours to the final Devpost deadline (12:00 PM Sunday).
+
+**New: everything you need to present, written for the three of you.**
+- **[docs/PRESENTING.md](docs/PRESENTING.md)**: how to set up the table, the **2-minute demo script** in four beats with who says what, a 20-second opening for each kind of judge (the AI track, the NASA track, the Computer Science track), twelve likely questions, what to do when something breaks, what to do when a judge comes back, and the Sunday morning plan.
+- **[docs/CUE_SHEET.md](docs/CUE_SHEET.md)**: one page to keep next to the laptop: what to click, what to say, the few numbers to remember.
+- **[docs/PRESENTER_PACK.md](docs/PRESENTER_PACK.md)**: the one-line pitch, the three numbers with what each one counts, every tool in one line, a 90-second click path, 10 judge questions with short answers and the file behind each answer, common mix-ups, and a page for each of you with a "What I learned" box that only you can fill in.
+- A check runs on every push: every number in these files appears in our test records, every button they name exists on the page, and the spoken script stays under 300 words (it is 287 now, which reads in about 2 minutes).
+
+**The script in one breath:** Denim opens by pressing the trip example and talks while the Steps list fills in. Denim then shows the audit badge, and Quinn shows the panel comparing us with NASA's trajectory and presses "Check against reference". Armeis shows what the station is flying over and the credits. Everyone closes with one line of their own about what they learned, and Denim asks "What would you like to see?" The speakers are a proposal: swap parts if you want, and say so in the chat.
+
+**Do this tonight (about 30 minutes each):**
+1. Read [docs/PRESENTING.md](docs/PRESENTING.md) section 2 and say your own part out loud once.
+2. Study cards 3 and 4 in [docs/STUDY_CARDS.md](docs/STUDY_CARDS.md), then "card done" in the chat.
+3. Write your own closing line (12 words at most) in your "What I learned" box in [docs/PRESENTER_PACK.md](docs/PRESENTER_PACK.md), by sending it in the chat or your Google Doc.
+
+**Still open from earlier checkpoints:**
+- **A YouTube link for the backup video**, so the Devpost entry can be finished and submitted before midnight: download [docs/demo-backup.mp4](docs/demo-backup.mp4), upload it as Unlisted, post the link in the chat.
+- Which laptop is the demo laptop, and its owner's screenshot of the trip example running with their own Gemini key ([docs/DEMO_LAPTOP.md](docs/DEMO_LAPTOP.md)). Beat 1 of the script needs that key.
+- Denim and Armeis: join the Devpost project (link in the chat) and add your school.
+
+**Being built next:** a first screen a stranger can use in a minute, with every data source allowed to fail without breaking the page; then a calendar file and one-page briefing for the chosen pass, day and night on the map, a small game, and accessibility.
+
 ## Checkpoint 5 — Saturday Nov 14, 7:45 PM EST
 
 **Time left:** about 4 hours to the Devpost draft (midnight tonight), 14 hours to our feature freeze (9:30 AM Sunday), 16 hours to the final Devpost deadline (12:00 PM Sunday).
