@@ -27,6 +27,7 @@ position, altitude and speed every second, and the path one orbit back and ahead
 | World map (default) | cloud-free Blue Marble, no date: 21 tiles built into the page (zoom 0-2, works offline), the same layer fetched from GIBS to zoom 8 when online | - | NASA EOSDIS GIBS, Blue Marble Shaded Relief and Bathymetry |
 | Daily satellite photo (switch under the map, off at first) | fetched tiles only while the switch is on, labelled "daily satellite image, {date}, not a live camera" | - | NASA GIBS, MODIS Terra true colour |
 | The station's view (circle) | computed: horizon radius from altitude (see below) | km | our geometry |
+| 3D globe (G1: the "3D" button or `?view=3d`; the page still opens flat, and stays flat without WebGL 2, in software, when slow or with reduced motion) | computed: the same station, two orbits (`stateAt` every 30 s), night side (`subsolarPoint`) and view circle drawn on a three.js sphere; the Earth picture is fetched once and built in | degrees, km | our engine; NASA GIBS Blue Marble, saved 2026-11-15 |
 | Natural events in view | fetched list (one request per page load, else the saved copy); which ones are in view and how far is computed | km, dates in UTC | NASA EONET |
 | Astronaut photo | built in (12 thumbnails chosen by hand, labelled curated); which one is in view is computed | - | NASA Image and Video Library |
 | Visible passes for a city (next 5 days) | computed in the browser | local time, compass points, degrees above the horizon | TLE from CelesTrak; cities from Natural Earth |

@@ -30,6 +30,7 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
 - Functions: `groundTrack()`, `splitAtAntimeridian()`, `periodMinutes()`, `ageLevel()`
 - `periodMinutes()` gets the time for one orbit from the TLE's mean motion (92.95 minutes for the built-in TLE). `groundTrack()` computes the point under the station every 30 seconds from one orbit ago to one orbit ahead.
 - `splitAtAntimeridian()` cuts the path at longitude 180, so a flat map draws no line across the world.
+- The 3D globe (G1), `src/globe/geo.ts`, `src/globe/view.ts`, `src/globe/globe.ts`: `latLonToVec3()` puts a latitude, longitude and height on the sphere (x = r cos lat cos lon, y = r sin lat, z = -r cos lat sin lon, r = 1 + height / 6371.0088 km), `orbitPoints()` is the same `stateAt()` every 30 s as the flat lines, `createGlobe()` draws them with three.js, and `chooseView()` picks 3D or flat (a press, then `?view=`, then the saved choice, then the default; flat without WebGL 2, in software, when slow or with reduced motion). Tests: `tests/globe.test.ts`.
 - `ageLevel()` colours the "orbit data age" label: green under 1 day, amber 1-3 days, red over 3 days, because SGP4 errors grow as the TLE gets older.
 - Say: "The solid and dashed lines are one orbit back and one orbit ahead, computed, not downloaded."
 
