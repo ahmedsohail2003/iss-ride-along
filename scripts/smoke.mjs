@@ -110,6 +110,13 @@
 // a drag, the switch both ways, the daily photo landing on the flat map), then the default run, with Play
 // pressed in 3D (it must land on the flat page). --view 3d --a11y: the keyboard walk runs on the globe.
 // --view auto: the four fallback cases (no WebGL, reduced motion, the software renderer, a lost context).
+// G2: --view 3d --plan: the chosen pass on the globe (data-pass-points, its first and last points against the
+// pass's rise and set recomputed here, data-city-lat/lon against the planned place, the turn to the pass's
+// highest point within 2 s, frames drawn in the first 0.5 s of the turn); --view 3d: header.top no taller in 3D
+// than in flat; --path (both views): one more row after the table, the cue sheet's beat 3 (tick #daily-toggle:
+// the flat map with a dated label); --a11y: the count of axe "incomplete" contrast items is printed;
+// --view 3d --block gibs.earthdata.nasa.gov: the globe still shows its built-in image; --view auto (no flag,
+// DEFAULT_VIEW 'auto'): G1's four cases plus the good and the slow branch with stand-ins in this script only.
 // Element ids, every mode: every id in scripts/ids-baseline.json (saved from the build of the commit before
 // G1, first screen and each tab open) must be on the page, or the run fails. --save-ids writes that file
 // (only from a page built from the committed source).
@@ -119,7 +126,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { freemem, tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { autoCases, globeChecks, globeKeyboard, waitForGlobe } from './smoke-globe.mjs';
+import { armTurnWatch, autoCases, globeChecks, globeKeyboard, globePassChecks, waitForGlobe } from './smoke-globe.mjs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { builtHash, sourceHash } from './source-hash.mjs';
@@ -403,28 +410,30 @@ try {
 
   // ---- G1 --view auto: the four fallback cases, each in a fresh context with the same mocked network.
   if (VIEW === 'auto') {
-    const newPage = async (opts, init) => {
+    const newPage = async (opts, init, initArg) => {
       const ctx = await browser.newContext({ viewport: { width: w, height: h }, ...opts });
       const pg = await ctx.newPage();
       const errors = [];
       pg.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
       pg.on('pageerror', (e) => errors.push(String(e)));
-      if (init) await pg.addInitScript(init);
+      if (init) await pg.addInitScript(init, initArg);
       await pg.route('**/*', handleRoute);
       return { page: pg, errors, close: () => ctx.close() };
     };
     const cases = await autoCases({ newPage, baseUrl: pageUrl });
+    const defaultView = /export const DEFAULT_VIEW: Choice = '(\w+)'/.exec(readFileSync(resolve('src/globe/view.ts'), 'utf8'))?.[1];
     console.log(JSON.stringify({ url: pageUrl, viewport: `${w}x${h}`, cases }, null, 2));
-    failed = cases.length !== 4 || cases.some((c) => !c.ok);
+    failed = cases.length !== 6 || cases.some((c) => !c.ok);
     console.log(
       failed
         ? `SMOKE FAIL: --view auto: ${cases.filter((c) => !c.ok).map((c) => c.name).join(', ')}`
         : `SMOKE PASS: --view auto: ${cases
             .map((c) => {
-              if (c.name === 'no WebGL') return `(1) no WebGL -> flat "${c.atLoad.why}", note shown, 3D pressed -> still flat "${c.afterPress.why}"`;
+              if (c.name === 'no WebGL') return `(no flag, DEFAULT_VIEW ${defaultView}) (1) no WebGL -> flat "${c.atLoad.why}", note shown, 3D pressed -> still flat "${c.afterPress.why}"`;
               if (c.name === 'reduced motion') return `(2) reduced motion -> flat "${c.atLoad.why}"`;
               if (c.name === 'software renderer') return `(3) as launched (${c.at2s.probe}) -> flat "${c.at2s.why}" at 2 s and "${c.at10s.why}" at 10 s, note shown, ${c.contexts.length} WebGL context(s) made, all lost`;
-              return `(4) ?view=3d then WEBGL_lose_context -> flat "${c.after.why}" after ${c.flatAfterMs} ms, ${c.tiles} built-in tiles showing`;
+              if (c.name === 'context lost') return `(4) ?view=3d then WEBGL_lose_context -> flat "${c.after.why}" after ${c.flatAfterMs} ms, ${c.tiles} built-in tiles showing`;
+              return `(${c.gapMs === 16 ? 5 : 6}) ${c.name}, renderer answered as hardware, frames ${c.gapMs} ms apart -> ${c.at2s.view} "${c.at2s.why}" at 2 s and ${c.at10s.view} "${c.at10s.why}" at 10 s, live WebGL contexts ${c.live2s} then ${c.live10s} (${c.contexts} made)${c.at2s.probe ? `, probe ${c.at2s.probe}` : ''}`;
             })
             .join('; ')}; 0 console errors`,
     );
@@ -732,6 +741,8 @@ try {
   if (PLAN) {
     plan = {};
     plan.buttonText = await page.textContent('#plan-go');
+    if (VIEW === '3d') await armTurnWatch(page);
+    const planClickAt = Date.now();
     await page.click('#plan-go');
     await page.waitForFunction(() => !!document.body.dataset.planKind, null, { timeout: 15_000 });
     await page.waitForTimeout(1200);
@@ -749,6 +760,17 @@ try {
         newsNote: document.getElementById('news-note')?.textContent ?? '',
       })),
     );
+    if (VIEW === '3d') {
+      const { loadTs } = await import('./load-ts.mjs');
+      const { mods, close } = await loadTs(['/src/orbit/orbit.ts', '/src/orbit/passes.ts', '/src/agent/places.ts']);
+      try {
+        plan.globePass = await globePassChecks({ page, clickAt: planClickAt, tle, orbit: mods[0], passes: mods[1], places: mods[2] });
+      } finally {
+        await close();
+      }
+      mkdirSync(resolve('evidence'), { recursive: true });
+      await page.locator('#globe').screenshot({ path: resolve('evidence/g2-pass.png') });
+    }
     mkdirSync(dirname(out), { recursive: true });
     if (!OUTPUTS) await page.screenshot({ path: out, fullPage: true });
     // ---- --outputs (A2): the calendar download and the printed sheet, each from a click.
@@ -836,7 +858,9 @@ try {
     plan.checks = {
       fixedLabel: /fixed plan, no AI/.test(plan.buttonText ?? ''),
       traceRows5: plan.traceRows >= 5,
-      passOnMap: plan.arcPaths > 0 && !!plan.passShown,
+      // in 3D the Leaflet map is hidden: the pass is checked on the globe instead (plan.globePass)
+      passOnMap: VIEW === '3d' ? !!plan.passShown : plan.arcPaths > 0 && !!plan.passShown,
+      ...(VIEW === '3d' ? plan.globePass.checks : {}),
       countdown: /Starts in|Happening now|This pass is over/.test(plan.countdown),
       tripNeedsAi: /this one needs the AI/.test(plan.tripNote ?? ''),
       keyedRun: plan.requests.gemini >= 1 && plan.requests.geminiKeyHeader === plan.requests.gemini && !plan.requests.geminiUrlHasKey,
@@ -1073,12 +1097,18 @@ try {
     block7.unhandled = await page.evaluate(() => window.__unhandled);
     block7.consoleLinesFromRefusedRequests = blockedConsole.length;
     const mine = block7.warnings.find((w) => w.source === src.key);
+    if (VIEW === '3d') {
+      // G2: the globe's Earth picture is built into the page, so it still shows with NASA GIBS refused.
+      block7.globe = await page.evaluate(() => ({ view: document.body.dataset.view, image: document.getElementById('globe')?.dataset.image ?? null, arabia: window.__iss3d?.sample(23, 45) ?? null }));
+      block7.globe.arabiaRedMinusBlue = block7.globe.arabia ? block7.globe.arabia[0] - block7.globe.arabia[2] : null;
+    }
     block7.checks = {
       requestRefused: (requests.refusedBlock ?? 0) > 0,
       markerMoves: block7.markerMoves,
       warningNamesSource: !!mine && mine.text.includes(src.name) && block7.warningVisible,
       noOtherWarning: block7.warnings.every((w) => w.source === src.key),
       noUncaught: pageErrors.length === 0 && block7.unhandled.length === 0,
+      ...(VIEW === '3d' ? { globeShowsBuiltInImage: block7.globe.view === '3d' && block7.globe.image === 'loaded' && block7.globe.arabiaRedMinusBlue >= 30 } : {}),
     };
     mkdirSync(dirname(out), { recursive: true });
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -1271,10 +1301,14 @@ try {
     const runAxe = async (state) => {
       if (!(await page.evaluate(() => typeof window.axe === 'object'))) await page.addScriptTag({ content: axeSource });
       const v = await page.evaluate(async () => {
-        const r = await window.axe.run(document, { resultTypes: ['violations'] });
-        return r.violations.map((x) => ({ id: x.id, impact: x.impact, nodes: x.nodes.length, where: x.nodes.slice(0, 3).map((n) => n.target.join(' ')) }));
+        const r = await window.axe.run(document, { resultTypes: ['violations', 'incomplete'] });
+        return {
+          violations: r.violations.map((x) => ({ id: x.id, impact: x.impact, nodes: x.nodes.length, where: x.nodes.slice(0, 3).map((n) => n.target.join(' ')) })),
+          // G2: contrast axe could not decide (text over an image or a gradient); counted and printed
+          incompleteContrast: r.incomplete.filter((x) => x.id === 'color-contrast').reduce((n, x) => n + x.nodes.length, 0),
+        };
       });
-      a11y.axe.push({ state, violations: v });
+      a11y.axe.push({ state, violations: v.violations, incompleteContrast: v.incompleteContrast });
     };
     await runAxe('first screen');
     const tabIds = await page.$$eval('.tabs [role="tab"]', (bs) => bs.map((b) => b.dataset.tab));
@@ -1541,6 +1575,7 @@ try {
     await runAxe('after the keyboard run');
     a11y.axeTotals = { serious: 0, critical: 0, moderate: 0, minor: 0 };
     for (const st of a11y.axe) for (const v of st.violations) a11y.axeTotals[v.impact] = (a11y.axeTotals[v.impact] ?? 0) + v.nodes;
+    a11y.axeIncompleteContrast = a11y.axe.reduce((n, st) => n + (st.incompleteContrast ?? 0), 0);
     // Evidence: the sentence and a keyboard-focused button on the first screen.
     await page.evaluate(() => {
       window.scrollTo(0, 0);
@@ -1625,6 +1660,29 @@ try {
         r.error = String(e.message ?? e).split('\n')[0];
       }
       if (!r.ok) clickRun.problems.push(`step ${s.step} (${s.action} ${s.selector}) failed${r.error ? `: ${r.error}` : ''}`);
+      clickRun.rows.push(r);
+    }
+    // G2: the cue sheet's beat 3 (docs/CUE_SHEET.md) ticks #daily-toggle under the map; in 3D the page then
+    // changes to the flat map (meant to happen). Same row in both views.
+    {
+      const r = { step: 'cue-3', when: '1:15', action: 'tick', selector: '#daily-toggle', label: null, then: '#gibs-date' };
+      try {
+        await page.locator('#daily-toggle').scrollIntoViewIfNeeded({ timeout: 5000 });
+        r.viewBefore = await page.evaluate(() => document.body.dataset.view);
+        r.visible = await page.isVisible('#daily-toggle');
+        await page.check('#daily-toggle', { timeout: 5000 });
+        await page.waitForFunction(() => ['loaded', 'failed'].includes(document.body.dataset.daily ?? ''), null, { timeout: 20_000 }).catch(() => {});
+        await page.waitForTimeout(300);
+        r.after = await page.evaluate(() => ({ view: document.body.dataset.view, label: document.getElementById('gibs-date')?.textContent ?? '' }));
+        r.mapShown = await page.isVisible('#map');
+        r.thenText = r.after.label;
+        r.ok = r.visible && r.after.view === 'flat' && r.mapShown && /\d{4}-\d{2}-\d{2}/.test(r.after.label);
+        await page.uncheck('#daily-toggle');
+      } catch (e) {
+        r.ok = false;
+        r.error = String(e.message ?? e).split('\n')[0];
+      }
+      if (!r.ok) clickRun.problems.push(`row cue-3 (tick #daily-toggle) failed${r.error ? `: ${r.error}` : ''}`);
       clickRun.rows.push(r);
     }
     clickRun.keyNotInLocalStorage = await page.evaluate((kk) => Object.keys(localStorage).every((n) => !(localStorage.getItem(n) ?? '').includes(kk)), planFixtures.testKey);
@@ -1778,19 +1836,21 @@ try {
           `; NASA trajectory: ${oem.kmShown} km apart at ${oem.rowTime?.slice(11, 16)} UTC, orbit numbers ${oem.ageShownH} h old` +
           (OEM ? ` (recomputed ${oem.ageRecomputedH?.toFixed(2)} h)` : '') +
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : '') +
+          (PLAN && plan.globePass ? `; globe pass: ${plan.globePass.points} points, first ${plan.globePass.firstOffDeg.toFixed(4)} deg from the rise and last ${plan.globePass.lastOffDeg.toFixed(4)} deg from the set (pass ${plan.globePass.node.start} to ${plan.globePass.node.end} recomputed in Node), city ${plan.globePass.city.lat}/${plan.globePass.city.lon} vs ${plan.globePass.place.name} ${plan.globePass.place.lat}/${plan.globePass.place.lon}, centre within 5 deg of the highest point after ${plan.globePass.reachedMs} ms (${plan.globePass.finalOffDeg.toFixed(2)} deg at 2 s), ${plan.globePass.framesIn500} frames in the first 0.5 s of the turn; evidence/g2-pass.png` : '') +
           (OUTPUTS ? `; outputs: download "${outputs.download}" (${outputs.ics.bytes} bytes, 1 VEVENT, TRIGGER:-PT10M, CRLF, longest line ${outputs.ics.longestLineBytes} bytes, DTSTART ${outputs.ics.dtstart}), print view: sheet shown with ${outputs.print.sheetLines} lines and ${outputs.print.questions.length} questions, map and its controls hidden, sheet "${outputs.sheetAudit}"` : '') +
           (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s` : '') +
           (FIRST ? `; first screen ${w}x${h}: no horizontal scroll, planner box and next-pass line inside, "Detroit" + Enter -> "${first7.detroitText}" in ${first7.detroitMs} ms, ${first7.tabs.length} tabs open (${first7.tabs.map((t) => t.label).join(', ')}); after "Plan my sighting": Place control "${first7.placeAfter.placeControl}", passes table "${first7.placeAfter.tableCaption}" (${first7.placeAfter.tableRows} rows), City box "${first7.placeAfter.cityBox}"` : '') +
           (FIRST ? `; game: round 1 "${game6.rounds[0].score}" (recomputed ${game6.rounds[0].recomputedKm.toFixed(1)} km; answer = satellite.js at +10 min), rounds ${game6.rounds.map((r) => r.score).join(' / ')}, ${game6.end.totalText.replace(/ That.*/, '')} on the device board (${game6.end.boardRows.length} row), evidence/m6${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png; orbit lab "${game6.lab.text}" at ${game6.lab.alt} km (formula ${game6.lab.recomputed.min.toFixed(2)} min, ${game6.lab.recomputed.kmS.toFixed(3)} km/s)` : '') +
-          (A11Y ? `; a11y: sentence "${a11y.whereText}" changed ${a11y.whereChanges.length} time(s) in ${a11y.watchedS} s (other live regions: ${a11y.otherLiveChanges.length} change(s)); axe-core ${a11y.axeVersion} on ${a11y.axe.length} page states: ${a11y.axeTotals.critical} critical, ${a11y.axeTotals.serious} serious, ${a11y.axeTotals.moderate} moderate, ${a11y.axeTotals.minor} minor; keyboard: ${a11y.keyboard.reachedByTab} of ${a11y.keyboard.buttonsVisibleAtSomePoint} buttons seen reached by Tab (${a11y.keyboard.tabPresses} Tab presses, ${a11y.keyboard.passes.length} passes), Enter fired ${a11y.keyboard.enterPressed - a11y.keyboard.enterFailed.length} of ${a11y.keyboard.enterPressed}, focus ring on all, Space on ${Object.keys(a11y.keyboard.spaceOnLinkButtons).length} zoom buttons; keyboard game round "${a11y.game.score}"; evidence/c3.png` : '') +
+          (A11Y ? `; a11y: sentence "${a11y.whereText}" changed ${a11y.whereChanges.length} time(s) in ${a11y.watchedS} s (other live regions: ${a11y.otherLiveChanges.length} change(s)); axe-core ${a11y.axeVersion} on ${a11y.axe.length} page states: ${a11y.axeTotals.critical} critical, ${a11y.axeTotals.serious} serious, ${a11y.axeTotals.moderate} moderate, ${a11y.axeTotals.minor} minor, ${a11y.axeIncompleteContrast} "incomplete" contrast item(s); keyboard: ${a11y.keyboard.reachedByTab} of ${a11y.keyboard.buttonsVisibleAtSomePoint} buttons seen reached by Tab (${a11y.keyboard.tabPresses} Tab presses, ${a11y.keyboard.passes.length} passes), Enter fired ${a11y.keyboard.enterPressed - a11y.keyboard.enterFailed.length} of ${a11y.keyboard.enterPressed}, focus ring on all, Space on ${Object.keys(a11y.keyboard.spaceOnLinkButtons).length} zoom buttons; keyboard game round "${a11y.game.score}"; evidence/c3.png` : '') +
           (VOICE ? `; voice: toggle shown, 1 call ${voice.minute.afterClickS} s after the click with exactly the sentence "${voice.minute.text}", plans: ${voice.plans.map((p) => `${p.newCalls} call "${p.text}"`).join(' / ')}, caption = spoken text, no speechSynthesis -> no toggle; ${voice.totalCalls} calls in all; evidence/x3.png` : '') +
           (FORECAST ? `; forecast lab: the button opened the card in place, [data-skill-yield] ${x6.card.skillYield}, [data-skill-price] ${x6.card.skillPrice}, ${x6.card.images.length} NASA images drawn (${x6.card.images.map((i) => `${i.day} ${i.w}x${i.h} shown ${i.shownW}x${i.shownH}`).join(', ')}), chart lines of ${x6.card.chartPaths.join('/')} points, label at ${x6.card.labelRect.top}-${x6.card.labelRect.bottom} px of a ${x6.card.viewportH} px window with the card at the top and no inner scroll, no price text outside the label, the 4 sources in the credits; "should I buy corn futures?" -> "${x6.money.note}" with 0 AI requests; evidence/x6.png` : '') +
           `; view ${VIEW}: 0 of ${ids.baseline} baseline ids missing (${ids.now} on the page)` +
           (globe?.image
-            ? `; globe (${globe.renderer}, ${globe.drawCalls} draw calls): image R-B ${globe.image.map((r) => `${r.name} ${r.redMinusBlue}`).join(', ')} (sample() agrees), marker ${globe.marker.centred.near} px of STATION_RGB within 3 px of the middle and ${globe.marker.east30.near} within 10 px at +30 deg east (mean x ${globe.marker.east30.meanX?.toFixed(0)} < ${globe.marker.east30.midX}), station ${globe.station2.lat}/${globe.station2.lon} vs #lat/#lon ${globe.station2.textLat}/${globe.station2.textLon}, subsolar ${globe.subsolar.page.lat}/${globe.subsolar.page.lon} vs node ${globe.subsolar.node.lat.toFixed(3)}/${globe.subsolar.node.lon.toFixed(3)}, shade ${globe.shade.subsolar.toFixed(0)} at the subsolar point and ${globe.shade.opposite.toFixed(0)} opposite, day/night pairs ${globe.shade.pairs.map((q) => `${q.day.toFixed(0)}>${q.night.toFixed(0)}`).join(' ')}, ${globe.trackPoints} track points, drag moved the centre ${globe.drag.movedDeg.toFixed(1)} deg with ${globe.drag.framesDuring} frames in ${globe.drag.dragMs} ms, flat page ${globe.flat.tiles} built-in tiles + ${globe.flat.tracks} track lines + night shade, 3D back, daily photo -> flat "${globe.daily.label}"; Play in 3D -> ${game6?.viewAfterPlay?.view}`
+            ? `; globe (${globe.renderer}, ${globe.drawCalls} draw calls): image R-B ${globe.image.map((r) => `${r.name} ${r.redMinusBlue}`).join(', ')} (sample() agrees), marker ${globe.marker.centred.near} px of STATION_RGB within 3 px of the middle and ${globe.marker.east30.near} within 10 px at +30 deg east (mean x ${globe.marker.east30.meanX?.toFixed(0)} < ${globe.marker.east30.midX}), station ${globe.station2.lat}/${globe.station2.lon} vs #lat/#lon ${globe.station2.textLat}/${globe.station2.textLon}, subsolar ${globe.subsolar.page.lat}/${globe.subsolar.page.lon} vs node ${globe.subsolar.node.lat.toFixed(3)}/${globe.subsolar.node.lon.toFixed(3)}, shade ${globe.shade.subsolar.toFixed(0)} at the subsolar point and ${globe.shade.opposite.toFixed(0)} opposite, day/night pairs ${globe.shade.pairs.map((q) => `${q.day.toFixed(0)}>${q.night.toFixed(0)}`).join(' ')}, ${globe.trackPoints} track points, drag moved the centre ${globe.drag.movedDeg.toFixed(1)} deg with ${globe.drag.framesDuring} frames in ${globe.drag.dragMs} ms, flat page ${globe.flat.tiles} built-in tiles + ${globe.flat.tracks} track lines + night shade, 3D back, daily photo -> flat "${globe.daily.label}"; header.top ${globe.header.h3d.toFixed(2)} px in 3D, ${globe.header.hFlat.toFixed(2)} px flat; Play in 3D -> ${game6?.viewAfterPlay?.view}`
             : '') +
           (A11Y ? `; view pair last: 3D -> ${a11y.pair.outcome}, Flat page -> map with ${a11y.pair.afterFlat.tiles} built-in tiles` + (VIEW === '3d' ? `; globe ring ${a11y.keyboard.globeRing}px, ArrowLeft turned it ${a11y.globeKeys.arrowMovedDeg.toFixed(1)} deg, same buttons reached and fired as the flat run (${a11y.keyboard.reachedList.length} reached), walk restored 3D ${a11y.keyboard.restored3d} time(s)` : '') : '') +
-          (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : ''),
+          (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : '') +
+          (BLOCK && block7.globe ? `; globe still on its built-in image (data-image ${block7.globe.image}, Arabia R-B ${block7.globe.arabiaRedMinusBlue})` : ''),
   );
 } finally {
   await browser.close();

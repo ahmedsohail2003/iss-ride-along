@@ -90,6 +90,7 @@ export async function globeChecks({ page, w, h, evidence, subsolarAt }) {
     drawCalls: Number(document.getElementById('globe').dataset.drawCalls),
     mapShown: getComputedStyle(document.getElementById('map')).display !== 'none',
     stationRgb: window.__iss3d?.STATION_RGB ?? null,
+    headerH: document.querySelector('header.top').getBoundingClientRect().height,
   }));
   Object.assign(g, base);
   g.webgl = await glAlive(page);
@@ -220,7 +221,11 @@ export async function globeChecks({ page, w, h, evidence, subsolarAt }) {
     view: document.body.dataset.view,
     tracks: document.querySelectorAll('.leaflet-overlay-pane path.track-line').length,
     night: document.querySelectorAll('.leaflet-night-pane path.night-shade').length,
+    headerH: document.querySelector('header.top').getBoundingClientRect().height,
   }));
+  // G2: the new look keeps the header no taller than the flat page's (the planner stays on the first screen)
+  g.header = { h3d: base.headerH, hFlat: g.flat.headerH };
+  C.headerNoTallerIn3d = g.header.h3d <= g.header.hFlat;
   g.flat.mapShown = await isShown(page, '#map');
   g.flat.globeShown = await isShown(page, '#globe');
   g.flat.tiles = await builtInTiles(page);
@@ -265,6 +270,91 @@ export async function globeKeyboard(page) {
 }
 
 /**
+ * G2 --view 3d --plan: before "Plan my sighting" is pressed, watch #globe for the pass arriving
+ * (data-pass-points set by setPass). From that moment this script, not the page, counts the frames drawn in
+ * the first 0.5 s and reads centre() every 50 ms for 2 s.
+ */
+export async function armTurnWatch(page) {
+  await page.evaluate(() => {
+    const host = document.getElementById('globe');
+    window.__turnWatch = null;
+    const mo = new MutationObserver(() => {
+      if (window.__turnWatch || !(Number(host.dataset.passPoints) > 0)) return;
+      mo.disconnect();
+      const t0 = performance.now();
+      const w = (window.__turnWatch = { f0: Number(host.dataset.frames), f500: null, centres: [] });
+      setTimeout(() => (w.f500 = Number(host.dataset.frames)), 500);
+      const poll = () => {
+        const c = window.__iss3d.centre();
+        w.centres.push({ ms: Math.round(performance.now() - t0), lat: c?.lat ?? null, lon: c?.lon ?? null });
+        if (performance.now() - t0 < 2000) setTimeout(poll, 50);
+      };
+      poll();
+    });
+    mo.observe(host, { attributes: true, attributeFilter: ['data-pass-points'] });
+  });
+}
+
+/**
+ * G2 --view 3d --plan, after the fixed plan: the pass on the globe against the engine run here in Node (the
+ * page's own TypeScript through scripts/load-ts.mjs, the TLE the mocked CelesTrak reply serves): the pass is
+ * recomputed for the planned place from the moment the button was pressed.
+ */
+export async function globePassChecks({ page, clickAt, tle, orbit, passes, places }) {
+  const r = { checks: {} };
+  const C = r.checks;
+  await page.waitForFunction(() => window.__turnWatch && window.__turnWatch.f500 !== null && window.__turnWatch.centres.at(-1)?.ms >= 2000, null, { timeout: 10_000 }).catch(() => {});
+  const got = await page.evaluate(() => ({
+    watch: window.__turnWatch,
+    pass: window.__iss3d?.pass() ?? null,
+    ds: { ...document.getElementById('globe').dataset },
+    placeInput: document.getElementById('plan-place')?.value ?? '',
+    passShown: document.body.dataset.passShown ?? null,
+  }));
+  r.passShown = got.passShown;
+  r.points = Number(got.ds.passPoints);
+  C.passPointsOver10 = r.points > 10 && got.pass?.points.length === r.points;
+  // the planned place: the fixed plan's place box (empty means Ypsilanti), from the page's built-in list
+  const name = got.placeInput.trim() || 'Ypsilanti';
+  const place = places.builtInMatches(name)[0];
+  r.place = place ? { name: place.name, lat: place.latDeg, lon: place.lonDeg } : { name, lat: null, lon: null };
+  r.city = { lat: Number(got.ds.cityLat), lon: Number(got.ds.cityLon) };
+  C.cityIsPlannedPlace = !!place && Math.abs(r.city.lat - place.latDeg) <= 0.01 && lonDiff(r.city.lon, place.lonDeg) <= 0.01 && (got.passShown ?? '').startsWith(`${place.id}-`);
+  // the pass recomputed in Node from the press of the button: the one that starts when the globe's arc starts
+  const satrec = orbit.satrecFromTle(tle);
+  const found = place ? passes.predictForPlace(satrec, { name: place.name, latDeg: place.latDeg, lonDeg: place.lonDeg, heightM: place.heightM }, new Date(clickAt), 7).passes : [];
+  const pts = got.pass?.points ?? [];
+  const first = pts[0];
+  const last = pts.at(-1);
+  const p = first ? found.find((q) => Math.abs(q.start.getTime() - Date.parse(first.t)) <= 5000) : null;
+  r.nodePasses = found.length;
+  if (p && first && last) {
+    const rise = orbit.stateAt(satrec, p.start);
+    const set = orbit.stateAt(satrec, p.end);
+    const peak = orbit.stateAt(satrec, p.peak);
+    r.node = { start: p.start.toISOString().slice(0, 19), end: p.end.toISOString().slice(0, 19), peak: p.peak.toISOString().slice(0, 19), peakLat: peak.latDeg, peakLon: peak.lonDeg };
+    r.firstOffDeg = sepDeg(first.lat, first.lon, rise.latDeg, rise.lonDeg);
+    r.lastOffDeg = sepDeg(last.lat, last.lon, set.latDeg, set.lonDeg);
+    C.firstPointIsRise = r.firstOffDeg <= 0.1;
+    C.lastPointIsSet = r.lastOffDeg <= 0.1;
+    const w = got.watch;
+    const offs = (w?.centres ?? []).filter((c) => c.lat !== null).map((c) => ({ ms: c.ms, off: sepDeg(c.lat, c.lon, peak.latDeg, peak.lonDeg) }));
+    r.reachedMs = offs.find((c) => c.off <= 5)?.ms ?? null;
+    r.finalOffDeg = offs.at(-1)?.off ?? 999;
+    r.centreTrace = offs.filter((_, i) => i % 4 === 0).map((c) => `${c.ms}:${c.off.toFixed(1)}`);
+    C.centreOnHighestPointWithin2s = r.reachedMs !== null && r.reachedMs <= 2000 && r.finalOffDeg <= 5;
+    r.framesIn500 = w && w.f500 !== null ? w.f500 - w.f0 : null;
+    C.framesInFirst500msAtLeast8 = r.framesIn500 !== null && r.framesIn500 >= 8;
+  } else {
+    r.firstOffDeg = r.lastOffDeg = r.finalOffDeg = 999;
+    r.node = { start: null, end: null };
+    r.problem = `no pass recomputed in Node starts at the globe arc's first point (${first?.t ?? 'none'}); Node found ${found.length}`;
+    C.firstPointIsRise = C.lastPointIsSet = C.centreOnHighestPointWithin2s = C.framesInFirst500msAtLeast8 = false;
+  }
+  return r;
+}
+
+/**
  * --view auto: the four fallback cases, each in its own browser context of the same (SwiftShader) browser.
  * `newPage(contextOptions, initScript)` makes a page with smoke.mjs's mocked network and error counters.
  */
@@ -275,6 +365,12 @@ export async function autoCases({ newPage, baseUrl }) {
     u.searchParams.set('view', v);
     return u.href;
   };
+  // G2: DEFAULT_VIEW is 'auto', so cases 1 to 3 and the two below open the plain address with no flag.
+  const plain = (() => {
+    const u = new URL(baseUrl);
+    u.searchParams.delete('view');
+    return u.href;
+  })();
   const decided = (page) => page.waitForFunction(() => !!document.body.dataset.viewWhy, null, { timeout: 15_000 }).then(() => true).catch(() => false);
   const state = (page) =>
     page.evaluate(() => ({ view: document.body.dataset.view, why: document.body.dataset.viewWhy, note: !document.getElementById('view-note').hidden && document.getElementById('view-note').getBoundingClientRect().height > 0, noteText: document.getElementById('view-note').textContent, probe: document.body.dataset.viewProbe ?? null }));
@@ -287,7 +383,7 @@ export async function autoCases({ newPage, baseUrl }) {
         return /webgl/i.test(type) ? null : orig.call(this, type, ...rest);
       };
     });
-    await page.goto(withView('auto'), { waitUntil: 'load' });
+    await page.goto(plain, { waitUntil: 'load' });
     const c = { name: 'no WebGL', decided: await decided(page) };
     c.atLoad = await state(page);
     await page.click('#view-3d');
@@ -301,7 +397,7 @@ export async function autoCases({ newPage, baseUrl }) {
   // (2) Reduced motion.
   {
     const { page, errors, close } = await newPage({ reducedMotion: 'reduce' });
-    await page.goto(withView('auto'), { waitUntil: 'load' });
+    await page.goto(plain, { waitUntil: 'load' });
     const c = { name: 'reduced motion', decided: await decided(page) };
     c.atLoad = await state(page);
     c.consoleErrors = [...errors];
@@ -321,7 +417,7 @@ export async function autoCases({ newPage, baseUrl }) {
       };
     });
     const t0 = Date.now();
-    await page.goto(withView('auto'), { waitUntil: 'load' });
+    await page.goto(plain, { waitUntil: 'load' });
     const c = { name: 'software renderer', decided: await decided(page) };
     await page.waitForTimeout(Math.max(0, t0 + 2000 - Date.now()));
     c.at2s = await state(page);
@@ -358,6 +454,63 @@ export async function autoCases({ newPage, baseUrl }) {
     c.tiles = await builtInTiles(page);
     c.consoleErrors = [...errors];
     c.ok = c.globe && c.before.view === '3d' && c.flatAfterMs !== null && c.flatAfterMs <= 1000 && c.after.view === 'flat' && c.after.why === 'lost' && c.mapShown && c.tiles > 0 && errors.length === 0;
+    cases.push(c);
+    await close();
+  }
+  // (5) and (6) G2: the good and the slow branch end to end. Stand-ins that live only in this script: the
+  // renderer name is answered as a hardware one, the caveat attribute is removed from the page's request, and
+  // the frame timestamps the page's requestAnimationFrame callbacks get are handed out by this script, `gap` ms
+  // apart per real frame (every callback in one frame gets the same stamp, as in a browser).
+  for (const [gap, name] of [[16, 'good device'], [40, 'slow device']]) {
+    const { page, errors, close } = await newPage({}, (gapMs) => {
+      window.__glContexts = [];
+      const HW = 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+      const orig = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, attrs, ...rest) {
+        let a = attrs;
+        if (a && typeof a === 'object' && 'failIfMajorPerformanceCaveat' in a) {
+          a = { ...a };
+          delete a.failIfMajorPerformanceCaveat;
+        }
+        const ctx = a === undefined ? orig.call(this, type) : orig.call(this, type, a, ...rest);
+        if (ctx && /webgl/i.test(type) && !window.__glContexts.includes(ctx)) window.__glContexts.push(ctx);
+        return ctx;
+      };
+      const gp = WebGL2RenderingContext.prototype.getParameter;
+      WebGL2RenderingContext.prototype.getParameter = function (pname) {
+        const ext = this.getExtension('WEBGL_debug_renderer_info');
+        if (ext && pname === ext.UNMASKED_RENDERER_WEBGL) return HW;
+        return gp.call(this, pname);
+      };
+      const raf = window.requestAnimationFrame.bind(window);
+      let lastReal = -1;
+      let fake = 0;
+      window.requestAnimationFrame = (cb) =>
+        raf((real) => {
+          if (real !== lastReal) {
+            lastReal = real;
+            fake += gapMs;
+          }
+          cb(fake);
+        });
+    }, gap);
+    const live = () => page.evaluate(() => window.__glContexts.filter((g) => !g.isContextLost()).length);
+    const t0 = Date.now();
+    await page.goto(plain, { waitUntil: 'load' });
+    const c = { name, gapMs: gap, decided: await decided(page) };
+    await page.waitForTimeout(Math.max(0, t0 + 2000 - Date.now()));
+    c.at2s = await state(page);
+    c.live2s = await live();
+    await page.waitForTimeout(Math.max(0, t0 + 10_000 - Date.now()));
+    c.at10s = await state(page);
+    c.live10s = await live();
+    c.contexts = await page.evaluate(() => window.__glContexts.length);
+    c.renderer = await page.evaluate(() => document.getElementById('globe')?.dataset.renderer ?? null);
+    c.consoleErrors = [...errors];
+    c.ok =
+      gap === 16
+        ? c.at2s.view === '3d' && c.at10s.view === '3d' && c.at2s.why === 'auto' && c.at10s.why === 'auto' && c.live2s === 1 && c.live10s === 1 && errors.length === 0
+        : c.at2s.view === 'flat' && c.at2s.why === 'slow' && c.at10s.view === 'flat' && c.at10s.why === 'slow' && c.at2s.note && c.contexts >= 1 && c.live2s === 0 && c.live10s === 0 && errors.length === 0;
     cases.push(c);
     await close();
   }
