@@ -59,7 +59,9 @@ export const belowPanelHtml = `
     <div class="card">
       <h2>In the station's view</h2>
       <p id="footprint" class="small"></p>
-      <p id="events-status" class="events-status" aria-live="polite">Loading NASA EONET events...</p>
+      <!-- aria-live="off": this line is redrawn every 5 s and its count changes whenever an event enters or leaves
+           the circle (often, over land), so announcing it would talk over the once-a-minute sentence (C3). -->
+      <p id="events-status" class="events-status" aria-live="off">Loading NASA EONET events...</p>
       <ul id="events-list" class="events-list"></ul>
       <p id="events-source" class="small"></p>
     </div>
