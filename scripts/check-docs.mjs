@@ -19,7 +19,8 @@
 //    answer has a "File:" line whose backticked files all exist, and every `name()` on that line is
 //    defined in one of those files. Its 90-second click path has at least 8 rows (smoke.mjs --path
 //    presses them on the built page).
-// 9. (M9b) docs/PRESENTING.md and docs/CUE_SHEET.md: every number in them appears in the build log's
+// 9. (M9b; B4) docs/PRESENTING.md, docs/CUE_SHEET.md and the DEV post draft docs/DEV_POST.md: every
+//    number in them appears in the build log's
 //    evidence (`.autopilot/PROGRESS.md` beside the repo; a number with decimals may be a rounding of a
 //    logged one; clock times, timecodes, list numbers and `code` are not counted as numbers); no part
 //    that has not passed its verification run is named (the verdicts are read from the same log, or
@@ -37,6 +38,10 @@
 //    Armeis, and no line they wrote says "we coded", "I programmed" or "we wrote the code". A line still
 //    marked [FILL] is printed as "wait", not as a failure: those words are the teammate's own. Skipped,
 //    and said so, where the kit is not present (CI).
+// 12. (B4) The DEV post draft docs/DEV_POST.md (besides rules 6, 9 and 10): it discloses the AI build
+//    (names Claude Code, Fable 5.2, Opus 5.5 and Ahmed), carries the #mlhacks tag and the line "Not
+//    affiliated with or endorsed by NASA", stays "published: false" (publishing is a human step), and
+//    never says "we coded", "I programmed" or "we wrote the code".
 // Exit 0 when everything holds, 1 otherwise. Offline, no dependencies.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -137,7 +142,7 @@ if (existsSync(join(root, 'RUN.md'))) {
 
 // ---- 6. Wording next to the NASA trajectory gap (C1).
 {
-  const files = ['README.md', 'HOW_IT_WORKS.md', 'CODE_TOUR.md', 'RUN.md', 'DEVPOST_DRAFT.md', 'docs/STUDY_CARDS.md', 'docs/PRESENTER_PACK.md', 'src/oem-ui.ts', 'src/orbit/oemAgreement.ts'];
+  const files = ['README.md', 'HOW_IT_WORKS.md', 'CODE_TOUR.md', 'RUN.md', 'DEVPOST_DRAFT.md', 'docs/STUDY_CARDS.md', 'docs/PRESENTER_PACK.md', 'docs/DEV_POST.md', 'src/oem-ui.ts', 'src/orbit/oemAgreement.ts'];
   let checked = 0;
   for (const f of files) {
     if (!existsSync(join(root, f))) continue;
@@ -295,7 +300,7 @@ const inLog = (s) => {
 
 // ---- 9. Presentation plan and cue sheet (M9b).
 {
-  const DOCS = ['docs/PRESENTING.md', 'docs/CUE_SHEET.md'];
+  const DOCS = ['docs/PRESENTING.md', 'docs/CUE_SHEET.md', 'docs/DEV_POST.md']; // DEV_POST.md: B4
 
   // Parts that must not be named until their milestone's verdict line says VERIFIED.
   const UNBUILT = [
@@ -436,6 +441,23 @@ const inLog = (s) => {
       if (filled.length) passes.push(`${LABEL}: ${filled.length} of ${PEOPLE.length} first-timers' own lines are in (${filled.join(', ')})`);
       if (waiting.length) waits.push(`${LABEL}: ${waiting.length} of ${PEOPLE.length} lines still to be written by the person named (${waiting.join(', ')}); the Best Beginner words are not complete until all are in`);
     }
+  }
+}
+
+// ---- 12. The DEV post draft (B4): AI disclosure, tag, NASA line, still a draft, no overclaim.
+{
+  const POST = 'docs/DEV_POST.md';
+  if (!existsSync(join(root, POST))) problems.push(`${POST} is missing`);
+  else {
+    const post = read(POST);
+    const before = problems.length;
+    for (const must of ['Claude Code', 'Fable 5.2', 'Opus 5.5', 'Ahmed', '#mlhacks', 'Not affiliated with or endorsed by NASA']) {
+      if (!post.includes(must)) problems.push(`${POST}: does not contain "${must}"`);
+    }
+    if (!/^published:\s*false\s*$/m.test(post)) problems.push(`${POST}: front matter is not "published: false" (publishing waits for a human)`);
+    const over = post.match(/\b(?:we|i)\s+(?:all\s+)?(?:coded|programmed|wrote\s+(?:all\s+)?(?:of\s+)?(?:the|this|our|its)\s+code)\b/i);
+    if (over) problems.push(`${POST}: says "${over[0]}" (the code was written by Claude Code; say what was checked or learned)`);
+    if (problems.length === before) passes.push(`${POST}: AI disclosure (Claude Code, Fable 5.2, Opus 5.5, Ahmed), #mlhacks, the NASA line, "published: false", no overclaim`);
   }
 }
 
