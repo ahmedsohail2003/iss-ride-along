@@ -247,7 +247,9 @@ export async function globeChecks({ page, w, h, evidence, subsolarAt }) {
 /** --view 3d --a11y: the globe's own keyboard checks (run before the walk). */
 export async function globeKeyboard(page) {
   const k = {};
-  await page.focus('#globe');
+  // Reached by the keyboard (Tab from the button before it), so the focus ring is the one a keyboard user sees.
+  await page.focus('#view-flat');
+  await page.keyboard.press('Tab');
   k.ringPx = await page.evaluate(() => {
     const cs = getComputedStyle(document.activeElement);
     return document.activeElement.id === 'globe' && cs.outlineStyle !== 'none' ? parseFloat(cs.outlineWidth) : 0;

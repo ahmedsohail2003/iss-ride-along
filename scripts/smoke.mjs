@@ -532,7 +532,8 @@ try {
       // first screen with the switch off (on a phone the map sits below the fold, so the map itself)
       p2.defaultShot = evidence('p2-default');
       if (w >= 1000) await page.screenshot({ path: p2.defaultShot });
-      else await page.locator('#map').screenshot({ path: p2.defaultShot });
+      // (G1: in 3D the map is hidden at this point, so the slot that holds the globe)
+      else await page.locator(VIEW === '3d' ? '.map-slot' : '#map').screenshot({ path: p2.defaultShot });
       await page.waitForFunction(() => !document.getElementById('daily-toggle').disabled, null, { timeout: 15_000 }).catch(() => {});
       await page.check('#daily-toggle');
       await page.waitForFunction(() => ['loaded', 'failed'].includes(document.body.dataset.daily ?? ''), null, { timeout: 25_000 }).catch(() => {});
