@@ -20,7 +20,7 @@ Four beats and no more. Read the "> " lines aloud; the rest is what to do. Read 
 
 **Beat 1: the planner (0:00-0:35, Denim).** Before saying anything, press the trip example "Ypsilanti until Monday, then Chicago Tuesday to Thursday, kids in bed by 8:30", then "Plan my sighting" (`#plan-go`). Talk while the Steps list (`#plan-trace`) fills in. A live trip run took 11.0 and 13.2 seconds.
 
-> **Denim:** Pass apps tell you when the space station flies over one place. You still have to match that to your week, your sky and where you will be. I just gave it a week with two cities, in my own words. Watch the steps: it found both places, ran our own orbit engine for each on the nights we are there, checked the cloud, searched the web, and picked one.
+> **Denim:** Pass apps tell you when the space station flies over one place. You still have to match that to your week, your sky and where you will be. I just gave it a week with two cities, in my own words. A form cannot take a week like that; an agent can. Watch the steps: it found both places, ran our own orbit engine for each on the nights we are there, checked the cloud, searched the web, and picked one.
 
 The map moves to the chosen pass (`#plan-card` shows it). Say a cloud line only if the Steps list shows a cloudy night being ruled out ("that night was too cloudy"). If the page says it cut the AI off at 30 seconds, say "that is the plan for one city without AI" and go on.
 
@@ -28,7 +28,7 @@ The map moves to the chosen pass (`#plan-card` shows it). Say a cloud line only 
 
 > **Denim:** This badge is the audit: every number on the card came from our engine, and anything the AI made up would be marked. In 5 of 5 live runs, none.
 >
-> **Quinn:** This panel compares our engine with NASA mission control's own trajectory. Here is the gap, and the age of our orbit numbers. Within 12 hours of their timestamp we measured 1.03 kilometres apart at most, over 360 of NASA's rows. NASA's file is a prediction too, so we say apart, not accurate. And this button asks an independent tracker for the same second.
+> **Quinn:** This panel compares our engine with NASA mission control's own trajectory. Here is the gap, and the age of our orbit numbers. Within 12 hours of their timestamp we measured 1.03 kilometres apart at most, over 360 of NASA's rows. NASA's file is a prediction too, so we say apart, not accurate. This button asks an independent tracker too.
 
 Read the km it shows (`#ref-km`): "that is how far our answer is from the other tracker."
 
@@ -46,7 +46,7 @@ Read the km it shows (`#ref-km`): "that is how far our answer is from the other 
 >
 > **Denim:** (your own line from your "What I learned" box) What would you like to see?
 
-Each "What I learned" line is 15 words at most and is written by that person, not by the build assistant. Typing a judge's own city, the passes table and the code tour are for a second visit or when a judge asks.
+Each "What I learned" line is 12 words at most and is written by that person, not by the build assistant. Typing a judge's own city, the passes table and the code tour are for a second visit or when a judge asks.
 
 ## 3. A version for each kind of judge
 
