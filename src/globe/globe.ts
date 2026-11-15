@@ -408,6 +408,9 @@ export function createGlobe(opts: {
       stationGeom.computeBoundingSphere();
       // the crew's view: a circle of angle (arc length / mean radius), drawn just above the ground
       setLine(viewCircle, circleOnSphere(lat, lon, footprintRadiusKm(alt) / EARTH_RADIUS_KM, 96, 8).slice(0, -1));
+      // draw on the next frame, so the marker and data-station-* change with #lat/#lon (the caller's 1 s tick)
+      // instead of up to 1 s later on the globe's own once-a-second redraw
+      dirty = true;
     },
     setTrack(past, next) {
       setLine(pastLine, past.map((p) => latLonToVec3(p.latDeg, p.lonDeg, p.altKm)));
@@ -419,6 +422,7 @@ export function createGlobe(opts: {
       sunAt = { lat, lon };
       const v = latLonToVec3(lat, lon);
       earthMat.uniforms.uSun.value.set(v[0], v[1], v[2]);
+      dirty = true;
     },
     setNight(on) {
       earthMat.uniforms.uNight.value = on ? 1 : 0;

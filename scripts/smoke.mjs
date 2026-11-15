@@ -1110,10 +1110,15 @@ try {
     block7.planNote = await page.textContent('#plan-note');
     block7.planHeadline = await page.textContent('#plan-headline');
     block7.nextPass = await page.textContent('#next-pass');
-    // still moving after the failure: the latitude changes within 3 s of this point
-    const latNow = (await read()).lat;
+    // still moving after the failure: the position (#lat or #lon) changes within 3 s of this point. Latitude alone
+    // stands still at the top and bottom of the orbit (51.8 N/S), where its 2-decimal text can hold for over 3 s.
+    const nowAt = await read();
     const movesAfter = await page
-      .waitForFunction((l) => document.getElementById('lat')?.textContent !== l, latNow, { timeout: 3000, polling: 100 })
+      .waitForFunction(
+        ([la, lo]) => document.getElementById('lat')?.textContent !== la || document.getElementById('lon')?.textContent !== lo,
+        [nowAt.lat, nowAt.lon],
+        { timeout: 3000, polling: 100 },
+      )
       .then(() => true)
       .catch(() => false);
     block7.markerMoves = (first.marker !== second.marker || first.lat !== second.lat) && movesAfter;
