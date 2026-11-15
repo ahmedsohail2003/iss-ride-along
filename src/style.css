@@ -245,6 +245,10 @@ button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align
 /* X5: the sky from the station (a round star chart in the Sky tab). */
 .sky-card { max-width: 40rem; }
 .sky-wrap { max-width: 480px; margin: 0.4rem auto; }
-#sky-canvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; }
+#sky-canvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; touch-action: none; cursor: grab; }
+#sky-canvas:active { cursor: grabbing; }
+.sky-controls { margin: 0.3rem 0; }
+.sky-controls button { width: auto; }
+.sky-picked { min-height: 1.4rem; font-weight: 600; }
 .sky-sun { margin: 0.3rem 0; }
 .sky-credit { opacity: 0.85; }

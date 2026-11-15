@@ -60,6 +60,10 @@
 // the station's own latitude, and the catalogue and line credits are on the page (in the tab and in the
 // footer's credits list); default mode saves evidence/x5.png (x5-WxH.png at other sizes). The tab is
 // closed again (back to "What it is flying over") before the next checks.
+// X5b drag and zoom (default mode, any --size): a mouse drag moves the view centre more than 5 degrees, a wheel
+// turn changes the field of view, a click on Sirius (or the brightest named star in view) shows its name,
+// ArrowLeft and + turn and zoom the focused chart, and "Back to the station's view" brings the centre back to
+// straight up within 0.1 degree; evidence/x5b.png (x5b-WxH.png at other sizes).
 // M7 first-screen checks (default mode, any --size): no horizontal scroll; the planner box and the
 // next-pass line inside the first screen; "Detroit" typed in the planner box plus Enter puts a pass
 // line with a time and a compass word in #next-pass within 2 s; every tab opens its own panel.
@@ -499,6 +503,75 @@ try {
     mkdirSync(resolve('evidence'), { recursive: true });
     x5.shot = `evidence/x5${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png`;
     await page.locator('.sky-card').screenshot({ path: resolve(x5.shot) });
+  }
+  // ---- X5b: drag and zoom the sky (default mode, any --size). A mouse drag across the chart must move the
+  // view centre by more than 5 degrees; a wheel turn must change the field of view; a click on Sirius (or the
+  // brightest named star in view) must show its name in #sky-picked; the arrow keys and + must turn and zoom
+  // the focused chart; "Back to the station's view" must bring the centre back to the station's straight up
+  // (the J2000 centre and straight up are read from the same draw) within 0.1 degree, at 180 degrees across.
+  let x5b = null;
+  if (FIRST) {
+    const sepDeg = (ra1, dec1, ra2, dec2) => {
+      const r = Math.PI / 180;
+      const hv = Math.sin(((dec2 - dec1) * r) / 2) ** 2 + Math.cos(dec1 * r) * Math.cos(dec2 * r) * Math.sin(((ra2 - ra1) * r) / 2) ** 2;
+      return (2 * Math.asin(Math.min(1, Math.sqrt(hv)))) / r;
+    };
+    const readView = () =>
+      page.evaluate(() => {
+        const ds = document.getElementById('sky-canvas').dataset;
+        return { follow: ds.follow, fov: +ds.fov, ra: +ds.viewRa, dec: +ds.viewDec, upRa: +ds.upRa, upDec: +ds.upDec, bright: JSON.parse(ds.brightInView || '[]'), text: document.getElementById('sky-view')?.textContent ?? '' };
+      });
+    x5b = {};
+    await page.locator('#sky-canvas').scrollIntoViewIfNeeded();
+    const box = await page.locator('#sky-canvas').boundingBox();
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    x5b.start = await readView();
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    for (let k = 1; k <= 10; k++) await page.mouse.move(cx + (k / 10) * 0.3 * box.width, cy + (k / 10) * 0.15 * box.height);
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+    x5b.afterDrag = await readView();
+    x5b.dragMovedDeg = sepDeg(x5b.start.ra, x5b.start.dec, x5b.afterDrag.ra, x5b.afterDrag.dec);
+    await page.mouse.move(cx, cy);
+    await page.mouse.wheel(0, -400);
+    await page.waitForTimeout(150);
+    x5b.afterWheel = await readView();
+    const target = x5b.afterWheel.bright.find((s) => s.name === 'Sirius') ?? [...x5b.afterWheel.bright].sort((a, b) => a.mag - b.mag)[0] ?? null;
+    x5b.clicked = target?.name ?? null;
+    if (target) {
+      await page.mouse.click(box.x + target.x, box.y + target.y);
+      await page.waitForTimeout(150);
+    }
+    x5b.pickedText = (await page.textContent('#sky-picked')) ?? '';
+    mkdirSync(resolve('evidence'), { recursive: true });
+    x5b.shot = `evidence/x5b${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png`;
+    await page.locator('.sky-card').screenshot({ path: resolve(x5b.shot) });
+    await page.click('#sky-reset');
+    await page.waitForTimeout(150);
+    x5b.afterReset = await readView();
+    x5b.resetOffDeg = sepDeg(x5b.afterReset.ra, x5b.afterReset.dec, x5b.afterReset.upRa, x5b.afterReset.upDec);
+    // Keyboard: focus the chart, one arrow key and one +.
+    await page.focus('#sky-canvas');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('+');
+    await page.waitForTimeout(100);
+    x5b.afterKeys = await readView();
+    x5b.keysMovedDeg = sepDeg(x5b.afterReset.ra, x5b.afterReset.dec, x5b.afterKeys.ra, x5b.afterKeys.dec);
+    await page.click('#sky-reset');
+    await page.waitForTimeout(100);
+    x5b.end = await readView();
+    x5b.checks = {
+      startsFollowingAt180: x5b.start.follow === '1' && x5b.start.fov === 180 && sepDeg(x5b.start.ra, x5b.start.dec, x5b.start.upRa, x5b.start.upDec) < 0.1,
+      dragMovesOver5Deg: x5b.afterDrag.follow === '0' && x5b.dragMovedDeg > 5,
+      wheelChangesFov: x5b.afterWheel.fov < x5b.afterDrag.fov && x5b.afterWheel.fov >= 30,
+      clickNamesStar: !!x5b.clicked && x5b.pickedText.startsWith(`${x5b.clicked}:`),
+      resetToStraightUp: x5b.afterReset.follow === '1' && x5b.afterReset.fov === 180 && x5b.resetOffDeg < 0.1,
+      keysTurnAndZoom: x5b.afterKeys.follow === '0' && x5b.keysMovedDeg > 5 && x5b.afterKeys.fov < 180,
+      backAtEnd: x5b.end.follow === '1' && x5b.end.fov === 180,
+    };
+    Object.assign(x5.checks, Object.fromEntries(Object.entries(x5b.checks).map(([k, v]) => [`x5b_${k}`, v])));
   }
   await page.click('#tab-btn-nasa');
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -1214,6 +1287,7 @@ try {
   const result = {
     url,
     x5,
+    x5b,
     mode: NET ? 'network' : OFFLINE ? 'offline' : 'mocked',
     viewport: `${w}x${h}`,
     screenshot: out,
@@ -1280,6 +1354,7 @@ try {
           `; day and night: night side drawn (${c2.nightPoints} points), label "${c2.panelLabel}" on the marker and in the panel` +
           (FIRST ? `, toggle off/on ${c2.afterToggleOff}/${c2.afterToggleOn}, evidence/c2.png` : '') +
           `; sky from the station: ${x5.stars} stars, ${x5.segments} line pieces, ${x5.constellations} constellations above its horizon, ${x5.brightPixels} bright pixels, label "${x5.label}" (map "${x5.mapLabel}"), straight up = declination ${x5.zenithDec.toFixed(2)} = station latitude ${x5.stationLat.toFixed(2)}, credits in the tab and the footer${x5.shot ? `, ${x5.shot}` : ''}` +
+          (x5b ? `; drag and zoom: a drag moved the view centre ${x5b.dragMovedDeg.toFixed(1)} deg, the wheel took the view from ${x5b.afterDrag.fov.toFixed(1)} to ${x5b.afterWheel.fov.toFixed(1)} deg across, a click on ${x5b.clicked} showed "${x5b.pickedText}", "Back to the station's view" put the centre ${x5b.resetOffDeg.toFixed(4)} deg from straight up at ${x5b.afterReset.fov} deg across, ArrowLeft and + turned it ${x5b.keysMovedDeg.toFixed(1)} deg and zoomed to ${x5b.afterKeys.fov.toFixed(1)} deg, ${x5b.shot}` : '') +
           `; NASA trajectory: ${oem.kmShown} km apart at ${oem.rowTime?.slice(11, 16)} UTC, orbit numbers ${oem.ageShownH} h old` +
           (OEM ? ` (recomputed ${oem.ageRecomputedH?.toFixed(2)} h)` : '') +
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : '') +
