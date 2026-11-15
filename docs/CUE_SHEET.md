@@ -26,7 +26,7 @@ If a judge asks "so how accurate are you?": "About a kilometre from NASA's own p
 |---|---|---|---|
 | 0:00-0:35 | Denim | Press the trip example "Ypsilanti until Monday...", then "Plan my sighting" (`#plan-go`), first thing | "Pass apps tell you when it flies over one place..." Read the Steps (`#plan-trace`) as they fill in. |
 | 0:35-1:15 | Denim, then Quinn | Point at the audit badge (`#plan-audit`), then the NASA panel (`#oem-panel`), then press "Check against reference" (`#check-ref`) | Audit: "anything the AI made up would be marked." NASA: read the gap and the age on the panel; "1.03 km at most within 12 hours." |
-| 1:15-1:35 | Armeis | Point at the image date (`#gibs-date`), the events (`#events-list`), the photo (`#photo-card`), the credits (`#credits`) | "Under the station right now: NASA's image of the day, NASA's open natural events, an astronaut photo." |
+| 1:15-1:35 | Armeis | Tick "Daily satellite photo (with clouds)" (`#daily-toggle`), point at its date (`#gibs-date`), untick it; then the events (`#events-list`), the photo (`#photo-card`), the credits (`#credits`) | "The clear map is NASA's Blue Marble; this switch shows NASA's photo of the day. Under the station: NASA's open natural events, an astronaut photo." |
 | 1:35-2:00 | everyone | Hands off the laptop | Who built it and how; one line each from your own "What I learned" box. Then: "What would you like to see?" |
 
 A live trip run took 11.0 and 13.2 seconds (4 AI calls each). If the run is cut off at 30 seconds, say "that is the plan for one city without AI" and go on to beat 2.

@@ -65,8 +65,8 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
 - `footprintRadiusKm()` is the station's view: how far along the ground a place can be and still see
   the station above its horizon (cos(angle) = R / (R + altitude)). `splitByFootprint()` sorts events or
   photos by distance and keeps the ones inside that circle.
-- `pickGibsDay()` chooses the NASA GIBS daily image: yesterday (UTC) if GIBS's reply header confirms it,
-  else two days ago; the date is printed under the map. `parseEonet()` reads NASA EONET's events and
+- The default map is NASA's cloud-free Blue Marble (`blueMarbleTemplate()`); `pickGibsDay()` chooses the daily photo shown
+  by the switch: yesterday (UTC) if GIBS's reply header confirms it, else two days ago; its date is printed under the map. `parseEonet()` reads NASA EONET's events and
   turns GeoJSON's [longitude, latitude] into named fields so they cannot be swapped.
 - `photoCreditLine()` writes each curated photo's NASA credit. `renderLists()` refreshes events and photo every 5 seconds.
 - Say: "The circle is computed from the altitude; the image, events and photos are NASA data, each with its date and credit."

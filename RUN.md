@@ -53,10 +53,11 @@ node scripts/check-docs.mjs   # every file and function named in CODE_TOUR.md ex
 ```
 
 - `smoke.mjs` passes when the latitude is a number, the marker moves within 2.5 s, both orbit lines are
-  drawn and there are 0 console or page errors. It also needs the NASA layers: the map's date label,
+  drawn and there are 0 console or page errors. It also needs the NASA layers: the map's label (the cloud-free Blue Marble and no date on
+  load; the switch shows the daily photo's date and "not a live camera", and off brings the Blue Marble back),
   at least one event line, a curated photo with its NASA credit and the credits panel; with `--net`
-  at least one real NASA GIBS map tile must answer HTTP 200. The mocked mode answers EONET from the
-  saved copy and GIBS with the built-in Blue Marble tile.
+  at least one real NASA GIBS tile of each layer must answer HTTP 200. The mocked mode answers EONET from the
+  saved copy and GIBS with the built-in Blue Marble tiles. Screens: `evidence/p2-default.png`, `evidence/p2-daily.png`.
   With `--offline` it also needs the label to say "built into this page".
   Options: `--url <url>`, `--out <png>`, `--size 390x844`. Screenshots go to `evidence/` (not committed).
 - `check-agent.mjs` runs the page's own planner loop against a live AI provider and prints every step, the
@@ -75,7 +76,7 @@ node scripts/check-docs.mjs   # every file and function named in CODE_TOUR.md ex
 | "Orbit data age ... built into this page" | CelesTrak was not reachable, so the page uses its built-in orbit data | nothing: the tracker still works; the label shows how old the data is |
 | The age label is amber or red | the orbit data is over 1 day (amber) or 3 days (red) old | connect to the internet and reload |
 | "Could not reach wheretheiss.at" | no internet, or the reference site is slow | the tracker keeps running; try the button again online |
-| "built-in NASA Blue Marble image" under the map | offline, or NASA GIBS did not answer | nothing: the map still works; online, reload for the daily image |
+| "built into this page" in the map label, the photo switch greyed out | offline, or NASA GIBS did not answer | nothing: the clear map still works; online, reload for the daily photo switch |
 | "Saved copy from ..." under the events | the live NASA EONET list did not load | the saved list is used and dated; reload when online |
 | "AI key refused", "AI rate limit reached" or "AI took too long" above the plan | the AI provider said no or was slow | nothing: the card shows the fixed plan; check the key in Settings, or wait a minute |
 | The planner says "this one needs the AI" | the sentence has two places and no key is set | add a key in Settings, or use the plain controls for one place |

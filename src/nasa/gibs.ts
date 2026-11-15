@@ -8,6 +8,34 @@ export const GIBS_MAX_NATIVE_ZOOM = 9;
 const BASE = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best';
 const TIMEOUT_MS = 10_000;
 
+/**
+ * P2: the default map is NASA's cloud-free Blue Marble (the same layer the built-in tiles were saved
+ * from, zoom 0-2). Online, GIBS serves it to zoom 8, so the map stays sharp when zoomed in. It has no
+ * date (the layer has no time dimension in GIBS's capabilities), so its label never shows one.
+ */
+export const BLUE_MARBLE_LAYER = 'BlueMarble_ShadedRelief_Bathymetry';
+export const BLUE_MARBLE_MAX_NATIVE_ZOOM = 8;
+
+/** Leaflet URL template for the cloud-free Blue Marble (template from GIBS's WMTS capabilities). */
+export function blueMarbleTemplate(): string {
+  return `${BASE}/${BLUE_MARBLE_LAYER}/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg`;
+}
+
+/** The map's label under each state. Only the daily photo's label carries a date. */
+export const MAP_LABEL = {
+  builtIn: "Map: NASA Blue Marble, a cloud-free picture of Earth (not today's weather), built into this page.",
+  gibs: "Map: NASA Blue Marble, a cloud-free picture of Earth (not today's weather), from NASA GIBS.",
+  unreachable:
+    'Map: NASA Blue Marble, a cloud-free picture of Earth, built into this page (NASA GIBS could not be reached, so the daily satellite photo is off).',
+  tilesFailed: 'Map: NASA Blue Marble, a cloud-free picture of Earth, built into this page (the sharper NASA GIBS tiles did not load).',
+} as const;
+
+/** Label while the daily photo switch is on and its tiles have loaded. */
+export function dailyLabel(day: string, how: GibsChoice['how']): string {
+  const note = how === 'assumed' ? ' (GIBS did not confirm the date, so the page uses two days ago)' : '';
+  return `Map: daily satellite image, ${day}, not a live camera (NASA GIBS, MODIS Terra true colour)${note}. Black stripes = gaps between the satellite's daily passes.`;
+}
+
 /** Leaflet URL template (`{z}/{y}/{x}`, row before column) for one day of the layer. */
 export function gibsTemplate(day: string): string {
   return `${BASE}/${GIBS_LAYER}/default/${day}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`;

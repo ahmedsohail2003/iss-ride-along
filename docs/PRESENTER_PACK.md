@@ -23,7 +23,7 @@ This pack is a review of the four study cards in [STUDY_CARDS.md](STUDY_CARDS.md
 - **satellite.js** (SGP4): the standard model that moves a station's published orbit numbers forward to any second, so we compute the position ourselves.
 - **CelesTrak**: where the orbit numbers come from (US Space Force tracking data, not NASA). **wheretheiss.at**: an independent tracker we compare against.
 - **Leaflet**: a small map library that draws the map, the station and its path.
-- **NASA GIBS, EONET, Image and Video Library**: the daily satellite image, the list of open natural events and the astronaut photos. **NASA's ISS trajectory file**: the check in number 2.
+- **NASA GIBS, EONET, Image and Video Library**: the map (the cloud-free Blue Marble by default; the dated daily satellite photo with its clouds behind the switch "Daily satellite photo (with clouds)" under the map), the list of open natural events and the astronaut photos. **NASA's ISS trajectory file**: the check in number 2.
 - **Gemini** (Google's AI model): the planner's model, live-tested. **Exa**: a search engine built for AI, for station news. **Open-Meteo**: the free cloud forecast.
 - **Vitest**: runs the 78 automated tests (78 of 78 passed at 7:39 PM). **GitHub Actions**: runs them again on every push before the live page updates.
 - **Claude Code**: the AI coding tool that wrote the code (question 1 below).
@@ -98,7 +98,7 @@ File: `tests/position.test.ts`, `src/orbit/compare.ts` (`compareWithReference()`
 
 ### 7. Is this NASA's data?
 
-The orbit numbers are not: they come from CelesTrak, which publishes US Space Force tracking data, and wheretheiss.at is not NASA either. The NASA parts are the daily satellite image (GIBS), the natural-events list (EONET), the astronaut photos (Image and Video Library) and NASA's ISS trajectory file, each credited on the page, and the project is not affiliated with or endorsed by NASA.
+The orbit numbers are not: they come from CelesTrak, which publishes US Space Force tracking data, and wheretheiss.at is not NASA either. The NASA parts are the map imagery (GIBS: the cloud-free Blue Marble, and the daily satellite photo behind the switch under the map), the natural-events list (EONET), the astronaut photos (Image and Video Library) and NASA's ISS trajectory file, each credited on the page, and the project is not affiliated with or endorsed by NASA.
 
 File: `src/nasa/credits.ts`
 

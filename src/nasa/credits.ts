@@ -4,7 +4,7 @@
 export const CREDIT_GIBS =
   "We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).";
 export const CREDIT_GIBS_LAYERS =
-  'Daily image: MODIS Terra Corrected Reflectance (True Color). Built-in base map: Blue Marble Shaded Relief and Bathymetry. Both from NASA EOSDIS GIBS.';
+  'Default map: Blue Marble Shaded Relief and Bathymetry (cloud-free; built into the page to zoom 2, from GIBS to zoom 8 when online). Daily photo behind the switch: MODIS Terra Corrected Reflectance (True Color). Both from NASA EOSDIS GIBS.';
 export const CREDIT_EONET = 'Natural events: NASA Earth Observatory Natural Event Tracker (EONET)';
 export const CREDIT_EONET_SOURCES =
   "Each event also names the agency that reported it (for example IRWIN for US wildfires, JTWC for tropical storms, NATICE for ice), as EONET lists it.";

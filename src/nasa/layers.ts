@@ -1,6 +1,6 @@
-// The NASA layers on the page (M4): the built-in Blue Marble map (zoom 0-2, works offline), the
-// dated GIBS daily image on top when online, the horizon footprint, EONET events inside it, and a
-// curated astronaut photo of a place in view. Pure logic lives in footprint.ts, eonet.ts, gibs.ts
+// The NASA layers on the page (M4, P2): the cloud-free Blue Marble map (built in at zoom 0-2, works
+// offline; sharper from GIBS when online), the dated GIBS daily photo behind a switch, the horizon
+// footprint, EONET events inside it, and a curated astronaut photo of a place in view. Pure logic lives in footprint.ts, eonet.ts, gibs.ts
 // and photos.ts; this file only draws.
 import * as L from 'leaflet';
 import worldTile from '../data/bluemarble-z0.jpg';
@@ -9,7 +9,18 @@ import photosData from '../data/photos.json';
 import meta from '../data/snapshot-meta.json';
 import { footprintRadiusKm, splitByFootprint, type WithDistance } from './footprint';
 import { EONET_SET, eonetRawCount, fetchEonet, parseEonet, type EonetEvent } from './eonet';
-import { GIBS_LAYER, GIBS_MAX_NATIVE_ZOOM, gibsTemplate, pickGibsDay, probeGibs } from './gibs';
+import {
+  BLUE_MARBLE_MAX_NATIVE_ZOOM,
+  GIBS_LAYER,
+  GIBS_MAX_NATIVE_ZOOM,
+  MAP_LABEL,
+  blueMarbleTemplate,
+  dailyLabel,
+  gibsTemplate,
+  pickGibsDay,
+  probeGibs,
+  type GibsChoice,
+} from './gibs';
 import { photoCreditLine, photoDay, type CuratedPhoto } from './photos';
 import * as C from './credits';
 import { clearSource, warnSource } from '../ui/warnings';
@@ -85,55 +96,120 @@ export function initNasaLayers(map: L.Map): NasaLayers {
     thumb: thumbs[`../data/photos/${p.nasa_id}.jpg`] ?? '',
   }));
 
-  // ---- Base map (always) and the dated GIBS daily image (online only).
+  // ---- P2: the cloud-free Blue Marble is the default map (built-in tiles always, GIBS's sharper copy on
+  // top when online). The dated daily satellite photo is one switch away (#daily-toggle); its label,
+  // date and stripes note show only while it is on. The night shading (C2) has its own pane above both.
   new EmbeddedBlueMarble('', {
     maxNativeZoom: 2,
     noWrap: true,
     bounds: WORLD,
+    zIndex: 1,
     attribution: 'Imagery: NASA EOSDIS GIBS, Blue Marble',
   }).addTo(map);
 
   const gibsLabel = $('gibs-date');
-  const setGibs = (state: string, text: string) => {
-    document.body.dataset.gibs = state;
-    gibsLabel.textContent = text;
+  const dailyToggle = $('daily-toggle') as HTMLInputElement;
+  let baseText: string = MAP_LABEL.builtIn;
+  let dailyText = '';
+  const showLabel = () => {
+    gibsLabel.textContent = dailyToggle.checked && dailyText ? dailyText : baseText;
   };
-  setGibs('none', 'Map: built-in NASA Blue Marble image (no daily satellite image while offline).');
+  const setBase = (state: string, text: string) => {
+    document.body.dataset.gibs = state;
+    baseText = text;
+    showLabel();
+  };
+  const setDaily = (state: string, text = '') => {
+    document.body.dataset.daily = state;
+    dailyText = text;
+    showLabel();
+  };
+  dailyToggle.disabled = true;
+  setBase('none', MAP_LABEL.builtIn);
+  setDaily('unavailable');
 
-  async function startGibs() {
-    setGibs('probing', 'Map: asking NASA GIBS for the latest daily satellite image...');
-    const choice = await pickGibsDay(new Date(), probeGibs);
-    if (!choice.day) {
-      setGibs('unreachable', 'Map: built-in NASA Blue Marble image (NASA GIBS could not be reached).');
-      warnSource('gibs', 'NASA GIBS (the daily satellite image) could not be reached: the map shows the built-in NASA Blue Marble image instead.');
-      return;
-    }
-    const day = choice.day;
-    document.body.dataset.gibsDay = day;
+  let dailyLayer: L.TileLayer | null = null;
+  let dailyLoaded = 0;
+  let dailyFailed = 0;
+  function makeDailyLayer(day: string, how: GibsChoice['how']): L.TileLayer {
     const layer = L.tileLayer(gibsTemplate(day), {
       maxNativeZoom: GIBS_MAX_NATIVE_ZOOM,
       noWrap: true,
       bounds: WORLD,
+      zIndex: 3,
       attribution: `NASA GIBS, ${GIBS_LAYER.replace(/_/g, ' ')}, ${day}`,
     });
-    let loaded = 0;
-    let failed = 0;
-    const note = choice.how === 'assumed' ? ' (GIBS did not confirm the date, so the page uses two days ago)' : '';
     layer.on('tileload', () => {
-      loaded++;
-      if (document.body.dataset.gibs !== 'loaded')
-        setGibs('loaded', `Map: daily satellite image, ${day}, not a live camera (NASA GIBS, MODIS Terra true colour)${note}. Black stripes = gaps between the satellite's daily passes.`);
-      clearSource('gibs');
-    });
-    layer.on('tileerror', () => {
-      failed++;
-      if (loaded === 0 && failed >= 4) {
-        map.removeLayer(layer);
-        setGibs('failed', `Map: the daily satellite image for ${day} did not load; showing the built-in NASA Blue Marble image.`);
-        warnSource('gibs', `NASA GIBS map tiles for ${day} did not load: the map shows the built-in NASA Blue Marble image instead.`);
+      dailyLoaded++;
+      if (document.body.dataset.daily !== 'loaded' && dailyToggle.checked) {
+        setDaily('loaded', dailyLabel(day, how));
+        clearSource('gibs');
       }
     });
-    layer.addTo(map);
+    layer.on('tileerror', () => {
+      dailyFailed++;
+      if (dailyLoaded === 0 && dailyFailed >= 4) {
+        map.removeLayer(layer);
+        dailyToggle.checked = false;
+        dailyToggle.disabled = true;
+        setDaily('failed');
+        warnSource('gibs', `NASA GIBS daily satellite photo for ${day} did not load: the map shows the cloud-free NASA Blue Marble image instead.`);
+      }
+    });
+    return layer;
+  }
+
+  async function startGibs() {
+    setBase('probing', MAP_LABEL.builtIn);
+    const choice = await pickGibsDay(new Date(), probeGibs);
+    if (!choice.day) {
+      setBase('unreachable', MAP_LABEL.unreachable);
+      warnSource('gibs', 'NASA GIBS could not be reached: the map shows the built-in NASA Blue Marble image, and the daily satellite photo is off.');
+      return;
+    }
+    const day = choice.day;
+    document.body.dataset.gibsDay = day;
+
+    // The sharper cloud-free tiles (to zoom 8) over the built-in ones.
+    const blueMarble = L.tileLayer(blueMarbleTemplate(), {
+      maxNativeZoom: BLUE_MARBLE_MAX_NATIVE_ZOOM,
+      noWrap: true,
+      bounds: WORLD,
+      zIndex: 2, // credited by the built-in layer's line (same NASA GIBS layer)
+    });
+    let bmLoaded = 0;
+    let bmFailed = 0;
+    blueMarble.on('tileload', () => {
+      bmLoaded++;
+      if (document.body.dataset.gibs === 'probing') {
+        setBase('loaded', MAP_LABEL.gibs);
+        clearSource('gibs');
+      }
+    });
+    blueMarble.on('tileerror', () => {
+      bmFailed++;
+      if (bmLoaded === 0 && bmFailed >= 4) {
+        map.removeLayer(blueMarble);
+        setBase('failed', MAP_LABEL.tilesFailed);
+        warnSource('gibs', 'NASA GIBS map tiles did not load: the map shows the built-in NASA Blue Marble image (sharp to zoom 2).');
+      }
+    });
+    blueMarble.addTo(map);
+
+    // The switch for the dated daily photo.
+    dailyToggle.disabled = false;
+    setDaily('off');
+    dailyToggle.addEventListener('change', () => {
+      if (dailyToggle.checked) {
+        dailyLayer ??= makeDailyLayer(day, choice.how);
+        dailyLayer.addTo(map);
+        if (dailyLoaded > 0) setDaily('loaded', dailyLabel(day, choice.how));
+        else setDaily('loading', `Map: loading NASA's daily satellite photo for ${day}...`);
+      } else {
+        if (dailyLayer) map.removeLayer(dailyLayer);
+        setDaily('off');
+      }
+    });
   }
 
   // ---- Footprint circle, event markers and photo markers.

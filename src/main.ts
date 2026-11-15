@@ -52,6 +52,7 @@ app.innerHTML = `
         <span class="key key-next"></span> next orbit
         <span class="key key-view"></span> station's view
         <label class="night-toggle"><input type="checkbox" id="night-toggle" checked> <span class="key key-night"></span> night side</label>
+        <label class="night-toggle"><input type="checkbox" id="daily-toggle" disabled> Daily satellite photo (with clouds)</label>
         · <span id="gibs-date"></span>
         <span id="pass-key" hidden><span class="key key-pass"></span> <span id="pass-key-text"></span></span>
       </p>
@@ -104,7 +105,8 @@ const $ = (id: string) => document.getElementById(id)!;
 const embeddedRetrieved = new Date(meta.files['iss.tle'].retrievedAt);
 let elements: Elements = initialElements(tleText, embeddedRetrieved);
 
-// ---- Map: built-in Blue Marble tiles (zoom 0-2) plus NASA layers, drawn by src/nasa/layers.ts.
+// ---- Map: the cloud-free Blue Marble (built-in tiles, zoom 0-2; GIBS to zoom 8 online) plus NASA layers,
+// the daily photo behind the #daily-toggle switch, drawn by src/nasa/layers.ts.
 const map = L.map('map', {
   minZoom: 1,
   maxZoom: 6,

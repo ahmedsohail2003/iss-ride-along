@@ -32,9 +32,9 @@ The map moves to the chosen pass (`#plan-card` shows it). Say a cloud line only 
 
 Read the km it shows (`#ref-km`): "that is how far our answer is from the other tracker."
 
-**Beat 3: what it is flying over (1:15-1:35, Armeis).** Scroll to the map and the NASA layers: the image date (`#gibs-date`), the events list (`#events-list`), the photo (`#photo-card`), then open the credits (`#credits`).
+**Beat 3: what it is flying over (1:15-1:35, Armeis).** Scroll to the map and the NASA layers: tick the switch "Daily satellite photo (with clouds)" (`#daily-toggle`) under the map and point at the image date that appears (`#gibs-date`), untick it to go back to the clear map, then the events list (`#events-list`), the photo (`#photo-card`), then open the credits (`#credits`).
 
-> **Armeis:** Under the station right now: NASA's satellite image of the day, the natural events NASA lists in the area the station can see, and an astronaut photo of a place in view, or the nearest one. Every NASA source is dated and credited here.
+> **Armeis:** The clear map is NASA's Blue Marble; this switch shows NASA's satellite photo of the day, clouds and all. Under the station right now: the natural events NASA lists in the area the station can see, and an astronaut photo of a place in view, or the nearest one. Every NASA source is dated and credited here.
 
 **Beat 4: close (1:35-2:00, everyone).** Hands off the laptop.
 
@@ -77,7 +77,7 @@ Rehearse three questions for them (answers in section 4): "why an agent and not 
 
 1. **Who wrote the code?** Claude Code, an AI coding tool, wrote it (the Fable 5.2 model planned, the Opus 5.5 model wrote the code), directed by our teammate Ahmed, who could not be here for judging. Every part had to pass checks that do not trust the AI, and here is what each of us did: (your own confirmed sentence, PRESENTER_PACK.md question 1).
 2. **How do you know it is right?** We compare it with three outside sources: an independent tracker (10 of 10 saved samples within 1 metre), Heavens-Above's pass list (8 of 8 passes, start times within 1.3 seconds) and NASA's own trajectory (1.03 km apart at most within 12 hours). The numbers are re-run by 78 automated tests on every push.
-3. **Is this NASA's data?** The orbit numbers are not: they come from CelesTrak, which publishes US Space Force tracking data. The NASA parts are the daily satellite image (GIBS), the natural events (EONET), the astronaut photos and the ISS trajectory file, each credited, and we are not affiliated with or endorsed by NASA.
+3. **Is this NASA's data?** The orbit numbers are not: they come from CelesTrak, which publishes US Space Force tracking data. The NASA parts are the map (GIBS: the cloud-free Blue Marble, and the daily satellite photo behind the switch), the natural events (EONET), the astronaut photos and the ISS trajectory file, each credited, and we are not affiliated with or endorsed by NASA.
 4. **Why an agent and not an if-statement?** The form takes one place and one latest time; the agent takes a week in your own words with several places, runs our engine once per place and picks one pass across them. In our trip test the agent picks a Chicago pass on a night you are in Chicago, while the form picks a Ypsilanti pass for that night.
 5. **What stops it making numbers up?** The AI can only choose among pass ids our engine returned, and every number on the card is written by our code, not the model. The audit then marks any number in the AI's sentences that no tool gave: 0 in 5 of 5 live runs, and in a test with 2 made-up numbers put in, exactly those 2 were marked.
 6. **What happens with no key, or a failed search?** With no key, a bad key, a rate limit or a timeout, the button runs the fixed plan for one place with the same engine and scoring rule and shows the reason. If the web search fails, the news box says so and the plan carries on.

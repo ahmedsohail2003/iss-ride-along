@@ -69,9 +69,16 @@
 // EONET request with src/data/eonet-open.json, every NASA GIBS tile with the built-in Blue Marble
 // tile (status 200, Layer-Time-Actual set to the requested day); every other non-file request is
 // blocked and counted, so the run is the same on any network.
-// NASA layers (M4), every mode: the map's date label (#gibs-date) must be filled in. With --net it
-// must name a day ("daily satellite image, YYYY-MM-DD, not a live camera") and at least one real
-// GIBS map tile (zoom/row/column URL, not the probe) must answer HTTP 200.
+// NASA layers (M4), every mode: the map's label (#gibs-date) must be filled in.
+// P2 (every online mode but --block of GIBS): on load the label names the cloud-free NASA Blue Marble
+// and no date; pressing the switch (#daily-toggle) shows the daily photo's label ("daily satellite
+// image, YYYY-MM-DD, not a live camera"), and turning it off brings the Blue Marble label back. Screens
+// at evidence/p2-default[-WxH][-net].png (first screen, switch off; the map element below the fold on a
+// phone) and p2-daily*.png (switch on). With --net at least one real GIBS tile of each layer (Blue
+// Marble and the daily photo; zoom/row/column URLs, not the probe) must answer HTTP 200. With --block
+// gibs.earthdata.nasa.gov the label names the built-in Blue Marble and NASA GIBS, and the switch is off
+// and disabled. Mocked mode answers Blue Marble tiles at zoom 0-2 with the built-in tiles (saved from
+// the same GIBS URLs) and deeper ones with a transparent pixel.
 // Offline mode: the browser context is offline and every non-file request is aborted as
 // "internet disconnected" (CelesTrak included), so the page must run on the orbit data built into it;
 // it also requires the age label to say so.
@@ -195,7 +202,10 @@ const planFixtures = PLAN || PATH || FIRST || BLOCK || A11Y
 const tripReplies = PATH ? JSON.parse(readFileSync(resolve('tests/fixtures/gemini-trip-from-docs.json'), 'utf8')).replies : [];
 const planRequests = { openMeteo: 0, exa: 0, gemini: 0, geminiUrls: [], geminiKeyHeader: 0 };
 const GIBS_TILE = /^https:\/\/gibs\.earthdata\.nasa\.gov\/wmts\/epsg3857\/best\/MODIS_Terra_CorrectedReflectance_TrueColor\/default\/(\d{4}-\d{2}-\d{2})\/GoogleMapsCompatible_Level9\/(\d+)\/(\d+)\/(\d+)\.jpg$/;
+const BM_TILE = /^https:\/\/gibs\.earthdata\.nasa\.gov\/wmts\/epsg3857\/best\/BlueMarble_ShadedRelief_Bathymetry\/default\/GoogleMapsCompatible_Level8\/(\d+)\/(\d+)\/(\d+)\.jpeg$/;
+const TRANSPARENT_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 const gibsResponses = [];
+const bmResponses = [];
 const consoleErrors = [];
 const pageErrors = [];
 const requests = { file: 0, mockedCelestrak: 0, mockedEonet: 0, mockedGibs: 0, blocked: [], network: [], refusedOffline: [] };
@@ -229,6 +239,8 @@ try {
   page.on('response', (r) => {
     const m = GIBS_TILE.exec(r.url());
     if (m) gibsResponses.push({ day: m[1], zyx: `${m[2]}/${m[3]}/${m[4]}`, status: r.status(), kind: r.request().resourceType() });
+    const b = BM_TILE.exec(r.url());
+    if (b) bmResponses.push({ zyx: `${b[1]}/${b[2]}/${b[3]}`, status: r.status(), kind: r.request().resourceType() });
   });
   await page.route('**/*', (route) => {
     const u = route.request().url();
@@ -278,6 +290,15 @@ try {
     if (u.startsWith('https://eonet.gsfc.nasa.gov/api/v3/events')) {
       requests.mockedEonet++;
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: eonetSnapshot });
+    }
+    const bm = BM_TILE.exec(u);
+    if (bm) {
+      requests.mockedBlueMarble = (requests.mockedBlueMarble ?? 0) + 1;
+      const [z, y, x] = bm.slice(1).map(Number);
+      const file = z === 0 ? 'src/data/bluemarble-z0.jpg' : `src/data/bluemarble/${z}-${y}-${x}.jpg`;
+      return z <= 2
+        ? route.fulfill({ status: 200, contentType: 'image/jpeg', headers: { 'access-control-allow-origin': '*' }, body: readFileSync(resolve(file)) })
+        : route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: TRANSPARENT_PNG });
     }
     const g = GIBS_TILE.exec(u);
     if (g) {
@@ -335,7 +356,51 @@ try {
     photoCaption: document.getElementById('photo-caption')?.textContent ?? '',
     photoLoaded: document.getElementById('photo-img')?.naturalWidth ?? 0,
     creditsHasGibs: /Global Imagery Browse Services/.test(document.getElementById('credits')?.textContent ?? ''),
+    dailyState: document.body.dataset.daily ?? null,
+    dailyDisabled: document.getElementById('daily-toggle')?.disabled ?? null,
+    dailyChecked: document.getElementById('daily-toggle')?.checked ?? null,
   }));
+
+  // ---- P2: the cloud-free Blue Marble by default; the dated daily photo one switch away.
+  const p2 = { checks: {} };
+  if (!OFFLINE) {
+    const label = () => page.textContent('#gibs-date');
+    const suffix = `${w === 1366 && h === 768 ? '' : `-${w}x${h}`}${NET ? '-net' : ''}`;
+    const evidence = (name) => resolve(`evidence/${name}${suffix}.png`);
+    mkdirSync(resolve('evidence'), { recursive: true });
+    p2.defaultLabel = info.gibsLabel;
+    p2.checks.defaultNamesBlueMarble = /NASA Blue Marble, a cloud-free picture of Earth/.test(p2.defaultLabel);
+    p2.checks.defaultHasNoDate = !/\d{4}-\d{2}-\d{2}/.test(p2.defaultLabel);
+    p2.checks.switchOffAtLoad = info.dailyChecked === false;
+    if (BLOCK === 'gibs.earthdata.nasa.gov') {
+      p2.checks.switchDisabledWhenBlocked = info.dailyDisabled === true && info.dailyState === 'unavailable';
+      // the built-in Blue Marble tiles are on the map (loaded images from the page itself)
+      p2.builtInTilesLoaded = await page.$$eval('#map .leaflet-tile-loaded', (ts) => ts.filter((t) => /^(data:|file:)/.test(t.src)).length);
+      p2.checks.builtInImageShows = p2.builtInTilesLoaded > 0;
+      p2.blockedShot = evidence('p2-gibs-blocked');
+      await page.locator('#map').screenshot({ path: p2.blockedShot });
+    } else {
+      // first screen with the switch off (on a phone the map sits below the fold, so the map itself)
+      p2.defaultShot = evidence('p2-default');
+      if (w >= 1000) await page.screenshot({ path: p2.defaultShot });
+      else await page.locator('#map').screenshot({ path: p2.defaultShot });
+      await page.waitForFunction(() => !document.getElementById('daily-toggle').disabled, null, { timeout: 15_000 }).catch(() => {});
+      await page.check('#daily-toggle');
+      await page.waitForFunction(() => ['loaded', 'failed'].includes(document.body.dataset.daily ?? ''), null, { timeout: 25_000 }).catch(() => {});
+      await page.waitForTimeout(NET ? 3000 : 500);
+      p2.dailyState = await page.evaluate(() => document.body.dataset.daily ?? null);
+      p2.dailyLabel = await label();
+      p2.dailyShot = evidence('p2-daily');
+      if (w >= 1000) await page.screenshot({ path: p2.dailyShot });
+      else await page.locator('#map').screenshot({ path: p2.dailyShot });
+      await page.uncheck('#daily-toggle');
+      p2.afterOffLabel = await label();
+      p2.afterOffState = await page.evaluate(() => document.body.dataset.daily ?? null);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      p2.checks.switchShowsDatedPhoto = p2.dailyState === 'loaded' && /daily satellite image, \d{4}-\d{2}-\d{2}, not a live camera/.test(p2.dailyLabel);
+      p2.checks.switchOffRestoresBlueMarble = p2.afterOffState === 'off' && p2.afterOffLabel === p2.defaultLabel;
+    }
+  }
 
   // ---- C2: the night side and the station's sunlight label (every mode).
   const LABEL_RE = /^(in sunlight|in Earth's shadow, sunrise in \d+ min)$/;
@@ -1074,10 +1139,11 @@ try {
   const offlineLabelOk = !OFFLINE || /built into this page/.test(info.dataAge ?? '');
   // NASA layers (M4). Mocked and --net: the label names the day; --net also needs a real 200 map tile.
   const tiles200 = gibsResponses.filter((r) => r.status === 200 && r.kind === 'image');
-  const dayLabelOk = /daily satellite image, \d{4}-\d{2}-\d{2}, not a live camera/.test(info.gibsLabel);
+  const bm200 = bmResponses.filter((r) => r.status === 200 && r.kind === 'image');
   const nasaChecks = {
-    gibsLabelOk: OFFLINE ? /Blue Marble/.test(info.gibsLabel) : BLOCK === 'gibs.earthdata.nasa.gov' ? /Blue Marble.*NASA GIBS could not be reached/.test(info.gibsLabel) : dayLabelOk,
-    gibsTile200: !NET || tiles200.length > 0,
+    // P2: on load the map is the cloud-free Blue Marble (the dated daily photo is behind the switch).
+    gibsLabelOk: OFFLINE ? /Blue Marble/.test(info.gibsLabel) : BLOCK === 'gibs.earthdata.nasa.gov' ? /Blue Marble.*NASA GIBS could not be reached/.test(info.gibsLabel) : /NASA Blue Marble, a cloud-free picture of Earth/.test(info.gibsLabel),
+    gibsTile200: !NET || (tiles200.length > 0 && bm200.length > 0),
     eventsShown: info.eventsListed > 0 && info.eventsStatus.length > 0,
     // M4 fix r1/r2: both event lines name the set they count (open events reported in the last N days).
     eventsSetNamed: /open natural events reported in the last \d+ days/.test(info.eventsStatus) && /(Saved copy from|Live from NASA EONET).* All \d+ open natural events reported in the last \d+ days/.test(info.eventsSource),
@@ -1107,7 +1173,9 @@ try {
     blockedConsole,
     oem,
     c2,
+    p2,
     gibsTiles: { total: gibsResponses.length, status200: tiles200.length, sample: gibsResponses.slice(0, 3) },
+    blueMarbleTiles: { total: bmResponses.length, status200: bm200.length, sample: bmResponses.slice(0, 3) },
     consoleErrors,
     pageErrors,
     requests: {
@@ -1135,13 +1203,17 @@ try {
     (BLOCK && Object.values(block7.checks).includes(false)) ||
     (A11Y && Object.values(a11y.checks).includes(false)) ||
     Object.values(oem.checks).includes(false) ||
-    Object.values(c2.checks).includes(false);
+    Object.values(c2.checks).includes(false) ||
+    Object.values(p2.checks).includes(false);
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
     failed
       ? 'SMOKE FAIL'
       : `SMOKE PASS: #lat ${second.lat}, marker moved, ${info.trackPaths} track paths, 0 console errors${offlineNote}; ` +
-          `map label "${info.gibsLabel}"${NET ? `, ${tiles200.length} GIBS tile(s) HTTP 200` : ''}; ${info.eventsListed} event line(s); photo ${info.photo}` +
+          `map label "${info.gibsLabel}"${NET ? `, GIBS tiles HTTP 200: ${bm200.length} Blue Marble, ${tiles200.length} daily photo` : ''}` +
+          (p2.dailyLabel ? `; switch on: "${p2.dailyLabel}"; switch off: label back to Blue Marble; ${p2.defaultShot.replace(/.*[\\/]evidence[\\/]/, 'evidence/')}` : '') +
+          (p2.checks.switchDisabledWhenBlocked ? `; daily photo switch off and disabled; ${p2.builtInTilesLoaded} built-in Blue Marble tiles on the map` : '') +
+          `; ${info.eventsListed} event line(s); photo ${info.photo}` +
           `; day and night: night side drawn (${c2.nightPoints} points), label "${c2.panelLabel}" on the marker and in the panel` +
           (FIRST ? `, toggle off/on ${c2.afterToggleOff}/${c2.afterToggleOn}, evidence/c2.png` : '') +
           `; NASA trajectory: ${oem.kmShown} km apart at ${oem.rowTime?.slice(11, 16)} UTC, orbit numbers ${oem.ageShownH} h old` +

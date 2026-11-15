@@ -28,8 +28,8 @@ for a parent, a teacher or a first-time stargazer, starting with us in Michigan 
 - **Check against reference.** One button asks an independent tracker, wheretheiss.at, where the
   station is, and prints the distance from our answer for the same second. Both use public orbit
   data, so this checks our math, not the station's true position.
-- **What it is flying over.** The daily NASA satellite image under the station with its date (NASA
-  GIBS), NASA's list of open natural events reported in the last 30 days that fall inside the area
+- **What it is flying over.** A clear map by default (NASA's cloud-free Blue Marble), and one switch
+  under the map for NASA's daily satellite photo with its clouds and its date (NASA GIBS), NASA's list of open natural events reported in the last 30 days that fall inside the area
   the station can see (NASA EONET), and one of 12 astronaut photos chosen by hand (NASA Image and
   Video Library) whose place is in view, or the nearest one, labelled as not in view. Each is credited
   on the page.

@@ -17,7 +17,7 @@ Event page: https://hack-the-nest.devpost.com/ . Paste field by field. Every lin
 **What works tonight:**
 - A live tracker: the page works out where the station is every second with its own orbit math, and draws the last and next orbit on a map.
 - A "Check against reference" button that compares our position with an independent tracker on the spot.
-- What the station is flying over, from NASA data: the daily satellite image with its date, NASA's live list of natural events, and astronaut photos, each credited.
+- What the station is flying over, from NASA data: a clear cloud-free map (NASA Blue Marble) with the daily satellite image and its date one switch away, NASA's live list of natural events, and astronaut photos, each credited.
 - "When can I see it?": every visible pass for the next 5 days for your city. For Ypsilanti, 8 of 8 passes matched Heavens-Above, with start times within 1.3 seconds.
 - Plan my sighting: type your week in your own words and an AI agent runs our pass math and a cloud forecast for each part of the trip, searches the live web, picks one pass and shows every step. Every number on the card is written by our engine, and an audit marks any number the AI made up. With no key the page runs a fixed plan with no AI.
 - Our orbit math checked against the trajectory file NASA's mission control publishes for the station: on 360 of NASA's rows within 12 hours of our orbit numbers' timestamp, 1.03 km apart at most and 0.37 km in the middle. The page shows the gap, the age of our numbers, and that NASA's file is a prediction.

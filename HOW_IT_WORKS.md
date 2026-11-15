@@ -24,8 +24,8 @@ position, altitude and speed every second, and the path one orbit back and ahead
 | Orbit data age | computed: now minus the TLE's epoch | days, hours, minutes | TLE from CelesTrak |
 | The TLE itself | fetched: one CelesTrak request per page load, else the copy saved in this browser, else the copy built into the page (newest wins) | - | CelesTrak (US Space Force data; not NASA) |
 | "X km from wheretheiss.at" | fetched (their position) and computed (ours, at their timestamp) | km, km/h | wheretheiss.at (not NASA) |
-| World map (base) | built into the page: 21 tiles, zoom 0-2, so it works offline | - | NASA EOSDIS GIBS, Blue Marble |
-| Daily satellite image on top | fetched tiles, labelled "daily satellite image, {date}, not a live camera" | - | NASA GIBS, MODIS Terra true colour |
+| World map (default) | cloud-free Blue Marble, no date: 21 tiles built into the page (zoom 0-2, works offline), the same layer fetched from GIBS to zoom 8 when online | - | NASA EOSDIS GIBS, Blue Marble Shaded Relief and Bathymetry |
+| Daily satellite photo (switch under the map, off at first) | fetched tiles only while the switch is on, labelled "daily satellite image, {date}, not a live camera" | - | NASA GIBS, MODIS Terra true colour |
 | The station's view (circle) | computed: horizon radius from altitude (see below) | km | our geometry |
 | Natural events in view | fetched list (one request per page load, else the saved copy); which ones are in view and how far is computed | km, dates in UTC | NASA EONET |
 | Astronaut photo | built in (12 thumbnails chosen by hand, labelled curated); which one is in view is computed | - | NASA Image and Video Library |
@@ -41,7 +41,7 @@ There is no server and no account. The only key is one a visitor may type into t
 
 - **The station's view.** Everything inside the circle sees the station above its horizon: cos(angle) = R / (R + h), ground
   radius R times that angle. At 437.66 km: 4,593.5 km across; wheretheiss.at 4,596 km (0.054%; within 0.059% on 10 of 10).
-- **Satellite image.** GIBS's daily mosaic for yesterday (UTC) if `Layer-Time-Actual` confirms it, else two days ago; dated.
+- **Map.** Cloud-free Blue Marble by default, so a stranger can see the continents under the marker; the switch shows GIBS's daily mosaic for yesterday (UTC) if `Layer-Time-Actual` confirms it, else two days ago; dated.
 - **Events.** Every EONET event reported in the last 30 days, no count limit (Nov 14: 38 events, 25 US wildfires, 2 tropical
   cyclones, 11 sea ice; 7,244 older open events left out). Those inside the circle are listed, else the nearest is named.
 - **Photos.** Places set by hand from each title (the library has no coordinates); NASA-credited only; no NASA logo.
@@ -93,20 +93,20 @@ Both trackers run their own code on public orbit numbers: a small difference sho
 - **SGP4 via satellite.js 7.2.0** (MIT licence): the standard orbit model for TLEs, comparable with other trackers.
 - **CelesTrak** redistributes the US Space Force's TLEs (one request per page load); **wheretheiss.at**: the reference tracker.
 - **Leaflet 1.9.4** (BSD-2-Clause): a small map library that draws the 2D map, marker and lines.
-- **NASA GIBS, EONET, Image and Video Library**: NASA's map tiles (Blue Marble built in, the daily MODIS image live),
+- **NASA GIBS, EONET, Image and Video Library**: NASA's map tiles (Blue Marble by default, the daily MODIS photo by switch),
   list of open natural events, and photo archive. **NASA's ISS trajectory file (OEM)**: the check above.
 - **Gemini API** (`gemini-4-hydrogen`, `generateContent`): the planner's model, live-tested; OpenAI only with saved replies.
 - **ERFA** (BSD 3-clause, from the IAU's SOFA library): source of the 106-term nutation table. **astronomy-engine 2.1.19**
   (MIT): a second, independent frame conversion, used only in a test.
 - **Open-Meteo** (free weather service, CC BY 4.0) for cloud; **Exa** (a search engine built for AI) for station news.
-- **Vite 8.3.8 + vite-plugin-singlefile 2.3.4** build one self-contained `index.html`; **TypeScript 7.0.2** (type-checked JavaScript); **Vitest 5.1.0** runs the 119 unit tests offline; **playwright-core 1.65.1** drives Chrome; **axe-core 4.14.0** (an accessibility checker) runs in the smoke test.
+- **Vite 8.3.8 + vite-plugin-singlefile 2.3.4** build one self-contained `index.html`; **TypeScript 7.0.2** (type-checked JavaScript); **Vitest 5.1.0** runs the 125 unit tests offline; **playwright-core 1.65.1** drives Chrome; **axe-core 4.14.0** (an accessibility checker) runs in the smoke test.
 
 ## Honest edges
 
 - The built-in TLE is from CelesTrak, 12:36 PM EST Nov 14 (CelesTrak did not answer from our network later); a
   fresh copy arrives when a visitor's network reaches it, and the age label always says which copy is in use.
-- Offline, the map is the built-in Blue Marble (sharp to zoom 2) and events are the dated saved copy. The daily image
-  has gaps where the satellite did not pass. Open events are mostly US wildfires, so "none in view" is common.
+- Offline, the map is the built-in Blue Marble (sharp to zoom 2) and events are the dated saved copy. The daily photo
+  is cloudy and has gaps where the satellite did not pass. Open events are mostly US wildfires, so "none in view" is common.
 - The planner's trip was run live once (Nov 14); that night both the agent and the fixed plan picked the same Ypsilanti
   pass. The case where they differ is shown by a test with a made-up cloud table (`tests/planner.test.ts`, test i).
 - The speed shown is orbital speed (over the ground it is lower). On a phone the map does not follow the marker yet.

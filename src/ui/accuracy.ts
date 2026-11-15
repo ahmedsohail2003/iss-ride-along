@@ -24,7 +24,7 @@ export const accuracyHtml = `
           <tr><td>When you can see it (the next-pass line, the passes table)</td><td>computed in your browser</td><td>our own pass search on the same orbit numbers</td></tr>
           <tr><td>The area the station can see (the circle)</td><td>computed in your browser</td><td>from the station's height</td></tr>
           <tr><td>The gap to NASA's trajectory</td><td>computed in your browser</td><td>against NASA's trajectory file, saved when the page was built</td></tr>
-          <tr><td>The daily map image</td><td>fetched</td><td>NASA GIBS, when the page opens (the built-in Blue Marble image if it cannot be reached)</td></tr>
+          <tr><td>The map image</td><td>built in, and fetched</td><td>NASA Blue Marble (cloud-free, no date): built into the page, sharper tiles from NASA GIBS when the page opens. The daily satellite photo (dated, with clouds): NASA GIBS, only when you turn on its switch</td></tr>
           <tr><td>Natural events under the station</td><td>fetched</td><td>NASA EONET, when the page opens (the saved copy if it cannot be reached)</td></tr>
           <tr><td>Astronaut photos</td><td>saved when the page was built</td><td>NASA Image and Video Library, chosen by hand</td></tr>
           <tr><td>The reference position</td><td>fetched</td><td>wheretheiss.at, when you press "Check against reference"</td></tr>
