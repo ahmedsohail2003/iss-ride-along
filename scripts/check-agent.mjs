@@ -148,7 +148,8 @@ export async function main({
         result = await m.loop.runAgent({ sentence, provider, ctx, controls: { place: 'Ypsilanti', nights: null, earliest: null, latest: '20:30' } });
         result.startedAt = runNow;
         const rate = replies.find((r) => (r.kind === 'gemini' || r.kind === 'openai') && r.status === 429);
-        if (rate && attempt === 1) {
+        // R1: the loop itself asks again once after a 429; only a run that still ended without the AI is rerun.
+        if (rate && result.mode !== 'ai' && attempt === 1) {
           say(`run ${i}: model replied 429: ${rate.body.slice(0, 400)}`);
           say('waiting 60 s (Retry-After) and trying this run once more');
           await sleep(60_000);

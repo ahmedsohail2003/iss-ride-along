@@ -39,7 +39,7 @@ Live trip runs took 11.0, 13.2 and 15.4 seconds (4 AI calls each). If the run is
 
 - **Page will not load:** reload → the spare device → a teammate's phone hotspot (ask first) → the backup video `docs/demo-backup.mp4` (132 seconds, no sound: talk over it; it shows every part) → last, the offline file `docs/iss-ride-along-offline.html` (an older build without the planner).
 - **Planner key gone after a reload:** it stays if "keep until this tab is closed" was ticked. Otherwise type it again from the password manager, between judges, screen turned away, never read aloud. Only then: "Plan my sighting" with no key gives the fixed plan: "this is the plan for one city without AI; the trip sentence needs the AI."
-- **AI slow:** the page cuts over by itself at 30 seconds and says so. **Web search down:** the plan still runs and says so.
+- **AI slow:** one slow reply is asked again by itself ("asked again" in the Steps list); if that fails too, the page cuts over by 30 seconds and says why: press the trip example again. **Web search down:** the plan still runs and says so.
 
 ## Openings for the partner judges (20 seconds, before the demo)
 

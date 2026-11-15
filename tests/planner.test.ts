@@ -241,17 +241,19 @@ describe('A1 (f) provider failures end in the fixed plan', () => {
       reasons.push(r.fallbackReason!);
     }
     {
+      // R1: a silent reply is now asked once more (15 s + 15 s), so a model that never answers ends at
+      // the 30-second limit instead of at 16 s (tests/r1.test.ts (b) checks the same with the trip).
       vi.useFakeTimers({ now: NOW });
       const { p } = await run(() => new Promise<Response>(() => {}));
-      await vi.advanceTimersByTimeAsync(16_000);
+      await vi.advanceTimersByTimeAsync(31_000);
       const r = await p;
       expect(r.mode).toBe('fixed plan');
-      expect(r.seconds).toBeLessThanOrEqual(16);
+      expect(r.seconds).toBeLessThanOrEqual(31);
       reasons.push(r.fallbackReason!);
     }
     expect(reasons[0]).toBe('AI key refused (HTTP 401); this is the plan for Ypsilanti without AI');
     expect(reasons[1]).toBe('AI rate limit reached (HTTP 429); this is the plan for Ypsilanti without AI');
-    expect(reasons[2]).toBe('AI took too long (no reply in 15 seconds); this is the plan for Ypsilanti without AI');
+    expect(reasons[2]).toBe('AI took too long (30-second limit for the whole plan); this is the plan for Ypsilanti without AI');
     console.log(`(f) 3 of 3: ${reasons.join(' | ')}`);
   });
 

@@ -100,7 +100,7 @@ Rehearse three questions for them (answers in section 4): "why an agent and not 
 2. Otherwise type it again from the password manager on the demo laptop, between visits, screen turned away, never read aloud.
 3. Only then press "Plan my sighting" for the fixed plan and say "this is the plan for one city without AI; the trip sentence needs the AI."
 
-**The AI is slow:** the page cuts over by itself at 30 seconds and says so. **The web search is down:** the plan still runs and says so. **A part misbehaves:** say "that is a known small bug", and show the next part.
+**The AI is slow:** one slow reply is asked again by itself (the Steps list shows "the AI was slow (no reply in 15 seconds), asked again"); if that one fails too, the page cuts over to the fixed plan by 30 seconds and says why: press the trip example again. **The web search is down:** the plan still runs and says so. **A part misbehaves:** say "that is a known small bug", and show the next part.
 
 ## 6. When a judge comes back
 

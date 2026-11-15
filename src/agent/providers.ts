@@ -42,6 +42,9 @@ export interface Provider {
   model: string;
   endpoint: string;
   step(system: string, history: Turn[], tools: ToolDef[], signal?: AbortSignal): Promise<StepResult>;
+  /** R1: the provider the loop asks once more when a reply is slow, 429 or 5xx (Gemini: the next id
+   *  in GEMINI_MODELS). Absent or null: the loop asks the same provider again. */
+  next?(): Provider | null;
 }
 
 export const GEMINI_MODELS = ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
@@ -114,6 +117,11 @@ export function gemini(apiKey: string, model: string, fetchFn: typeof fetch): Pr
       });
       if (!res.ok) throw await failure(res);
       return parseGemini(await res.json());
+    },
+    next() {
+      const i = GEMINI_MODELS.indexOf(model);
+      const after = i >= 0 ? GEMINI_MODELS[i + 1] : undefined;
+      return after ? gemini(apiKey, after, fetchFn) : null;
     },
   };
 }

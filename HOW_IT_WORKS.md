@@ -57,6 +57,7 @@ There is no server and no account. The only key is one a visitor may type into t
 - **The fixed rule** (both modes): a pass counts if it starts on your nights inside your times; score = (peak ÷ 90) × (1 − cloud ÷ 100), unknown cloud = 50%; under 0.05 everywhere means "no pass worth going out for in your window". When the pick is not the first screen's "Next time" pass, the card adds one engine-written "Why not the next pass" line (outside your nights or times, more cloud, or lower peak).
 - **Numbers.** Every number on the card is written by the engine. The audit checks each number in the model's words against the tools' texts and your sentence; anything else is marked "not from our engine". Web text never feeds a number.
 - **Limits.** At most 6 model calls, 15 s per reply, 30 s per plan; any failure, or no key, gives the fixed plan with the reason.
+- **One retry.** A reply that is slow (15 s), refused for the rate limit (429) or a server error (5xx) is asked once more, from the next Gemini model id, if 5 s of the 30 are left; the Steps list says "asked again" and the call count includes it; a second failure gives the fixed plan as before.
 - **Measured** (Nov 14, 6:09-6:13 PM, `scripts/check-agent.mjs`, Gemini `gemini-4-hydrogen`): 3 of 3 one-place runs and 1 trip run chose an allowed pass with 0 unverified numbers, in 7.2-11.0 s and 4 model calls each.
 
 ## Checked against NASA's own trajectory

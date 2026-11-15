@@ -1,16 +1,23 @@
 // The agent loop: the model chooses which tools to run, step by step, until it answers in words.
 // Limits: at most 6 model calls, 15 seconds for one reply, 30 seconds for the whole run.
+// R1: once per run, a reply that is slow (no answer in 15 s), rate-limited (429) or a server error (5xx)
+// is asked once more for the same step, from the next model id in GEMINI_MODELS if there is one (kept
+// for the rest of the run), when at least RETRY_MIN_MS of the 30 seconds is left. The Steps list gets an
+// "askAgain" row; every request sent counts as a model call. Any other failure, or a second one, follows
+// the rule below exactly as before R1.
 // One rule for every failure (bad key, rate limit, slow reply, the 30-second limit, no answer after
 // 6 calls): the run ends in the fixed plan for the first place found (or the place in the plain
 // controls), keeps the trace rows already made, and shows one plain line naming the reason.
 import { audit, type AuditResult } from './audit';
 import { buildCard, runFixedPlan, type Controls, type PlanResult } from './fixedPlan';
 import { fmtClock, nextDates, weekdayOf } from './format';
-import { ProviderError, type Provider, type Turn } from './providers';
+import { ProviderError, type Provider, type StepResult, type Turn } from './providers';
 import { isMoneyQuestion, MONEY_LINE } from './money';
-import { orbitDataAge, runTool, SEARCH_DAYS, TOOL_DEFS, type RunContext } from './tools';
+import { orbitDataAge, runTool, SEARCH_DAYS, TOOL_DEFS, type RunContext, type TraceRow } from './tools';
 
 export const LIMITS = { maxCalls: 6, replyMs: 15_000, runMs: 30_000 };
+/** R1: the retry is only sent when at least this much of the whole-plan limit is left. */
+export const RETRY_MIN_MS = 5_000;
 
 /** The result for a money question: the fixed line as the card, no pass, no model call. */
 export function declineMoney(): AgentResult {
@@ -77,6 +84,14 @@ export function reasonText(e: unknown, limits = LIMITS): string {
   return `AI step failed (${(e as Error)?.message ?? 'unknown error'})`;
 }
 
+/** R1: the plain words for the Steps list when a failed reply is worth asking once more; null = no retry. */
+export function retryWhy(e: unknown, limits = LIMITS): string | null {
+  if (e instanceof Timeout && e.which === 'reply') return `the AI was slow (no reply in ${limits.replyMs / 1000} seconds), asked again`;
+  if (e instanceof ProviderError && e.kind === 'rate') return 'the AI was busy (HTTP 429), asked again';
+  if (e instanceof ProviderError && e.kind === 'http' && e.status >= 500) return `the AI service had an error (HTTP ${e.status}), asked again`;
+  return null;
+}
+
 export interface AgentOptions {
   sentence: string;
   provider: Provider;
@@ -101,14 +116,35 @@ export async function runAgent(o: AgentOptions): Promise<AgentResult> {
   let finalText = '';
   let answered = false;
   let stopped = false;
+  let provider = o.provider;
+  let retried = false;
+
+  // Every request sent to the model counts as a model call (R1: the slow reply and its retry both count).
+  const ask = (p: Provider): Promise<StepResult> => {
+    modelCalls++;
+    o.onModelCall?.(modelCalls);
+    const left = t0 + limits.runMs - Date.now();
+    return within(p.step(system, history, TOOL_DEFS), Math.min(limits.replyMs, left), 'reply');
+  };
 
   const loop = async () => {
     while (modelCalls < limits.maxCalls && !stopped) {
-      const left = t0 + limits.runMs - Date.now();
-      const step = await within(o.provider.step(system, history, TOOL_DEFS), Math.min(limits.replyMs, left), 'reply');
+      const sentAt = Date.now();
+      let step: StepResult;
+      try {
+        step = await ask(provider);
+      } catch (e) {
+        const why = retryWhy(e, limits);
+        const left = t0 + limits.runMs - Date.now();
+        if (stopped || retried || !why || left < RETRY_MIN_MS || modelCalls >= limits.maxCalls) throw e;
+        retried = true;
+        provider = provider.next?.() ?? provider;
+        const row: TraceRow = { n: ctx.trace.length + 1, tool: 'askAgain', by: 'loop', input: `model: ${provider.model}`, summary: why, ms: Date.now() - sentAt, ok: false };
+        ctx.trace.push(row);
+        ctx.onTrace?.(row);
+        step = await ask(provider);
+      }
       if (stopped) return;
-      modelCalls++;
-      o.onModelCall?.(modelCalls);
       history.push({ role: 'model', calls: step.calls, text: step.text, raw: step.raw });
       if (step.calls.length === 0) {
         finalText = step.text;
