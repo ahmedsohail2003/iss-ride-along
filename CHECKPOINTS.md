@@ -2,6 +2,20 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 12 — Sunday Nov 15, 12:40 AM EST
+
+**Time left:** 9 hours to our feature freeze (9:30 AM), 11.5 hours to the final Devpost deadline (12:00 PM). Posted quietly; the morning summary comes at about 7:00 AM.
+
+**Everything on the plan is now built and checked.** 159 of 159 automated tests pass, and a fresh copy of the repo installs, tests and builds from the README alone.
+
+**New since checkpoint 11:**
+- **The final presenter files.** [docs/PRESENTING.md](docs/PRESENTING.md) and [docs/CUE_SHEET.md](docs/CUE_SHEET.md) are marked "Final version" and match the page as it is now. The 2-minute script is 296 spoken words.
+- **A new backup video**, 2 minutes 12 seconds, no sound, showing every part: [docs/demo-backup.mp4](docs/demo-backup.mp4).
+- **Forecast lab**, a small extra card behind its own button: NASA greenness pictures of the US corn belt in the 2012 drought and this year, and a forecast of this year's corn harvest from satellite data, scored the way a weather forecast is scored. Its label says plainly what the test found: the harvest forecast has real skill (0.57, where 0 is no better than a trend line and 1 is perfect, over 31 test years), and the same signal has no skill on the corn price (0.00 over 23 years). It is a research demo, not investment advice, and shows no price forecast.
+- **A full re-test of every earlier part**, including the comparison with NASA's trajectory and two live runs of the planner on Gemini.
+
+**One thing to know for the table:** in the overnight test one of two live planner runs was slow (the AI did not answer within 15 seconds), and the page fell back to the plan for one city without AI and said why. The second run took 15 seconds and worked. If that happens in front of a judge, say "that is the plan for one city without AI" and press the trip example again. A small fix that retries a slow answer once is being added now.
+
 ## Checkpoint 11 — Saturday Nov 14, 11:50 PM EST
 
 **Time left:** 9.5 hours to our feature freeze (9:30 AM Sunday), 12 hours to the final Devpost deadline (12:00 PM Sunday). This one is posted quietly because you are asleep; a summary with what each of you needs before the 9:00 AM run comes at about 7:00 AM.
