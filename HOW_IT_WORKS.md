@@ -5,7 +5,7 @@ the visitor's own browser from the station's published orbit numbers and checked
 (wheretheiss.at, within 0.0003 km on 10 of 10 saved samples) and against NASA mission control's own predicted trajectory
 (0.37 km apart on median within 12 hours of the orbit numbers' time). The page builds into one HTML file.
 
-Status (Sat Nov 14, 8:30 PM EST): tracker, NASA layers, pass predictor, planner, NASA trajectory check and the M7 first screen built (planner box, next-pass line, "How accurate is this?"; the rest in tabs; a source that cannot be reached shows a warning naming it); no game yet.
+Status (Sat Nov 14, 9:30 PM EST): tracker, NASA layers, pass predictor, planner, NASA trajectory check, the M7 first screen (planner box, next-pass line, "How accurate is this?"; the rest in tabs; a source that cannot be reached shows a warning naming it), day and night, and the game (Game tab) with the orbit lab line built.
 
 ## In one minute
 
@@ -32,6 +32,7 @@ position, altitude and speed every second, and the path one orbit back and ahead
 | Visible passes for a city (next 5 days) | computed in the browser | local time, compass points, degrees above the horizon | TLE from CelesTrak; cities from Natural Earth |
 | Cloud for each pass hour, station news | fetched only when "Plan my sighting" is pressed | %, dates | Open-Meteo (no key), Exa web search (no key) |
 | "X km apart" from NASA's trajectory | computed at NASA's latest row time, against the built-in copy of NASA's file | km, hours | NASA JSC trajectory file (OEM) |
+| Game "N km off" (board kept in this browser only); orbit lab line | computed: our SGP4 position 10 min after the round's start and the haversine distance to your tap; a circular orbit's speed = √(GM ÷ r), time = 2πr ÷ speed (GM = 398,600.4418 km³/s², r = 6,378.137 km + height; 7.6686 km/s and 92.560 min at 400 km in `tests/geometry.test.ts`) | km; min, km/s | TLE from CelesTrak; textbook formula |
 
 There is no server and no account. The only key is one a visitor may type into the Settings tab. The page shows this table too ("Accuracy and sources" tab).
 
@@ -98,8 +99,7 @@ Both trackers run their own code on public orbit numbers: a small difference sho
 - **ERFA** (BSD 3-clause, from the IAU's SOFA library): source of the 106-term nutation table. **astronomy-engine 2.1.19**
   (MIT): a second, independent frame conversion, used only in a test.
 - **Open-Meteo** (free weather service, CC BY 4.0) for cloud; **Exa** (a search engine built for AI) for station news.
-- **TypeScript 7.0.2**: JavaScript with type checks; `npm run build` fails on a type error.
-- **Vitest 5.1.0** runs the 78 unit tests with no network; **playwright-core 1.65.1** drives Chrome for the screenshots.
+- **TypeScript 7.0.2** (type-checked JavaScript); **Vitest 5.1.0** runs the 112 unit tests offline; **playwright-core 1.65.1** drives Chrome.
 
 ## Honest edges
 

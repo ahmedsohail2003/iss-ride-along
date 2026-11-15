@@ -23,7 +23,7 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
 - Functions: `satrecFromTle()`, `stateAt()`, `greatCircleKm()`, `isSunlitCylinder()`
 - `stateAt()` runs SGP4, the standard model for propagating TLEs (it moves the orbit from the epoch to any time), through
   satellite.js, and turns the result into latitude, longitude, altitude in km and speed in km/s (through space, not over the ground).
-- `greatCircleKm()` is the haversine formula: the distance between two points on the Earth's surface.
+- `greatCircleKm()` is the haversine formula: the distance between two points on the Earth's surface (the game's `scoreGuess()` uses it). `src/orbit/lab.ts`: `circularSpeed()` and `period()` give the orbit lab line, speed = √(GM ÷ r) and time = 2πr ÷ speed.
 - `isSunlitCylinder()` is a simple Earth-shadow test; the pass predictor (stop 8) uses satellite.js's `shadowFraction()`. `satellite-lite.ts` imports only satellite.js's plain JavaScript (its WebAssembly broke the build).
 - Day and night (C2), `src/orbit/daynight.ts`: `nightLine()` gives the day/night line, one latitude per degree of longitude, closed over the dark pole for the map's shading; `sunlitNow()` calls the pass predictor's own `inSunlight()` test, so the marker's "in sunlight" can never disagree with the pass list; `nextSunlightChange()` steps 10 s, then 1 s, for "sunrise in N min".
 - Say: "This file is pure math with no internet and no screen, which is why we can test it on its own."
@@ -51,11 +51,11 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
 
 ## Stop 5: the page itself
 
-- Files: `src/main.ts`, `src/ui/warnings.ts`, `src/ui/tabs.ts`
-- Functions: `tick()`, `drawTrack()`, `renderAge()`, `warnSource()`, `initTabs()`
+- Files: `src/main.ts`, `src/ui/warnings.ts`, `src/ui/tabs.ts`, `src/ui/game.ts`, `src/game/game.ts`
+- Functions: `tick()`, `drawTrack()`, `renderAge()`, `warnSource()`, `initTabs()`, `initGame()`, `roundTimes()`
 - Leaflet, a map library, draws the map. `initNasaLayers()` (stop 6) adds the NASA layers to it. First screen (M7): map, planner box, next-pass line, "How accurate is this?"; the rest in tabs; a source that fails calls `warnSource()`.
 - `tick()` runs every second: it calls `stateAt()` for "now", updates the numbers and moves the marker.
-  `drawTrack()` redraws the two orbit lines every minute. `renderAge()` writes the data-age label.
+  `drawTrack()` redraws the two orbit lines every minute. `renderAge()` writes the data-age label. The Game tab (M6): `initGame()` runs 3 rounds on the same map; `roundTimes()` moves the game clock 10 min a round; the answer is `stateAt()` at that time.
 - Say: "Every second the browser recomputes the station's position itself; nothing is streamed from a server."
 
 ## Stop 6: what the station is flying over (NASA layers)
@@ -85,7 +85,7 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
   rule and that every photo's credit is NASA only.
 - `tests/passes.test.ts` checks the pass list against Heavens-Above (stop 8) and a polar city;
   `tests/planner.test.ts` checks the planner (stop 9), with every service answered from saved replies.
-- Say: "`npm test` runs 78 checks in a few seconds; the position test proves the math: 10 of 10 samples within 1 metre."
+- Say: "`npm test` runs 112 checks in a few seconds; the position test proves the math: 10 of 10 samples within 1 metre."
 
 ## Stop 8: when can I see it (visible passes)
 

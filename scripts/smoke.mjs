@@ -41,6 +41,12 @@
 // next-pass line inside the first screen; "Detroit" typed in the planner box plus Enter puts a pass
 // line with a time and a compass word in #next-pass within 2 s; every tab opens its own panel.
 // The planner's services are mocked as in --plan, so the default run makes no real request.
+// M6 game (default mode): the Game tab's "Play" starts round 1; one scripted tap on the map; the reveal
+// must end with "N km off" in the bar, and that N must equal the haversine distance recomputed here from
+// the tap and the answer, the answer must equal satellite.js run here at the round's target time, and the
+// target must be 10 min after the start; evidence/m6.png (the score on the map). Rounds 2 and 3 are then
+// tapped: each starts at the previous target, and the total lands on the "this device" leaderboard
+// (evidence/m6-board.png). The orbit lab line must equal the circular-orbit formula at the shown height.
 //
 // Default (mocked) mode: the CelesTrak request is answered with the TLE saved in src/data/, the NASA
 // EONET request with src/data/eonet-open.json, every NASA GIBS tile with the built-in Blue Marble
@@ -62,6 +68,7 @@ import { freemem } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { builtHash, sourceHash } from './source-hash.mjs';
+import * as satjs from 'satellite.js';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -578,6 +585,99 @@ try {
     };
   }
 
+  // ---- M6 game (default mode): one scripted round with a recomputed score, then rounds 2 and 3.
+  let game6 = null;
+  if (FIRST) {
+    game6 = { rounds: [] };
+    const sizeTag = w === 1366 && h === 768 ? '' : `-${w}x${h}`;
+    // Orbit lab line: recompute v = sqrt(GM / r) and T = 2 pi r / v from the height on screen.
+    game6.lab = await page.evaluate(() => ({ text: document.getElementById('orbit-lab')?.textContent ?? '', alt: document.getElementById('alt')?.textContent ?? '' }));
+    const labM = /^At this height a circular orbit takes (\d+\.\d) min at (\d+\.\d\d) km\/s\.$/.exec(game6.lab.text);
+    const rLab = 6378.137 + Number(game6.lab.alt);
+    const vLab = Math.sqrt(398600.4418 / rLab);
+    game6.lab.recomputed = { min: (2 * Math.PI * rLab) / vLab / 60, kmS: vLab };
+    game6.lab.ok = !!labM && Math.abs(Number(labM[1]) - game6.lab.recomputed.min) <= 0.06 && Math.abs(Number(labM[2]) - game6.lab.recomputed.kmS) <= 0.006;
+    await page.click('#tab-btn-game');
+    game6.boardEmptyAtStart = await page.isVisible('#game-board-empty');
+    await page.click('#game-start');
+    const satrecNode = satjs.twoline2satrec(...tle.trim().split(/\r?\n/).map((l) => l.trim()).slice(-2));
+    const R = 6371.0088;
+    const hav = (a, b, c, d) => {
+      const r = Math.PI / 180;
+      const x = Math.sin(((c - a) * r) / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(((d - b) * r) / 2) ** 2;
+      return 2 * R * Math.asin(Math.min(1, Math.sqrt(x)));
+    };
+    // Tap points as fractions of the map box (below the bar at the top); the next one is tried if a tap lands on a marker.
+    const taps = [[0.62, 0.62], [0.3, 0.7], [0.5, 0.8], [0.8, 0.55]];
+    const playRound = async (n) => {
+      await page.waitForFunction(() => document.body.dataset.game === 'guessing', null, { timeout: 5000 });
+      // "Play" scrolls the map into view smoothly: wait until the map box stops moving before tapping.
+      let box = await page.locator('#map').boundingBox();
+      for (let k = 0; k < 30; k++) {
+        await page.waitForTimeout(100);
+        const again = await page.locator('#map').boundingBox();
+        if (again.y === box.y && again.x === box.x) break;
+        box = again;
+      }
+      let tapped = false;
+      for (let k = 0; k < taps.length && !tapped; k++) {
+        const [fx, fy] = taps[(n - 1 + k) % taps.length];
+        await page.mouse.click(box.x + fx * box.width, box.y + fy * box.height);
+        tapped = await page.waitForFunction(() => document.body.dataset.game !== 'guessing', null, { timeout: 1000 }).then(() => true).catch(() => false);
+      }
+      await page.waitForFunction(() => ['scored', 'done'].includes(document.body.dataset.game ?? ''), null, { timeout: 8000 });
+      const r = await page.evaluate(() => ({ ...document.getElementById('game-bar').dataset, score: document.getElementById('game-score')?.textContent ?? '', msg: document.getElementById('game-msg')?.textContent ?? '', state: document.body.dataset.game }));
+      r.n = n;
+      r.tapped = tapped;
+      r.recomputedKm = hav(+r.guessLat, +r.guessLon, +r.answerLat, +r.answerLon);
+      const target = new Date(r.target);
+      const pv = satjs.propagate(satrecNode, target);
+      const geo = satjs.eciToGeodetic(pv.position, satjs.gstime(target));
+      r.nodeAnswer = { lat: satjs.degreesLat(geo.latitude), lon: satjs.degreesLong(geo.longitude) };
+      r.checks = {
+        scoreShown: /^[\d,]+ km off$/.test(r.score),
+        // the shown whole km is the page's distance rounded once; the tap and answer are read to 4 decimals here, so allow 0.5 + 0.1 km
+        scoreMatchesRecomputed: Math.abs(+r.km - r.recomputedKm) <= 0.1 && Math.abs(Number(r.score.replace(/[^\d]/g, '')) - r.recomputedKm) <= 0.6,
+        answerIsSgp4AtTarget: Math.abs(r.nodeAnswer.lat - +r.answerLat) < 0.001 && Math.abs(r.nodeAnswer.lon - +r.answerLon) < 0.001,
+        tenMinutesAhead: Date.parse(r.target) - Date.parse(r.start) === 600_000,
+      };
+      game6.rounds.push(r);
+      return r;
+    };
+    await playRound(1);
+    game6.mapInView = await page.evaluate(() => {
+      const b = document.getElementById('map').getBoundingClientRect();
+      return b.top >= -1 && b.top < window.innerHeight / 2;
+    });
+    await page.screenshot({ path: resolve(`evidence/m6${sizeTag}.png`) });
+    for (const n of [2, 3]) {
+      await page.click('#game-next');
+      await playRound(n);
+    }
+    game6.end = await page.evaluate((key) => ({
+      total: document.getElementById('game-bar').dataset.total,
+      totalText: document.getElementById('game-total')?.textContent ?? '',
+      boardRows: [...document.querySelectorAll('#game-board li')].map((l) => l.textContent),
+      boardHeading: document.querySelector('.game-board-h')?.textContent ?? '',
+      stored: JSON.parse(localStorage.getItem(key) ?? 'null'),
+      startButton: document.getElementById('game-start')?.textContent ?? '',
+    }), 'iss-ride-along-game-board');
+    await page.locator('#game-board').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: resolve(`evidence/m6-board${sizeTag}.png`) });
+    const sum = game6.rounds.reduce((a, r) => a + +r.km, 0);
+    game6.checks = {
+      labLineMatchesFormula: game6.lab.ok,
+      round1ScoreShown: game6.rounds[0].checks.scoreShown && game6.rounds[0].tapped,
+      mapInViewForScreenshot: game6.mapInView,
+      everyRoundRecomputes: game6.rounds.length === 3 && game6.rounds.every((r) => r.tapped && Object.values(r.checks).every(Boolean)),
+      roundsChain: game6.rounds[1].start === game6.rounds[0].target && game6.rounds[2].start === game6.rounds[1].target,
+      endsAfter3: game6.rounds[2].state === 'done' && game6.rounds[0].state === 'scored',
+      totalIsSum: Math.abs(+game6.end.total - sum) <= 0.2,
+      boardLabelledThisDevice: /on this device/.test(game6.end.boardHeading) && game6.boardEmptyAtStart,
+      boardHasThisGame: game6.end.boardRows.length === 1 && Array.isArray(game6.end.stored) && game6.end.stored.length === 1 && Math.abs(game6.end.stored[0].totalKm - sum) <= 0.2,
+    };
+  }
+
   // ---- M7 --block <host>: one source refused; the page must carry on and say so by name.
   let block7 = null;
   if (BLOCK) {
@@ -742,6 +842,7 @@ try {
     outputs,
     clickRun,
     first7,
+    game6,
     block7,
     blockedConsole,
     oem,
@@ -770,6 +871,7 @@ try {
     (OUTPUTS && Object.values(outputs.checks).includes(false)) ||
     (PATH && clickRun.problems.length > 0) ||
     (FIRST && Object.values(first7.checks).includes(false)) ||
+    (FIRST && Object.values(game6.checks).includes(false)) ||
     (BLOCK && Object.values(block7.checks).includes(false)) ||
     Object.values(oem.checks).includes(false) ||
     Object.values(c2.checks).includes(false);
@@ -787,6 +889,7 @@ try {
           (OUTPUTS ? `; outputs: download "${outputs.download}" (${outputs.ics.bytes} bytes, 1 VEVENT, TRIGGER:-PT10M, CRLF, longest line ${outputs.ics.longestLineBytes} bytes, DTSTART ${outputs.ics.dtstart}), print view: sheet shown with ${outputs.print.sheetLines} lines and ${outputs.print.questions.length} questions, map and its controls hidden, sheet "${outputs.sheetAudit}"` : '') +
           (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s` : '') +
           (FIRST ? `; first screen ${w}x${h}: no horizontal scroll, planner box and next-pass line inside, "Detroit" + Enter -> "${first7.detroitText}" in ${first7.detroitMs} ms, ${first7.tabs.length} tabs open (${first7.tabs.map((t) => t.label).join(', ')}); after "Plan my sighting": Place control "${first7.placeAfter.placeControl}", passes table "${first7.placeAfter.tableCaption}" (${first7.placeAfter.tableRows} rows), City box "${first7.placeAfter.cityBox}"` : '') +
+          (FIRST ? `; game: round 1 "${game6.rounds[0].score}" (recomputed ${game6.rounds[0].recomputedKm.toFixed(1)} km; answer = satellite.js at +10 min), rounds ${game6.rounds.map((r) => r.score).join(' / ')}, ${game6.end.totalText.replace(/ That.*/, '')} on the device board (${game6.end.boardRows.length} row), evidence/m6${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png; orbit lab "${game6.lab.text}" at ${game6.lab.alt} km (formula ${game6.lab.recomputed.min.toFixed(2)} min, ${game6.lab.recomputed.kmS.toFixed(3)} km/s)` : '') +
           (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : ''),
   );
 } finally {

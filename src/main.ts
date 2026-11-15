@@ -3,7 +3,8 @@
 // the page runs SGP4 (satellite.js) on the station's orbit elements and moves the marker; a button
 // compares our answer with wheretheiss.at; src/nasa/layers.ts draws what the station is flying over;
 // src/passes-ui.ts lists when it can be seen from a chosen place; src/orbit/daynight.ts shades the night
-// side of the map and labels the station "in sunlight" or "in Earth's shadow" (C2).
+// side of the map and labels the station "in sunlight" or "in Earth's shadow" (C2); src/ui/game.ts is
+// the guessing game (M6) and src/orbit/lab.ts the orbit lab line under the numbers.
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import * as L from 'leaflet';
@@ -24,6 +25,8 @@ import { clearSource, warningsHtml, warnSource } from './ui/warnings';
 import { initTabs, tabsHtml } from './ui/tabs';
 import { briefSheetHtml } from './ui/outputs';
 import { accuracyHtml, recordReference, renderAccuracy } from './ui/accuracy';
+import { gameBarHtml, gameHtml, initGame } from './ui/game';
+import { orbitLabLine } from './orbit/lab';
 
 // M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
 // box, the next-pass line for the chosen place and a small "How accurate is this?" card. Everything
@@ -37,6 +40,7 @@ app.innerHTML = `
   ${warningsHtml}
   <main class="layout">
     <section class="map-wrap">
+      ${gameBarHtml}
       <div id="map" role="img" aria-label="World map with the space station's position and path"></div>
       <p class="small legend">
         <span class="key key-iss"></span> ISS now
@@ -55,6 +59,7 @@ app.innerHTML = `
         <div><dt>Time</dt><dd id="clock">-</dd></div>
         <div><dt>Station</dt><dd id="sunlit">-</dd></div>
       </dl>
+      <p class="small lab-line"><span id="orbit-lab">-</span> <span class="lab-const">(circular orbit: speed = √(GM ÷ r), time = 2πr ÷ speed, with GM = 398,600.4418 km³/s² and r = 6,378.137 km + height)</span></p>
       <p class="small why-sun">You can see it only when you are in the dark and it is still in sunlight, which happens in the hours after sunset and before sunrise.</p>
       <p id="data-age" class="age"></p>
     </section>
@@ -75,6 +80,7 @@ app.innerHTML = `
     [
       { id: 'passes', label: 'All passes', html: passPanelHtml },
       { id: 'nasa', label: 'What it is flying over', html: belowPanelHtml },
+      { id: 'game', label: 'Game', html: gameHtml },
       { id: 'accuracy', label: 'Accuracy and sources', html: accuracyHtml },
       { id: 'settings', label: 'Settings', html: `<section class="card">${plannerSettingsHtml}</section>` },
     ],
@@ -178,6 +184,7 @@ function tick() {
   $('lon').textContent = fmt(s.lonDeg, 2);
   $('alt').textContent = fmt(s.altKm, 1);
   $('speed').textContent = Math.round(s.speedKmS * 3600).toLocaleString('en-US');
+  $('orbit-lab').textContent = orbitLabLine(s.altKm);
   $('clock').textContent = `${now.toISOString().slice(11, 19)} UTC`;
   marker.setLatLng([s.latDeg, s.lonDeg]);
   nasa.update(s.latDeg, s.lonDeg, s.altKm);
@@ -203,6 +210,8 @@ initTabs((id) => {
   // Leaflet measures its container; nothing in a tab holds a map, so no resize is needed.
 });
 setInterval(renderAccuracy, 30_000);
+// M6: the game plays on the main map (a tap places the guess); its panel is the Game tab.
+initGame({ map, getSatrec: () => elements.satrec });
 setInterval(tick, 1000);
 setInterval(() => {
   drawTrack(new Date());

@@ -15,7 +15,7 @@ Needs Node 22 (built with 22.14.0) and npm. In this folder:
 
 ```
 npm install        # once; installs the exact versions in package-lock.json
-npm test           # 92 unit tests, offline, a few seconds
+npm test           # 112 unit tests, offline, a few seconds
 npm run build      # type check + one self-contained file: dist/index.html
 npm run offline    # build, then copy it to docs/iss-ride-along-offline.html (fails at 8 MB or more)
 npm run dev        # local dev server with reload; open the address Vite prints
@@ -33,7 +33,7 @@ They use the Chrome already installed on the laptop through playwright-core (no 
 `smoke.mjs` and `record-demo.mjs` open `dist/index.html`, so run `npm run build` first.
 
 ```
-node scripts/smoke.mjs        # headless Chrome on dist/index.html from file://, network mocked; M7 first screen: planner and next-pass line in view, "Detroit" + Enter, every tab
+node scripts/smoke.mjs        # headless Chrome on dist/index.html from file://, network mocked; M7 first screen: planner and next-pass line in view, "Detroit" + Enter, every tab; M6: plays the game's 3 rounds with the score recomputed -> evidence/m6.png
 node scripts/smoke.mjs --size 390x844 --out evidence/m7-390x844.png  # the same at phone size
 node scripts/smoke.mjs --block celestrak.org  # M7: that source refused (or gibs.earthdata.nasa.gov, eonet.gsfc.nasa.gov, api.wheretheiss.at, api.open-meteo.com, geocoding-api.open-meteo.com, mcp.exa.ai, generativelanguage.googleapis.com); needs a named warning
 node scripts/smoke.mjs --net --out evidence/m4.png  # real network; also presses "Check against reference"

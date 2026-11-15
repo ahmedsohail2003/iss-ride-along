@@ -210,3 +210,24 @@ button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align
 }
 .why-sun { margin: 0 0 0.4rem; }
 @media (min-width: 861px) { .readout { grid-template-columns: repeat(6, auto); } }
+/* M6: the game bar over the map, the game tab and the orbit lab line */
+.map-wrap { position: relative; }
+.game-bar {
+  position: absolute; z-index: 1100; top: 0.5rem; left: 50%; transform: translateX(-50%); width: min(92%, 40rem);
+  background: rgba(11, 16, 32, 0.92); border: 1px solid #ff9f1c; border-radius: 8px; padding: 0.45rem 0.75rem; font-size: 0.92rem;
+}
+.game-bar[hidden] { display: none; }
+.game-bar button { width: auto; padding: 0.3rem 0.7rem; margin-left: 0.4rem; }
+.game-bar button.linkish { padding: 0.2rem 0; }
+.game-bar strong { color: #ffd166; font-size: 1.1rem; }
+#map.game-guessing { cursor: crosshair; }
+#map.game-guessing .leaflet-interactive { cursor: crosshair; }
+.game button#game-start { width: auto; }
+.game-rounds, .game-board { margin: 0.5rem 0; padding-left: 1.3rem; font-variant-numeric: tabular-nums; }
+.game-board li.mine { color: #ffd166; }
+.game-total { font-weight: 600; min-height: 1.2rem; }
+.game-board-h { margin: 0.8rem 0 0.1rem; font-size: 0.95rem; }
+.game-tip { background: #0b1020; color: #ffd166; border-color: #ff9f1c; }
+.lab-line { margin: 0 0 0.3rem; }
+.lab-line #orbit-lab { opacity: 1; }
+.lab-const { font-size: 0.72rem; }

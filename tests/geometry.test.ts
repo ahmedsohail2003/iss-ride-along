@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { footprintDiameterKm, footprintRadiusKm, splitByFootprint } from '../src/nasa/footprint';
+import { circularSpeed, orbitLabLine, period } from '../src/orbit/lab';
 
 const wti = JSON.parse(readFileSync(new URL('../src/data/wheretheiss-samples.json', import.meta.url), 'utf8'));
 
@@ -40,5 +41,30 @@ describe('horizon footprint', () => {
     const none = splitByFootprint([places[0]], 0, 0, 420);
     expect(none.inView).toHaveLength(0);
     expect(none.nearest?.item.name).toBe('far');
+  });
+});
+
+// M6 orbit lab: v = sqrt(mu / r), T = 2 pi sqrt(r^3 / mu), r = 6,378.137 km + height, mu = 398,600.4418 km^3/s^2.
+// Reference values are PLAN.md M6's acceptance (7.669 km/s and 92.56 min at 400 km).
+describe('orbit lab (circular orbit)', () => {
+  test('circularSpeed(400) = 7.669 +/- 0.001 km/s and period(400) = 92.56 +/- 0.01 min', () => {
+    const v = circularSpeed(400);
+    const t = period(400);
+    console.log(`orbit lab at 400 km: ${v.toFixed(4)} km/s, ${t.toFixed(3)} min`);
+    expect(Math.abs(v - 7.669)).toBeLessThanOrEqual(0.001);
+    expect(Math.abs(t - 92.56)).toBeLessThanOrEqual(0.01);
+  });
+
+  test('speed times period is the circle (2 pi r), and higher is slower and longer', () => {
+    for (const h of [200, 420, 2000]) {
+      expect(circularSpeed(h) * period(h) * 60).toBeCloseTo(2 * Math.PI * (6378.137 + h), 6);
+    }
+    expect(circularSpeed(2000)).toBeLessThan(circularSpeed(200));
+    expect(period(2000)).toBeGreaterThan(period(200));
+  });
+
+  test('the readout sentence uses the same two functions', () => {
+    expect(orbitLabLine(400)).toBe(`At this height a circular orbit takes ${period(400).toFixed(1)} min at ${circularSpeed(400).toFixed(2)} km/s.`);
+    expect(orbitLabLine(400)).toBe('At this height a circular orbit takes 92.6 min at 7.67 km/s.');
   });
 });
