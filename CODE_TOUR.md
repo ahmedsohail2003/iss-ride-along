@@ -9,8 +9,7 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
 
 - File: `src/elements.ts`
 - Functions: `initialElements()`, `refreshElements()`, `parseIssTle()`
-- The station's orbit is published as a TLE ("two-line element set": two lines of numbers describing
-  its orbit at one moment, called the epoch). CelesTrak redistributes the US Space Force's TLEs.
+- The station's orbit is published as a TLE ("two-line element set": two lines of numbers describing its orbit at one moment, called the epoch). CelesTrak redistributes the US Space Force's TLEs.
 - `initialElements()` picks the newer of the copy built into the page and the one this browser saved.
   `refreshElements()` then tries one CelesTrak download in the background (not if this device saved one
   under 2 hours ago, and not when the browser reports no network).
@@ -116,4 +115,5 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
   precession (`precessionMatrix()`), nutation from all 106 terms (`nutation80()`) and the equation of the equinoxes.
 - `gapAt()` compares only at NASA's own 4-minute row times. `tests/oem.test.ts` checks the conversion against a published
   example (Vallado et al. 2006, 0.82 m off) and astronomy-engine (under 3 m); with no conversion the gap is 26 to 45 km.
+- The Sky tab, `src/sky/sky.ts` and `src/sky/skyPanel.ts`: `stationSky()` puts straight up at right ascension = local sidereal time and declination = the station's latitude, then turns up, north and east into J2000 with `temeToJ2000Matrix()`, so each star's height is one dot product; `tests/sky.test.ts` checks Polaris (45° up from 45° N) and astronomy-engine (0.032 arcsec at most over 16 star-place pairs).
 - Say: "Within 12 hours of the orbit numbers' time we are 0.37 km from NASA mission control's own trajectory (median; 1.03 km at most)."

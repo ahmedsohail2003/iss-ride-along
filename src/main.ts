@@ -7,6 +7,7 @@
 // the guessing game (M6) and src/orbit/lab.ts the orbit lab line under the numbers. C3: src/ui/sentence.ts
 // writes the plain sentence above the map ("110 km northeast of Detroit, ..."), which is the page's one
 // screen-reader live region for the position and changes once a minute; the per-second numbers are not announced.
+// X5: src/sky/skyPanel.ts draws the stars and constellations above the station right now (the Sky tab).
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import * as L from 'leaflet';
@@ -30,6 +31,7 @@ import { accuracyHtml, recordReference, renderAccuracy } from './ui/accuracy';
 import { gameBarHtml, gameHtml, initGame } from './ui/game';
 import { orbitLabLine } from './orbit/lab';
 import { whereNow } from './ui/sentence';
+import { initSkyPanel, skyPanelHtml } from './sky/skyPanel';
 
 // M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
 // box, the next-pass line for the chosen place and a small "How accurate is this?" card. Everything
@@ -85,6 +87,7 @@ app.innerHTML = `
     [
       { id: 'passes', label: 'All passes', html: passPanelHtml },
       { id: 'nasa', label: 'What it is flying over', html: belowPanelHtml },
+      { id: 'sky', label: 'Sky from the station', html: skyPanelHtml },
       { id: 'game', label: 'Game', html: gameHtml },
       { id: 'accuracy', label: 'Accuracy and sources', html: accuracyHtml },
       { id: 'settings', label: 'Settings', html: `<section class="card">${plannerSettingsHtml}</section>` },
@@ -226,8 +229,11 @@ renderWhere(new Date());
 const passPanel = initPassPanel(() => elements.satrec);
 const oemPanel = initOemPanel(() => elements.satrec);
 renderAccuracy();
+// X5: the star chart redraws every second while its tab is open.
+const skyPanel = initSkyPanel({ getSatrec: () => elements.satrec, isOpen: () => !document.getElementById('tab-sky')!.hidden });
 initTabs((id) => {
   if (id === 'accuracy') renderAccuracy();
+  if (id === 'sky') skyPanel.draw();
   // Leaflet measures its container; nothing in a tab holds a map, so no resize is needed.
 });
 setInterval(renderAccuracy, 30_000);

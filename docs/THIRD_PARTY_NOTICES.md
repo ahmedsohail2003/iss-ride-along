@@ -1,7 +1,7 @@
 # Third-party notices
 
 The built page (`dist/index.html` and `docs/iss-ride-along-offline.html`) bundles Leaflet and
-satellite.js, so their licences are reproduced here. The city list in `src/data/cities.json` comes
+satellite.js, and `dist/index.html` also bundles the d3-celestial star data (the Sky tab), so their licences are reproduced here. The city list in `src/data/cities.json` comes
 from Natural Earth, which is in the public domain. astronomy-engine (MIT) is used only by the tests
 and is not in the built page.
 
@@ -131,3 +131,25 @@ POSSIBILITY OF SUCH DAMAGE.
 ```
 
 The packages in `package.json` carry their own licences in `node_modules/`.
+
+## d3-celestial data (the Sky tab's stars and constellation lines)
+
+`src/data/sky/stars.json`, `lines.json` and `names.json` are cut down by `scripts/make-sky-data.mjs` from d3-celestial
+(https://github.com/ofrohn/d3-celestial, commit 7e720a3de062059d4c5400a379146a601d9010e0). Star positions and brightness
+come from XHIP (Anderson and Francis 2012, VizieR V/137D); the lines from the IAU constellation charts with changes by
+Olaf Frohn. Not NASA data. Licence, as published in that repository:
+
+```
+Copyright (c) 2015, Olaf Frohn
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```

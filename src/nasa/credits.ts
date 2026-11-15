@@ -25,3 +25,6 @@ export const creditOem = (created: string) =>
   `ISS trajectory ephemeris (OEM), NASA Johnson Space Center, Flight Operations Directorate (originator NASA/JSC/FOD/TOPO), file created ${created.slice(0, 16).replace('T', ' ')} UTC. A prediction from NASA's model, not a measurement.`;
 export const CREDIT_ERFA =
   'Frame conversion: the IAU 1980 nutation table (106 terms) is copied from ERFA (derived from the IAU SOFA library), BSD 3-clause licence; notice in docs/THIRD_PARTY_NOTICES.md.';
+/** X5: the star view's catalogue and constellation lines (neither is NASA data). */
+export const CREDIT_SKY =
+  'Star view: star positions and brightness from the XHIP catalogue (Anderson and Francis 2012, VizieR V/137D) and constellation lines from the IAU charts with changes by Olaf Frohn, both as packaged in d3-celestial by Olaf Frohn (BSD 3-Clause licence; notice in docs/THIRD_PARTY_NOTICES.md). Not NASA data.';

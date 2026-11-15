@@ -54,6 +54,12 @@
 // day/night line beside it), the station's label on the marker and in the numbers panel is one of the two
 // allowed strings ("in sunlight" / "in Earth's shadow, sunrise in N min") and the two agree; in default
 // mode the "night side" toggle removes and restores the shading, and evidence/c2.png is saved.
+// X5 sky from the station, every mode: the "Sky from the station" tab draws a non-blank star chart
+// (bright star pixels counted in the canvas, stars and constellation lines above the station's horizon),
+// its label is one of the two allowed strings and says the same as the map's label, "straight up" is
+// the station's own latitude, and the catalogue and line credits are on the page (in the tab and in the
+// footer's credits list); default mode saves evidence/x5.png (x5-WxH.png at other sizes). The tab is
+// closed again (back to "What it is flying over") before the next checks.
 // M7 first-screen checks (default mode, any --size): no horizontal scroll; the planner box and the
 // next-pass line inside the first screen; "Detroit" typed in the planner box plus Enter puts a pass
 // line with a time and a compass word in #next-pass within 2 s; every tab opens its own panel.
@@ -441,6 +447,61 @@ try {
     // so the M7 first-screen checks below see the page as a stranger first does.
     await page.evaluate(() => window.scrollTo(0, 0));
   }
+
+  // ---- X5: the sky from the station (every mode).
+  await page.click('#tab-btn-sky');
+  await page.waitForFunction(() => !!document.getElementById('sky-canvas')?.dataset.drawnAt, null, { timeout: 10_000 });
+  await page.waitForTimeout(1200); // one more redraw: the chart must keep drawing while the tab is open
+  const x5 = await page.evaluate(() => {
+    const cv = document.getElementById('sky-canvas');
+    const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    let bright = 0;
+    let painted = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] > 0) painted++;
+      if (d[i] + d[i + 1] + d[i + 2] > 450 && d[i + 3] > 200) bright++;
+    }
+    const ds = cv.dataset;
+    return {
+      canvas: { w: cv.width, h: cv.height, cssW: Math.round(cv.getBoundingClientRect().width) },
+      painted,
+      brightPixels: bright,
+      stars: +ds.stars,
+      segments: +ds.segments,
+      constellations: +ds.constellations,
+      zenithRa: +ds.zenithRa,
+      zenithDec: +ds.zenithDec,
+      stationLat: +ds.stationLat,
+      drawnAt: ds.drawnAt,
+      sun: ds.sun,
+      label: document.getElementById('sky-sunlit')?.textContent ?? '',
+      mapLabel: document.getElementById('sunlit')?.textContent ?? '',
+      readoutLat: +(document.getElementById('lat')?.textContent ?? 'NaN'),
+      zenithText: document.getElementById('sky-zenith')?.textContent ?? '',
+      brightText: document.getElementById('sky-bright')?.textContent ?? '',
+      ariaLabel: cv.getAttribute('aria-label'),
+      tabCredit: document.getElementById('sky-credit')?.textContent ?? '',
+      footerCredit: [...document.querySelectorAll('#credits-body li')].map((li) => li.textContent).find((t) => /d3-celestial/.test(t)) ?? '',
+      panelShown: !document.getElementById('tab-sky')?.hidden,
+    };
+  });
+  const x5Kind = (t) => (t === 'in sunlight' ? 'sunlit' : /^in Earth's shadow/.test(t) ? 'shadow' : null);
+  x5.checks = {
+    panelShown: x5.panelShown,
+    nonBlank: x5.painted > 0.3 * x5.canvas.w * x5.canvas.h && x5.brightPixels >= 200, // the sky disc fills about 67% of the square
+    starsAndLinesDrawn: x5.stars > 300 && x5.segments > 50 && x5.constellations > 5,
+    labelAllowed: LABEL_RE.test(x5.label),
+    labelAgreesWithMap: x5Kind(x5.label) !== null && x5Kind(x5.label) === x5Kind(x5.mapLabel),
+    zenithIsLatitude: Math.abs(x5.zenithDec - x5.stationLat) < 0.001 && Math.abs(x5.stationLat - x5.readoutLat) < 0.3,
+    creditsOnPage: /XHIP/.test(x5.tabCredit) && /d3-celestial/.test(x5.tabCredit) && /Not NASA data/.test(x5.tabCredit) && x5.footerCredit === x5.tabCredit,
+  };
+  if (FIRST) {
+    mkdirSync(resolve('evidence'), { recursive: true });
+    x5.shot = `evidence/x5${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png`;
+    await page.locator('.sky-card').screenshot({ path: resolve(x5.shot) });
+  }
+  await page.click('#tab-btn-nasa');
+  await page.evaluate(() => window.scrollTo(0, 0));
 
   let ref = null;
   if (NET) {
@@ -1152,6 +1213,7 @@ try {
   };
   const result = {
     url,
+    x5,
     mode: NET ? 'network' : OFFLINE ? 'offline' : 'mocked',
     viewport: `${w}x${h}`,
     screenshot: out,
@@ -1204,6 +1266,7 @@ try {
     (A11Y && Object.values(a11y.checks).includes(false)) ||
     Object.values(oem.checks).includes(false) ||
     Object.values(c2.checks).includes(false) ||
+    Object.values(x5.checks).includes(false) ||
     Object.values(p2.checks).includes(false);
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
@@ -1216,6 +1279,7 @@ try {
           `; ${info.eventsListed} event line(s); photo ${info.photo}` +
           `; day and night: night side drawn (${c2.nightPoints} points), label "${c2.panelLabel}" on the marker and in the panel` +
           (FIRST ? `, toggle off/on ${c2.afterToggleOff}/${c2.afterToggleOn}, evidence/c2.png` : '') +
+          `; sky from the station: ${x5.stars} stars, ${x5.segments} line pieces, ${x5.constellations} constellations above its horizon, ${x5.brightPixels} bright pixels, label "${x5.label}" (map "${x5.mapLabel}"), straight up = declination ${x5.zenithDec.toFixed(2)} = station latitude ${x5.stationLat.toFixed(2)}, credits in the tab and the footer${x5.shot ? `, ${x5.shot}` : ''}` +
           `; NASA trajectory: ${oem.kmShown} km apart at ${oem.rowTime?.slice(11, 16)} UTC, orbit numbers ${oem.ageShownH} h old` +
           (OEM ? ` (recomputed ${oem.ageRecomputedH?.toFixed(2)} h)` : '') +
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : '') +

@@ -1,0 +1,45 @@
+{
+ "generatedBy": "scripts/make-sky-data.mjs",
+ "source": "d3-celestial by Olaf Frohn, https://github.com/ofrohn/d3-celestial",
+ "commit": "7e720a3de062059d4c5400a379146a601d9010e0",
+ "retrievedAt": "2026-11-15T03:15:58.022Z",
+ "license": "BSD 3-Clause (copyright (c) 2015, Olaf Frohn); full text in docs/THIRD_PARTY_NOTICES.md",
+ "starsFrom": "XHIP: An Extended Hipparcos Compilation, Anderson E., Francis C. (2012), VizieR V/137D, as converted by d3-celestial (J2000)",
+ "linesFrom": "IAU constellation charts, with line changes by Olaf Frohn (d3-celestial)",
+ "notNasa": "Neither the star catalogue nor the constellation lines are NASA data.",
+ "magLimit": 5,
+ "counts": {
+  "stars": 1627,
+  "starsInFile": 5044,
+  "named": 449,
+  "constellations": 88,
+  "labels": 89
+ },
+ "upstream": {
+  "data/stars.6.json": {
+   "url": "https://raw.githubusercontent.com/ofrohn/d3-celestial/7e720a3de062059d4c5400a379146a601d9010e0/data/stars.6.json",
+   "bytes": 656721,
+   "sha256": "0297b8fa3adfbce1dc26566f61c4abcc1df4f29c6a28729ca06b56d1c6d25602"
+  },
+  "data/starnames.json": {
+   "url": "https://raw.githubusercontent.com/ofrohn/d3-celestial/7e720a3de062059d4c5400a379146a601d9010e0/data/starnames.json",
+   "bytes": 680627,
+   "sha256": "19c84bc885f8a97c3b8e1f6a380084c575a9758dedfe35256e911a823ec3a695"
+  },
+  "data/constellations.lines.json": {
+   "url": "https://raw.githubusercontent.com/ofrohn/d3-celestial/7e720a3de062059d4c5400a379146a601d9010e0/data/constellations.lines.json",
+   "bytes": 27136,
+   "sha256": "294f66bef5d5cf50b1e17f16d2efa1d97a15131612c68dd935adef6e7373e13c"
+  },
+  "data/constellations.json": {
+   "url": "https://raw.githubusercontent.com/ofrohn/d3-celestial/7e720a3de062059d4c5400a379146a601d9010e0/data/constellations.json",
+   "bytes": 50581,
+   "sha256": "ab4ae692027cbc042c0d6791a84456a65eb7c55656107fd00c58ff6e55d4d8b2"
+  },
+  "LICENSE": {
+   "url": "https://raw.githubusercontent.com/ofrohn/d3-celestial/7e720a3de062059d4c5400a379146a601d9010e0/LICENSE",
+   "bytes": 1480,
+   "sha256": "a8c79239001ad4bea243d1796b85084e1fc39309c5c5a663930a1b46320254c6"
+  }
+ }
+}

@@ -33,6 +33,7 @@ position, altitude and speed every second, and the path one orbit back and ahead
 | Cloud for each pass hour, station news | fetched only when "Plan my sighting" is pressed | %, dates | Open-Meteo (no key), Exa web search (no key) |
 | "X km apart" from NASA's trajectory | computed at NASA's latest row time, against the built-in copy of NASA's file | km, hours | NASA JSC trajectory file (OEM) |
 | The sentence above the map ("1,050 km west of Johannesburg, South Africa, heading southeast, 430 km up.") | computed once a minute, on purpose, so a screen reader announces it once a minute (it can be up to a minute behind the numbers): the nearest of the 150 built-in cities only, no oceans (haversine distance, rounded to 10 km), the 8-point compass direction from that city, the direction of travel from two SGP4 positions 10 s apart. Keyboard and screen-reader use checked by axe-core and a scripted keyboard run (`node scripts/smoke.mjs --a11y`), not yet by a person using a screen reader | km, compass words | TLE from CelesTrak; city list in `src/data/cities.json` |
+| Sky from the station tab (star chart, redrawn every second while open) | computed: "straight up" from the station has right ascension = local sidereal time and declination = its latitude, turned into J2000 by the same matrix as the NASA check; 1,627 built-in stars of magnitude 5 or brighter and 88 constellation figures; the "in sunlight" label is the map's | degrees | XHIP star catalogue and IAU constellation lines, via d3-celestial (BSD 3-Clause); not NASA |
 | Game "N km off" (board kept in this browser only); orbit lab line | computed: our SGP4 position 10 min after the round's start and the haversine distance to your tap; a circular orbit's speed = √(GM ÷ r), time = 2πr ÷ speed (GM = 398,600.4418 km³/s², r = 6,378.137 km + height; 7.6686 km/s and 92.560 min at 400 km in `tests/geometry.test.ts`) | km; min, km/s | TLE from CelesTrak; textbook formula |
 
 There is no server and no account. The only key is one a visitor may type into the Settings tab. The page shows this table too ("Accuracy and sources" tab).
@@ -85,8 +86,7 @@ Both trackers run their own code on public orbit numbers: a small difference sho
 
 - Saved test (`tests/position.test.ts`, 10 wheretheiss.at positions, Nov 14 19:07 UTC, their TLE): at most 0.0003 km
   position, 0.0020 km altitude, 0.0000 km/h speed (limits 2 km, 0.1 km, 1 km/h).
-- Live check (`node scripts/check-live.mjs`, 2:28 PM EST Nov 14): 0.729 km both runs (our TLE was newer than
-  theirs; on their own TLE, 0 km). The station moves 7.666 km/s, so 0.729 km is about a tenth of a second.
+- Live check (`node scripts/check-live.mjs`, 2:28 PM EST Nov 14): 0.729 km both runs (our TLE was newer than theirs; on their own TLE, 0 km). The station moves 7.666 km/s, so 0.729 km is about a tenth of a second.
 
 ## Each tool in one line
 
@@ -99,7 +99,7 @@ Both trackers run their own code on public orbit numbers: a small difference sho
 - **ERFA** (BSD 3-clause, from the IAU's SOFA library): source of the 106-term nutation table. **astronomy-engine 2.1.19**
   (MIT): a second, independent frame conversion, used only in a test.
 - **Open-Meteo** (free weather service, CC BY 4.0) for cloud; **Exa** (a search engine built for AI) for station news.
-- **Vite 8.3.8 + vite-plugin-singlefile 2.3.4** build one self-contained `index.html`; **TypeScript 7.0.2** (type-checked JavaScript); **Vitest 5.1.0** runs the 125 unit tests offline; **playwright-core 1.65.1** drives Chrome; **axe-core 4.14.0** (an accessibility checker) runs in the smoke test.
+- **Vite 8.3.8 + vite-plugin-singlefile 2.3.4** build one self-contained `index.html`; **TypeScript 7.0.2** (type-checked JavaScript); **Vitest 5.1.0** runs the 133 unit tests offline; **playwright-core 1.65.1** drives Chrome; **axe-core 4.14.0** (an accessibility checker) runs in the smoke test.
 
 ## Honest edges
 

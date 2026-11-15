@@ -154,6 +154,7 @@ to build it"). Each teammate's own sentence is added here once they have confirm
 | Open-Meteo | the cloud forecast and the place search the planner uses | fetched when you plan |
 | Exa | the web search for station news | results filtered to the last 7 days in our code; not checked by us |
 | Natural Earth | the 150 largest populated places | public domain |
+| d3-celestial (Olaf Frohn) | the Sky tab's 1,627 stars of magnitude 5 or brighter (XHIP catalogue, Anderson and Francis 2012, VizieR V/137D) and 88 constellation figures (IAU charts with changes by Olaf Frohn), J2000 | BSD 3-Clause; not NASA data; built in by `scripts/make-sky-data.mjs` from one pinned commit, sources and retrieval time in `src/data/sky/meta.json` |
 
 The orbit elements built into the page were fetched from CelesTrak at 12:36 PM EST on Nov 14
 (inside the hackathon window); CelesTrak could not be reached from our network later that afternoon,
@@ -205,6 +206,8 @@ or reading the code: `HOW_IT_WORKS.md` (what is computed and what is fetched) an
 - Natural Earth: public domain (the city list in `src/data/cities.json`).
 - ERFA (the 106-term IAU 1980 nutation table in `src/orbit/nut80-table.ts`, copied by script): BSD
   3-Clause, derived from the IAU SOFA library.
+- d3-celestial data (the star catalogue and constellation lines in `src/data/sky/`): BSD 3-Clause, Copyright (c) 2015,
+  Olaf Frohn. Bundled into the built page.
 - astronomy-engine 2.1.19: MIT License; tests only, not in the built page.
 
 The full licence texts for the bundled code are in `docs/THIRD_PARTY_NOTICES.md`.

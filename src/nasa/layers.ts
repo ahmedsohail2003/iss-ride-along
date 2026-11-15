@@ -356,6 +356,7 @@ export function initNasaLayers(map: L.Map): NasaLayers {
       <li>${esc(C.CREDIT_WHERETHEISS)}</li>
       <li>${esc(C.creditOem(meta.files['iss-oem.json'].CREATION_DATE))}</li>
       <li>${esc(C.CREDIT_ERFA)}</li>
+      <li>${esc(C.CREDIT_SKY)}</li>
       <li>${esc(C.CREDIT_CITIES)}, retrieved ${esc(meta.files['cities.json'].retrievedAt.slice(0, 10))}.</li>
       <li>${esc(C.CREDIT_HEAVENS_ABOVE)}</li>
       <li>${esc(C.CREDIT_NOT_NASA)}</li>
