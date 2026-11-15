@@ -41,6 +41,8 @@ export async function nearbyClear(ctx: RunContext, home: PassInfo['place'], c: C
 export interface Controls {
   /** Place name for findCity (a built-in name, or any town for the place search). */
   place: string;
+  /** R3: the plain Place box's own value, used when `place` is too long to be a place name. */
+  plainPlace?: string;
   /** Local dates "YYYY-MM-DD"; null = every night. */
   nights: string[] | null;
   earliest: string | null;
@@ -65,6 +67,29 @@ export interface PlanResult {
   card: Card;
   /** Set when an AI run ended in the fixed plan: the reason, in one plain line. */
   fallbackReason: string | null;
+  /** R3: set when the typed place was too long to be a place name and the Place box was used instead. */
+  placeNote?: string | null;
+}
+
+/** R3: a place text longer than this is never sent to the place search (it is a sentence, not a name). */
+export const PLACE_MAX = { words: 6, chars: 60 };
+export const DEFAULT_PLACE = 'Ypsilanti';
+
+export function placeTooLong(place: string): boolean {
+  const t = place.trim();
+  return t.length > PLACE_MAX.chars || t.split(/\s+/).filter(Boolean).length > PLACE_MAX.words;
+}
+
+/**
+ * R3: the place the fixed plan looks up. A text of more than 6 words or 60 characters is a sentence:
+ * the plain Place box's value is used instead (Ypsilanti if that is empty or too long as well), with
+ * one plain line saying so.
+ */
+export function safePlace(c: Controls): { place: string; note: string | null } {
+  if (!placeTooLong(c.place)) return { place: c.place, note: null };
+  const box = (c.plainPlace ?? '').trim();
+  const place = box && !placeTooLong(box) ? box : DEFAULT_PLACE;
+  return { place, note: `What you typed is too long to be a place name, so the plan uses the Place box below ("${place}") instead.` };
 }
 
 /** The engine writes every number on the card from the chosen pass. */
@@ -161,13 +186,17 @@ export function fixedReason(info: PassInfo): string {
   return `Highest score of the allowed passes: ${s.score.toFixed(2)} (height ${Math.round(info.pass.peakElDeg)}° of 90, cloud ${info.cloud === null ? 'unknown' : `${Math.round(info.cloud)}%`}).`;
 }
 
-export async function runFixedPlan(ctx: RunContext, c: Controls, fallbackReason: string | null = null): Promise<PlanResult> {
+export async function runFixedPlan(ctx: RunContext, given: Controls, fallbackReason: string | null = null): Promise<PlanResult> {
+  const safe = safePlace(given);
+  const c: Controls = { ...given, place: safe.place };
+  const placeNote = safe.note;
   const found = await findCity(ctx, c.place, 'fixed plan');
   const first = found.candidates[0];
   if (!first) {
     return {
       mode: 'fixed plan',
       fallbackReason,
+      placeNote,
       card: { kind: 'none', headline: `"${c.place}" is not in our list: pick the nearest city or type latitude and longitude.`, lines: [], why: '', orbitLine: null, passId: null, startMs: null },
     };
   }
@@ -179,13 +208,13 @@ export async function runFixedPlan(ctx: RunContext, c: Controls, fallbackReason:
   const best = allowed.length && allowed[0].scored!.score >= 0.05 ? allowed[0] : null;
   if (best) {
     await showPass(ctx, best.id, fixedReason(best), 'fixed plan');
-    return { mode: 'fixed plan', fallbackReason, card: buildCard(ctx, best, ctx.why ?? '') };
+    return { mode: 'fixed plan', fallbackReason, placeNote, card: buildCard(ctx, best, ctx.why ?? '') };
   }
   const outside = infos.filter((i) => !i.scored!.allowed && i.scored!.score >= 0.05).sort((a, b) => b.scored!.score - a.scored!.score)[0] ?? null;
   const card = buildCard(ctx, null, 'Every allowed pass scores under 0.05.', outside);
   // A2 step 4: every allowed pass clouded out (cloud 50% or more) -> try up to 2 places within 100 km.
   if (allowed.length && allowed.every((i) => (i.cloud ?? UNKNOWN_CLOUD) >= 50)) card.lines.push(...(await nearbyClear(ctx, first.placeId ? ctx.places.get(first.placeId)! : allowed[0].place, c, 'fixed plan')));
-  return { mode: 'fixed plan', fallbackReason, card };
+  return { mode: 'fixed plan', fallbackReason, placeNote, card };
 }
 
 export { NO_NEWS_TEXT };
