@@ -2,6 +2,23 @@
 
 Suggestions and questions go in your own Google Doc under a "Checkpoint N" heading (or in the team's Discord group chat). Each one gets an answer in the next checkpoint: yes, later, or no with the reason.
 
+## Checkpoint 10 — Saturday Nov 14, 10:40 PM EST
+
+**Time left:** 11 hours to our feature freeze (9:30 AM Sunday), 13.5 hours to the final Devpost deadline (12:00 PM Sunday).
+
+**New since checkpoint 9 (both passed an independent check):**
+- **A clear map (Denim's suggestion).** The map now opens on NASA's cloud-free picture of Earth, so you can see the continents under the station. Yesterday's real satellite photo, with its clouds and the black stripes between the satellite's passes, is one switch away: "Daily satellite photo (with clouds)". It still shows its date and says it is not a live camera. **Denim: open the live page and say whether you can now tell where the station is.**
+- **The sky from the station.** A new Sky tab draws the stars and constellations that are straight above the station right now: about 800 stars and 45 constellations, with the bright ones named, and the Sun when the station is in sunlight. It says whether the station is "in sunlight" or "in Earth's shadow", matching the map. The star positions were checked against an independent astronomy library (worst difference 0.03 of an arcsecond for four bright stars), and Polaris sits where it should when the station is placed over latitude 45 north. The star list is an open catalogue, not NASA data, and the page says so.
+- 133 of 133 automated tests pass.
+
+**For the demo:** in beat 3 Armeis now turns on the "Daily satellite photo" switch to show the dated NASA picture. [docs/PRESENTING.md](docs/PRESENTING.md) and [docs/CUE_SHEET.md](docs/CUE_SHEET.md) are updated.
+
+**Try it:** open https://ahmedsohail2003.github.io/iss-ride-along/ . Look at the map, flip the daily-photo switch on and off, then open the Sky tab.
+
+**Being built next:** dragging and zooming the sky, the page reading its answer aloud, and a small "forecast lab" card. Then overnight: a full re-test of everything, a refreshed demo script, and a new backup video. The final script will be posted by 6:30 AM.
+
+**Still open for each of you** (before the 9:00 AM timed run at the latest): study cards 3 and 4 out loud, and your own closing line of 12 words at most. Armeis: join the Devpost project and add your school.
+
 ## Checkpoint 9 — Saturday Nov 14, 10:00 PM EST
 
 **Time left:** 11.5 hours to our feature freeze (9:30 AM Sunday), 14 hours to the final Devpost deadline (12:00 PM Sunday).
