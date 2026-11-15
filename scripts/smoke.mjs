@@ -103,11 +103,23 @@
 // it also requires the age label to say so.
 // Stale-build guard: a file:// page whose <meta name="iss-source-hash"> does not match the current
 // source (scripts/source-hash.mjs) fails at once; rebuild first.
+// G1 --view flat|3d|auto (default flat), appended to the address as ?view=. Every existing mode keeps testing the
+// flat page (?view=flat). 3d and auto launch Chrome with --use-angle=swiftshader --enable-unsafe-swiftshader
+// (a software WebGL renderer every time). --view 3d (default mode): the globe checks in scripts/smoke-globe.mjs
+// (the NASA image the right way round at four places, the marker where the engine says, the night shading,
+// a drag, the switch both ways, the daily photo landing on the flat map), then the default run, with Play
+// pressed in 3D (it must land on the flat page). --view 3d --a11y: the keyboard walk runs on the globe.
+// --view auto: the four fallback cases (no WebGL, reduced motion, the software renderer, a lost context).
+// Element ids, every mode: every id in scripts/ids-baseline.json (saved from the build of the commit before
+// G1, first screen and each tab open) must be on the page, or the run fails. --save-ids writes that file
+// (only from a page built from the committed source).
 // RAM rule (PLAN.md section 3): runs at 0.8 GB free or more; below that it waits 60 s, retries once,
 // then prints DEFERRED and exits 0 (not a failure).
 import { chromium } from 'playwright-core';
-import { mkdirSync, readFileSync } from 'node:fs';
-import { freemem } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { freemem, tmpdir } from 'node:os';
+import { execSync } from 'node:child_process';
+import { autoCases, globeChecks, globeKeyboard, waitForGlobe } from './smoke-globe.mjs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { builtHash, sourceHash } from './source-hash.mjs';
@@ -129,6 +141,20 @@ const A11Y = args.includes('--a11y');
 const VOICE = args.includes('--voice');
 // X6 --forecast: the Forecast lab card.
 const FORECAST = args.includes('--forecast');
+// G1: which view to open (?view=), and the id baseline.
+const VIEW = opt('--view', 'flat');
+if (!['flat', '3d', 'auto'].includes(VIEW)) {
+  console.log('SMOKE FAIL: --view needs flat, 3d or auto');
+  process.exit(1);
+}
+const SAVE_IDS = args.includes('--save-ids');
+const IDS_FILE = resolve('scripts/ids-baseline.json');
+// --save-ids --ids-from <commit> (default HEAD): the page given by --url must be built from that commit's source.
+const IDS_FROM = opt('--ids-from', 'HEAD');
+if (!/^[0-9a-zA-Z~^._-]+$/.test(IDS_FROM)) {
+  console.log('SMOKE FAIL: --ids-from needs a commit name');
+  process.exit(1);
+}
 // M7: the 8 live sources, by the host each one's URL constant names in src/.
 const BLOCKABLE = {
   'celestrak.org': { key: 'celestrak', name: 'CelesTrak' },
@@ -179,16 +205,31 @@ if (NET && OFFLINE) {
   process.exit(1);
 }
 const defaultFile = OFFLINE ? 'docs/iss-ride-along-offline.html' : 'dist/index.html';
-const url = opt('--url', pathToFileURL(resolve(defaultFile)).href);
+const pageUrl = opt('--url', pathToFileURL(resolve(defaultFile)).href);
+const url = (() => {
+  const u = new URL(pageUrl);
+  u.searchParams.set('view', VIEW);
+  return u.href;
+})();
 const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : PATH ? 'evidence/m9-path.png' : A11Y ? 'evidence/c3.png' : VOICE ? 'evidence/x3.png' : FORECAST ? 'evidence/x6.png' : BLOCK ? `evidence/m7-block-${BLOCK}.png` : 'evidence/m1.png'));
 const [w, h] = opt('--size', '1366x768').split('x').map(Number);
 
 // Stale-build guard (M4 fix r2): a file:// page must carry the fingerprint of the current source
 // (scripts/source-hash.mjs). Checked before Chrome starts, so a stale page costs no browser run.
 if (url.startsWith('file:')) {
-  const page = new URL(url);
+  const page = new URL(pageUrl);
   const built = builtHash(readFileSync(page, 'utf8'));
-  const now = sourceHash();
+  let now = sourceHash();
+  if (SAVE_IDS) {
+    // The baseline comes from the committed source: the page must carry the hash of HEAD's index.html + src/.
+    const dir = mkdtempSync(resolve(tmpdir(), 'iss-head-'));
+    execSync(`git archive --format=tar -o "${dir}/head.tar" ${IDS_FROM} index.html src`, { stdio: 'pipe' });
+    execSync(`tar -xf head.tar`, { cwd: dir, stdio: 'pipe' });
+    rmSync(resolve(dir, 'head.tar'));
+    now = sourceHash(dir);
+    rmSync(dir, { recursive: true, force: true });
+    console.log(`--save-ids: page hash ${built}, source hash of ${IDS_FROM} ${now}`);
+  }
   if (built !== now) {
     console.log(
       `SMOKE FAIL: ${page.pathname.split('/').pop()} was built from different source ` +
@@ -233,7 +274,8 @@ const consoleErrors = [];
 const pageErrors = [];
 const requests = { file: 0, mockedCelestrak: 0, mockedEonet: 0, mockedGibs: 0, blocked: [], network: [], refusedOffline: [] };
 
-const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const SWIFTSHADER = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
+const browser = await chromium.launch({ channel: 'chrome', headless: true, ...(VIEW !== 'flat' ? { args: SWIFTSHADER } : {}) });
 let failed = false;
 try {
   // --a11y: reduced motion, so the game's reveal is instant (the page's own prefers-reduced-motion path).
@@ -282,7 +324,7 @@ try {
     const b = BM_TILE.exec(r.url());
     if (b) bmResponses.push({ zyx: `${b[1]}/${b[2]}/${b[3]}`, status: r.status(), kind: r.request().resourceType() });
   });
-  await page.route('**/*', (route) => {
+  const handleRoute = (route) => {
     const u = route.request().url();
     if (u.startsWith('file:') || u.startsWith('data:') || u.startsWith('blob:')) {
       requests.file++;
@@ -356,7 +398,39 @@ try {
     }
     requests.blocked.push(u);
     return route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: '' });
-  });
+  };
+  await page.route('**/*', handleRoute);
+
+  // ---- G1 --view auto: the four fallback cases, each in a fresh context with the same mocked network.
+  if (VIEW === 'auto') {
+    const newPage = async (opts, init) => {
+      const ctx = await browser.newContext({ viewport: { width: w, height: h }, ...opts });
+      const pg = await ctx.newPage();
+      const errors = [];
+      pg.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+      pg.on('pageerror', (e) => errors.push(String(e)));
+      if (init) await pg.addInitScript(init);
+      await pg.route('**/*', handleRoute);
+      return { page: pg, errors, close: () => ctx.close() };
+    };
+    const cases = await autoCases({ newPage, baseUrl: pageUrl });
+    console.log(JSON.stringify({ url: pageUrl, viewport: `${w}x${h}`, cases }, null, 2));
+    failed = cases.length !== 4 || cases.some((c) => !c.ok);
+    console.log(
+      failed
+        ? `SMOKE FAIL: --view auto: ${cases.filter((c) => !c.ok).map((c) => c.name).join(', ')}`
+        : `SMOKE PASS: --view auto: ${cases
+            .map((c) => {
+              if (c.name === 'no WebGL') return `(1) no WebGL -> flat "${c.atLoad.why}", note shown, 3D pressed -> still flat "${c.afterPress.why}"`;
+              if (c.name === 'reduced motion') return `(2) reduced motion -> flat "${c.atLoad.why}"`;
+              if (c.name === 'software renderer') return `(3) as launched (${c.at2s.probe}) -> flat "${c.at2s.why}" at 2 s and "${c.at10s.why}" at 10 s, note shown, ${c.contexts.length} WebGL context(s) made, all lost`;
+              return `(4) ?view=3d then WEBGL_lose_context -> flat "${c.after.why}" after ${c.flatAfterMs} ms, ${c.tiles} built-in tiles showing`;
+            })
+            .join('; ')}; 0 console errors`,
+    );
+    await browser.close();
+    process.exit(failed ? 1 : 0);
+  }
 
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => /^-?\d+(\.\d+)?$/.test(document.getElementById('lat')?.textContent ?? ''), null, { timeout: 15_000 });
@@ -375,6 +449,41 @@ try {
       .waitForFunction(() => ['loaded', 'failed', 'unreachable'].includes(document.body.dataset.gibs ?? ''), null, { timeout: 25_000 })
       .catch(() => {});
     await page.waitForTimeout(NET ? 3000 : 500); // let the visible tiles paint before the screenshot
+  }
+  // ---- G1: every element id of the page before G1 is still here (first screen and each tab open).
+  const collectIds = async () => {
+    const ids = new Set(await page.$$eval('[id]', (es) => es.map((e) => e.id)));
+    for (const t of await page.$$eval('.tabs [role="tab"]', (bs) => bs.map((b) => b.dataset.tab))) {
+      await page.click(`#tab-btn-${t}`);
+      for (const i of await page.$$eval('[id]', (es) => es.map((e) => e.id))) ids.add(i);
+    }
+    await page.click('#tab-btn-nasa');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    return [...ids].filter((i) => i).sort();
+  };
+  const idsNow = await collectIds();
+  if (SAVE_IDS) {
+    writeFileSync(IDS_FILE, JSON.stringify({ savedAt: new Date().toISOString(), from: `${pageUrl.split('/').pop()} built from the source of ${IDS_FROM} (the commit before G1)`, viewport: `${w}x${h}`, count: idsNow.length, ids: idsNow }, null, 2) + '\n');
+    console.log(`SAVED ${idsNow.length} ids to scripts/ids-baseline.json`);
+    await browser.close();
+    process.exit(0);
+  }
+  const idsBaseline = existsSync(IDS_FILE) ? JSON.parse(readFileSync(IDS_FILE, 'utf8')).ids : null;
+  const ids = { baseline: idsBaseline?.length ?? 0, now: idsNow.length, missing: idsBaseline ? idsBaseline.filter((i) => !idsNow.includes(i)) : ['(no scripts/ids-baseline.json)'] };
+  // ---- G1 --view 3d (default mode): the globe's own checks, before anything presses a flat-only action.
+  let globe = null;
+  if (VIEW === '3d' && FIRST) {
+    const { loadTs } = await import('./load-ts.mjs');
+    const { mods, close } = await loadTs(['/src/orbit/daynight.ts']);
+    const sizeTag = `${w === 1366 && h === 768 ? '' : `-${w}x${h}`}`;
+    mkdirSync(resolve('evidence'), { recursive: true });
+    try {
+      globe = await globeChecks({ page, w, h, evidence: (n) => resolve(`evidence/${n}${sizeTag}.png`), subsolarAt: (ms) => mods[0].subsolarPoint(new Date(ms)) });
+    } finally {
+      await close();
+    }
+  } else if (VIEW === '3d') {
+    globe = { checks: { view3d: (await waitForGlobe(page)) && (await page.evaluate(() => document.body.dataset.view)) === '3d' } };
   }
   const first = await read();
   await page.waitForTimeout(2500);
@@ -847,7 +956,14 @@ try {
     game6.lab.ok = !!labM && Math.abs(Number(labM[1]) - game6.lab.recomputed.min) <= 0.06 && Math.abs(Number(labM[2]) - game6.lab.recomputed.kmS) <= 0.006;
     await page.click('#tab-btn-game');
     game6.boardEmptyAtStart = await page.isVisible('#game-board-empty');
+    if (VIEW === '3d') {
+      // G1: back to the globe first, so Play is pressed in 3D; the press must open the flat map.
+      await page.click('#view-3d');
+      await page.waitForTimeout(300);
+      game6.viewBeforePlay = await page.evaluate(() => document.body.dataset.view);
+    }
     await page.click('#game-start');
+    if (VIEW === '3d') game6.viewAfterPlay = await page.evaluate(() => ({ view: document.body.dataset.view, why: document.body.dataset.viewWhy, mapShown: getComputedStyle(document.getElementById('map')).display !== 'none' }));
     const satrecNode = satjs.twoline2satrec(...tle.trim().split(/\r?\n/).map((l) => l.trim()).slice(-2));
     const R = 6371.0088;
     const hav = (a, b, c, d) => {
@@ -923,6 +1039,7 @@ try {
       totalIsSum: Math.abs(+game6.end.total - sum) <= 0.2,
       boardLabelledThisDevice: /on this device/.test(game6.end.boardHeading) && game6.boardEmptyAtStart,
       boardHasThisGame: game6.end.boardRows.length === 1 && Array.isArray(game6.end.stored) && game6.end.stored.length === 1 && Math.abs(game6.end.stored[0].totalKm - sum) <= 0.2,
+      ...(VIEW === '3d' ? { playIn3dOpensFlat: game6.viewBeforePlay === '3d' && game6.viewAfterPlay.view === 'flat' && game6.viewAfterPlay.why === 'press' && game6.viewAfterPlay.mapShown } : {}),
     };
   }
 
@@ -1114,6 +1231,15 @@ try {
   let a11y = null;
   if (A11Y) {
     a11y = { liveRegions: [], whereChanges: [], axe: [], keyboard: null, game: null };
+    if (VIEW === '3d') {
+      // The daily-photo check above (P2) opened the flat map: back to the globe, where the walk runs.
+      await page.click('#view-3d');
+      await waitForGlobe(page);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      a11y.viewAtStart = await page.evaluate(() => document.body.dataset.view);
+      a11y.globeKeys = await globeKeyboard(page);
+      await page.evaluate(() => document.activeElement?.blur());
+    }
     // (1) Live regions, watched for 65 s while nothing is pressed.
     a11y.whereTextAtStart = await page.textContent('#where-now');
     await page.evaluate(() => {
@@ -1194,7 +1320,11 @@ try {
       s.tabIndex = -1;
       document.body.prepend(s);
     });
-    const kb = { passes: [], reached: new Set(), everVisible: new Set(), enterOk: {}, ring: {}, spaceOk: {}, tabPresses: 0 };
+    const kb = { passes: [], reached: new Set(), everVisible: new Set(), enterOk: {}, ring: {}, spaceOk: {}, tabPresses: 0, restored3d: 0, globeRing: 0 };
+    // G1: the two view buttons are reached by Tab and their rings measured in the walk, but their Enter is
+    // pressed last, as a round trip (PLAN.md 4e Changes). In 3D the walk stays on the globe: a press that
+    // opened the flat map (Play) is followed by the 3D button, clicked by script, not counted as reached.
+    const PAIR = ['#view-3d', '#view-flat'];
     const addVisible = async () => (await page.evaluate(() => window.__visibleButtons())).forEach((k) => kb.everVisible.add(k));
     const focusInfo = () =>
       page.evaluate(() => {
@@ -1240,10 +1370,11 @@ try {
         if (!f) break; // past the last element
         if (steps > 0 && f.key === firstKey) break; // wrapped round
         if (steps === 0) firstKey = f.key;
+        if (f.key === '#globe') kb.globeRing = Math.max(kb.globeRing, f.ringPx);
         if (!f.button || f.disabled) continue;
         kb.reached.add(f.key);
         kb.ring[f.key] = Math.max(kb.ring[f.key] ?? 0, f.ringPx);
-        if (f.key in kb.enterOk) continue;
+        if (f.key in kb.enterOk || PAIR.includes(f.key)) continue;
         const n = await clickCount();
         await page.keyboard.press('Enter');
         await page.waitForTimeout(350);
@@ -1258,12 +1389,18 @@ try {
           } else kb.spaceOk[f.key] = false;
         }
         fresh++;
+        if (VIEW === '3d' && (await page.evaluate(() => document.body.dataset.view)) !== '3d') {
+          await page.evaluate(() => document.getElementById('view-3d').click());
+          await page.waitForTimeout(200);
+          kb.restored3d++;
+        }
         await addVisible();
       }
       kb.passes.push({ tab: tabId, pass, tabs: steps, newButtonsPressed: fresh });
       if (fresh === 0) break;
     }
     }
+    a11y.walkView = await page.evaluate(() => document.body.dataset.view);
     // One game round by keyboard: Game tab, Play, Tab to the map, Enter guesses the centre, Enter on Next round.
     const game = { steps: [] };
     await page.evaluate(() => document.getElementById('__kb-start').focus());
@@ -1294,7 +1431,80 @@ try {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(300);
     game.stateAfterStop = await page.evaluate(() => document.body.dataset.game);
+    game.viewAfterPlay = await page.evaluate(() => document.body.dataset.view);
     a11y.game = game;
+    // One more pass, now on the flat map, so buttons only the map shows (its zoom links) get Enter and Space.
+    {
+      await addVisible();
+      await page.evaluate(() => document.getElementById('__kb-start').focus());
+      let fresh = 0;
+      let firstKey = null;
+      let steps = 0;
+      for (; steps < 300; steps++) {
+        await page.keyboard.press('Tab');
+        kb.tabPresses++;
+        const f = await focusInfo();
+        if (!f) break;
+        if (steps > 0 && f.key === firstKey) break;
+        if (steps === 0) firstKey = f.key;
+        if (!f.button || f.disabled) continue;
+        kb.reached.add(f.key);
+        kb.ring[f.key] = Math.max(kb.ring[f.key] ?? 0, f.ringPx);
+        if (f.key in kb.enterOk || PAIR.includes(f.key)) continue;
+        const n = await clickCount();
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(350);
+        kb.enterOk[f.key] = (await clicksSince(n)).includes(f.key);
+        if (f.linkButton) {
+          const still = await focusInfo();
+          if (still?.key === f.key) {
+            const m = await clickCount();
+            await page.keyboard.press(' ');
+            await page.waitForTimeout(200);
+            kb.spaceOk[f.key] = (await clicksSince(m)).includes(f.key);
+          } else kb.spaceOk[f.key] = false;
+        }
+        fresh++;
+        await addVisible();
+      }
+      kb.passes.push({ tab: 'flat map after the game', pass: 1, tabs: steps, newButtonsPressed: fresh });
+    }
+    // The view pair, last: Tab to 3D, Enter (3D with a live WebGL context, or still flat with the note); then
+    // Tab to Flat page, Enter, and the map is shown with its built-in tiles.
+    const pair = {};
+    await page.evaluate(() => document.getElementById('__kb-start').focus());
+    pair.reached3d = await tabTo('#view-3d');
+    kb.ring['#view-3d'] = Math.max(kb.ring['#view-3d'] ?? 0, (await focusInfo())?.ringPx ?? 0);
+    {
+      const n = await clickCount();
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(1500);
+      kb.enterOk['#view-3d'] = (await clicksSince(n)).includes('#view-3d');
+    }
+    pair.after3d = await page.evaluate(() => {
+      const c = document.querySelector('#globe canvas');
+      const view = document.body.dataset.view;
+      const gl = view === '3d' && c ? c.getContext('webgl2') : null;
+      const note = document.getElementById('view-note');
+      return { view, why: document.body.dataset.viewWhy, webgl: !!gl && !gl.isContextLost(), note: !note.hidden && note.getBoundingClientRect().height > 0, noteText: note.textContent };
+    });
+    pair.outcome = pair.after3d.view === '3d' ? `3d with a WebGL context (${pair.after3d.webgl})` : `still flat, note "${pair.after3d.noteText}"`;
+    pair.ok3d = (pair.after3d.view === '3d' && pair.after3d.webgl) || (pair.after3d.view === 'flat' && pair.after3d.note);
+    pair.reachedFlat = await tabTo('#view-flat');
+    kb.ring['#view-flat'] = Math.max(kb.ring['#view-flat'] ?? 0, (await focusInfo())?.ringPx ?? 0);
+    {
+      const n = await clickCount();
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(800);
+      kb.enterOk['#view-flat'] = (await clicksSince(n)).includes('#view-flat');
+    }
+    pair.afterFlat = await page.evaluate(() => ({
+      view: document.body.dataset.view,
+      mapShown: getComputedStyle(document.getElementById('map')).display !== 'none' && document.getElementById('map').getBoundingClientRect().height > 0,
+      tiles: [...document.querySelectorAll('#map .leaflet-tile-loaded')].filter((t) => /^(data:|file:)/.test(t.src)).length,
+    }));
+    pair.okFlat = pair.afterFlat.view === 'flat' && pair.afterFlat.mapShown && pair.afterFlat.tiles > 0;
+    a11y.pair = pair;
     await page.evaluate(() => document.getElementById('__kb-start')?.remove());
     const reached = [...kb.reached];
     a11y.keyboard = {
@@ -1309,7 +1519,24 @@ try {
       spaceOnLinkButtons: kb.spaceOk,
       printCalls: await page.evaluate(() => window.__printed),
       reachedList: reached,
+      firedList: Object.entries(kb.enterOk).filter(([, ok]) => ok).map(([k]) => k).sort(),
+      restored3d: kb.restored3d,
+      globeRing: kb.globeRing,
     };
+    // The flat run's set of buttons reached and fired is kept, so the 3D run can be compared with it.
+    const SETS = resolve('evidence/g1-a11y-buttons-flat.json');
+    const mine = { reached: [...reached].sort(), fired: a11y.keyboard.firedList };
+    if (VIEW === 'flat') {
+      mkdirSync(resolve('evidence'), { recursive: true });
+      writeFileSync(SETS, JSON.stringify({ savedAt: new Date().toISOString(), viewport: `${w}x${h}`, ...mine }, null, 2) + '\n');
+      a11y.setCompare = { saved: 'evidence/g1-a11y-buttons-flat.json' };
+    } else {
+      const flatSets = existsSync(SETS) ? JSON.parse(readFileSync(SETS, 'utf8')) : null;
+      const same = (a, b) => !!a && !!b && a.length === b.length && a.every((x, i) => x === b[i]);
+      a11y.setCompare = flatSets
+        ? { reachedOnlyIn3d: mine.reached.filter((k) => !flatSets.reached.includes(k)), reachedOnlyInFlat: flatSets.reached.filter((k) => !mine.reached.includes(k)), firedOnlyIn3d: mine.fired.filter((k) => !flatSets.fired.includes(k)), firedOnlyInFlat: flatSets.fired.filter((k) => !mine.fired.includes(k)), same: same(mine.reached, flatSets.reached) && same(mine.fired, flatSets.fired) }
+        : { same: false, problem: 'run the flat --a11y first (evidence/g1-a11y-buttons-flat.json missing)' };
+    }
     await runAxe('after the keyboard run');
     a11y.axeTotals = { serious: 0, critical: 0, moderate: 0, minor: 0 };
     for (const st of a11y.axe) for (const v of st.violations) a11y.axeTotals[v.impact] = (a11y.axeTotals[v.impact] ?? 0) + v.nodes;
@@ -1347,6 +1574,17 @@ try {
         game.stateAfterNext === 'guessing' &&
         game.nextRingPx >= 2 &&
         game.stateAfterStop === 'idle',
+      viewPairLast: a11y.pair.reached3d && a11y.pair.reachedFlat && a11y.pair.ok3d && a11y.pair.okFlat && kb.enterOk['#view-3d'] === true && kb.enterOk['#view-flat'] === true,
+      viewPairRings: kb.ring['#view-3d'] >= 2 && kb.ring['#view-flat'] >= 2,
+      ...(VIEW === '3d'
+        ? {
+            walkStartsOnGlobe: a11y.viewAtStart === '3d' && a11y.walkView === '3d',
+            globeReachedWithRing: kb.globeRing >= 2 && a11y.globeKeys.ringPx >= 2,
+            arrowKeyTurnsGlobe: a11y.globeKeys.arrowMovedDeg > 1,
+            playOpensFlat: game.viewAfterPlay === 'flat',
+            sameButtonsAsFlatRun: a11y.setCompare.same === true,
+          }
+        : { pairInFlatSet: PAIR.every((k) => kb.reached.has(k)) }),
     };
   }
 
@@ -1484,6 +1722,9 @@ try {
     oem,
     c2,
     p2,
+    view: VIEW,
+    ids,
+    globe,
     gibsTiles: { total: gibsResponses.length, status200: tiles200.length, sample: gibsResponses.slice(0, 3) },
     blueMarbleTiles: { total: bmResponses.length, status200: bm200.length, sample: bmResponses.slice(0, 3) },
     consoleErrors,
@@ -1517,7 +1758,9 @@ try {
     Object.values(oem.checks).includes(false) ||
     Object.values(c2.checks).includes(false) ||
     Object.values(x5.checks).includes(false) ||
-    Object.values(p2.checks).includes(false);
+    Object.values(p2.checks).includes(false) ||
+    ids.missing.length > 0 ||
+    (globe && Object.values(globe.checks).includes(false));
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
     failed
@@ -1541,6 +1784,11 @@ try {
           (A11Y ? `; a11y: sentence "${a11y.whereText}" changed ${a11y.whereChanges.length} time(s) in ${a11y.watchedS} s (other live regions: ${a11y.otherLiveChanges.length} change(s)); axe-core ${a11y.axeVersion} on ${a11y.axe.length} page states: ${a11y.axeTotals.critical} critical, ${a11y.axeTotals.serious} serious, ${a11y.axeTotals.moderate} moderate, ${a11y.axeTotals.minor} minor; keyboard: ${a11y.keyboard.reachedByTab} of ${a11y.keyboard.buttonsVisibleAtSomePoint} buttons seen reached by Tab (${a11y.keyboard.tabPresses} Tab presses, ${a11y.keyboard.passes.length} passes), Enter fired ${a11y.keyboard.enterPressed - a11y.keyboard.enterFailed.length} of ${a11y.keyboard.enterPressed}, focus ring on all, Space on ${Object.keys(a11y.keyboard.spaceOnLinkButtons).length} zoom buttons; keyboard game round "${a11y.game.score}"; evidence/c3.png` : '') +
           (VOICE ? `; voice: toggle shown, 1 call ${voice.minute.afterClickS} s after the click with exactly the sentence "${voice.minute.text}", plans: ${voice.plans.map((p) => `${p.newCalls} call "${p.text}"`).join(' / ')}, caption = spoken text, no speechSynthesis -> no toggle; ${voice.totalCalls} calls in all; evidence/x3.png` : '') +
           (FORECAST ? `; forecast lab: the button opened the card in place, [data-skill-yield] ${x6.card.skillYield}, [data-skill-price] ${x6.card.skillPrice}, ${x6.card.images.length} NASA images drawn (${x6.card.images.map((i) => `${i.day} ${i.w}x${i.h} shown ${i.shownW}x${i.shownH}`).join(', ')}), chart lines of ${x6.card.chartPaths.join('/')} points, label at ${x6.card.labelRect.top}-${x6.card.labelRect.bottom} px of a ${x6.card.viewportH} px window with the card at the top and no inner scroll, no price text outside the label, the 4 sources in the credits; "should I buy corn futures?" -> "${x6.money.note}" with 0 AI requests; evidence/x6.png` : '') +
+          `; view ${VIEW}: 0 of ${ids.baseline} baseline ids missing (${ids.now} on the page)` +
+          (globe?.image
+            ? `; globe (${globe.renderer}, ${globe.drawCalls} draw calls): image R-B ${globe.image.map((r) => `${r.name} ${r.redMinusBlue}`).join(', ')} (sample() agrees), marker ${globe.marker.centred.near} px of STATION_RGB within 3 px of the middle and ${globe.marker.east30.near} within 10 px at +30 deg east (mean x ${globe.marker.east30.meanX?.toFixed(0)} < ${globe.marker.east30.midX}), station ${globe.station2.lat}/${globe.station2.lon} vs #lat/#lon ${globe.station2.textLat}/${globe.station2.textLon}, subsolar ${globe.subsolar.page.lat}/${globe.subsolar.page.lon} vs node ${globe.subsolar.node.lat.toFixed(3)}/${globe.subsolar.node.lon.toFixed(3)}, shade ${globe.shade.subsolar.toFixed(0)} at the subsolar point and ${globe.shade.opposite.toFixed(0)} opposite, day/night pairs ${globe.shade.pairs.map((q) => `${q.day.toFixed(0)}>${q.night.toFixed(0)}`).join(' ')}, ${globe.trackPoints} track points, drag moved the centre ${globe.drag.movedDeg.toFixed(1)} deg with ${globe.drag.framesDuring} frames in ${globe.drag.dragMs} ms, flat page ${globe.flat.tiles} built-in tiles + ${globe.flat.tracks} track lines + night shade, 3D back, daily photo -> flat "${globe.daily.label}"; Play in 3D -> ${game6?.viewAfterPlay?.view}`
+            : '') +
+          (A11Y ? `; view pair last: 3D -> ${a11y.pair.outcome}, Flat page -> map with ${a11y.pair.afterFlat.tiles} built-in tiles` + (VIEW === '3d' ? `; globe ring ${a11y.keyboard.globeRing}px, ArrowLeft turned it ${a11y.globeKeys.arrowMovedDeg.toFixed(1)} deg, same buttons reached and fired as the flat run (${a11y.keyboard.reachedList.length} reached), walk restored 3D ${a11y.keyboard.restored3d} time(s)` : '') : '') +
           (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : ''),
   );
 } finally {
