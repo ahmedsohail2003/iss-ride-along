@@ -34,7 +34,7 @@ Suggestions and questions go in your own Google Doc under a "Checkpoint N" headi
 - "card done" for study cards 3 and 4, said out loud.
 - Your closing line, 12 words at most.
 - Armeis: join the Devpost project and add your school.
-- One of you: upload the new [docs/demo-backup.mp4](docs/demo-backup.mp4) to YouTube as Unlisted and swap the video link on Devpost.
+- One of you: upload the new [docs/demo-backup.mp4](docs/demo-backup.mp4) to YouTube as Public and swap the video link on Devpost ([DEVPOST_DRAFT.md](DEVPOST_DRAFT.md) has every step).
 
 **Your feedback since checkpoint 12:** no new messages overnight.
 

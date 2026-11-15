@@ -121,8 +121,8 @@ checked against something we did not write:
 2. **Passes.** For Ypsilanti, our list matched 8 of the 8 passes Heavens-Above lists for Nov 14-18,
    with the worst start time 1.3 s off (one city, one saved list, the same orbit data).
 3. **NASA's trajectory.** NASA's file is in a different reference frame (J2000) from SGP4's output
-   (TEME), so we wrote the conversion (IAU 1976 precession and the 106-term IAU 1980 nutation) and
-   tested it against the printed example in Vallado et al. 2006 (0.82 m off). On one set of orbit
+   (TEME), so the project has its own conversion (IAU 1976 precession and the 106-term IAU 1980
+   nutation), tested against the printed example in Vallado et al. 2006 (0.82 m off). On one set of orbit
    numbers our position and NASA's were 0.485 km apart at the epoch, 0.870 km after 24 h, 1.767 km
    after 36 h and 4.763 km after 72 h; with the conversion switched off they were 26 to 45 km apart
    (360 rows within 12 h of the epoch). NASA's file is a prediction too, so this is a distance
