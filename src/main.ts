@@ -12,6 +12,8 @@
 // page opens on it where the device can (DEFAULT_VIEW 'auto'); src/globe/view.ts holds the switch and that rule.
 // G2: the chosen pass is drawn on the globe too (src/globe/geo.ts passPoints), and the 3D view wears its own
 // black look (src/globe/look.ts, the colours; src/style.css, the rules under body[data-view="3d"]).
+// G3: the Sky tab's stars behind the globe (src/globe/stars.ts) and, in the 3D view only, the scroll story #story
+// under the tabs (src/globe/storyUi.ts; the camera for each scene from src/globe/story.ts).
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import * as L from 'leaflet';
@@ -43,6 +45,8 @@ import { orbitPoints, passPoints, type OrbitPoint } from './globe/geo';
 import { applyLook } from './globe/look';
 import { subsolarPoint } from './orbit/daynight';
 import globeImageUrl from './data/globe/bluemarble-2048.jpg';
+import { STORY_ON } from './globe/story';
+import { initStory, storyHtml } from './globe/storyUi';
 
 // M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
 // box, the next-pass line for the chosen place and a small "How accurate is this?" card. Everything
@@ -116,6 +120,7 @@ ${voiceHtml}
     ],
     'nasa',
   )}
+  ${STORY_ON ? storyHtml : ''}
   <footer>
   ${creditsHtml}
   <p class="small foot">Orbit data: CelesTrak (US Space Force data, not NASA). Reference: wheretheiss.at
@@ -248,11 +253,22 @@ function tick() {
   nasa.update(s.latDeg, s.lonDeg, s.altKm);
   // G1: the globe gets the same state every second (and the Sun, which moves 0.25 degree a minute).
   const g = view?.globe();
+  const sunNow = subsolarPoint(now);
   if (g) {
     g.setStation(s.latDeg, s.lonDeg, s.altKm);
-    const sun = subsolarPoint(now);
-    g.setSun(sun.latDeg, sun.lonDeg);
+    g.setSun(sunNow.latDeg, sunNow.lonDeg);
   }
+  // G3: the story's numbers, the same values and text as the readout
+  story?.update({
+    now,
+    lat: s.latDeg,
+    lon: s.lonDeg,
+    altText: $('alt').textContent ?? '',
+    altKm: s.altKm,
+    speedText: $('speed').textContent ?? '',
+    periodMin: periodMinutes(elements.satrec),
+    sun: { lat: sunNow.latDeg, lon: sunNow.lonDeg },
+  });
   // C2: the same shadow test as the pass list, so the label and the passes never disagree.
   const sun = sunlightLabel(elements.satrec, now);
   if (sun) {
@@ -272,6 +288,8 @@ const voice = initVoice({
   captionText: $('voice-text'),
 });
 
+// G3: the scroll story (3D view only); made before the first tick so its numbers are filled at once.
+const story = STORY_ON ? initStory({ getGlobe: () => view?.globe() ?? null, isOn3d: () => view?.current() === '3d' }) : null;
 tick();
 drawTrack(new Date());
 drawNight(new Date());
@@ -282,8 +300,14 @@ view = initView<Globe>({
   btnFlat: $('view-flat') as HTMLButtonElement,
   note: $('view-note'),
   makeGlobe: (canvas, gl, renderer) => createGlobe({ host: $('globe'), canvas, gl, renderer, imageUrl: globeImageUrl, sizeFrom: $('map') }),
-  onGlobe: (g) => feedGlobe(g),
-  onFlat: () => map.invalidateSize(),
+  onGlobe: (g) => {
+    feedGlobe(g);
+    story?.sync();
+  },
+  onFlat: () => {
+    map.invalidateSize();
+    story?.sync();
+  },
 });
 // The two actions that need the flat map open it first (a press: it wins over ?view=3d and is saved).
 ($('daily-toggle') as HTMLInputElement).addEventListener('change', (e) => {

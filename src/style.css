@@ -353,3 +353,19 @@ body[data-view="3d"] .ref-result strong, body[data-view="3d"] .oem-gap strong { 
 body[data-view="3d"] .plan-fallback, body[data-view="3d"] .plan-orbit { color: var(--g-warn); }
 body[data-view="3d"] .trace-bad strong { color: var(--g-bad); }
 body[data-view="3d"] .key-view { border-color: var(--g-accent); }
+
+/* G3: the scroll story under the tabs, in the 3D view only. While it is on screen (body.story-on) the globe's
+   canvas is fixed to the whole window behind the text (z-index -1 over the page's black root, the body made
+   see-through); no ancestor of the canvas carries a transform, so "fixed" means the window. Cards are opaque. */
+#story { display: none; }
+body[data-view="3d"] #story { display: block; margin: 1.5rem 0 0; }
+.scene { min-height: 92vh; display: flex; align-items: center; padding: 2rem 0; }
+.scene:nth-child(even) { justify-content: flex-end; }
+.scene-card { max-width: 30rem; background: var(--g-page); border: 1px solid var(--g-line); border-radius: 10px; padding: 1rem 1.2rem; }
+.scene-card h2 { margin: 0 0 0.35rem; font-size: 1.35rem; color: var(--g-text); letter-spacing: -0.01em; }
+.scene-card p { margin: 0; color: var(--g-muted); }
+.scene-card span { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-variant-numeric: tabular-nums; color: var(--g-text); }
+body[data-view="3d"].story-on { background: transparent; }
+body[data-view="3d"].story-on #globe canvas { position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; cursor: default; }
+body[data-view="3d"].story-on .tabs-wrap, body[data-view="3d"].story-on footer { position: relative; background: var(--g-page); }
+@media print { #story { display: none !important; } }
