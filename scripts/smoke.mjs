@@ -536,7 +536,8 @@ try {
       p2.builtInTilesLoaded = await page.$$eval('#map .leaflet-tile-loaded', (ts) => ts.filter((t) => /^(data:|file:)/.test(t.src)).length);
       p2.checks.builtInImageShows = p2.builtInTilesLoaded > 0;
       p2.blockedShot = evidence('p2-gibs-blocked');
-      await page.locator('#map').screenshot({ path: p2.blockedShot });
+      // (G2: in 3D the map is hidden, so the slot that holds the globe, as G1 did for the phone-size shot)
+      await page.locator(VIEW === '3d' ? '.map-slot' : '#map').screenshot({ path: p2.blockedShot });
     } else {
       // first screen with the switch off (on a phone the map sits below the fold, so the map itself)
       p2.defaultShot = evidence('p2-default');
@@ -581,7 +582,20 @@ try {
         sunlit: document.body.dataset.sunlit ?? null,
       };
     });
+  // G2: the flat map's night shade is measured on the flat map. In 3D runs where the globe is still shown here
+  // (only --block gibs: P2's switch is off and disabled there, so nothing has opened the flat page), press
+  // "Flat page", measure, and press "3D" to go back to the globe.
+  const showingGlobe = VIEW === '3d' && (await page.evaluate(() => document.body.dataset.view)) === '3d';
+  if (showingGlobe) {
+    await page.click('#view-flat');
+    await page.waitForTimeout(400);
+  }
   const c2 = await readC2();
+  if (showingGlobe) {
+    c2.measuredOnFlatByPress = true;
+    await page.click('#view-3d');
+    await waitForGlobe(page);
+  }
   c2.checks = {
     shadeDrawn: c2.shadePaths === 1 && c2.linePaths === 1 && c2.nightPoints === '363' && !!c2.shadeBox && c2.shadeBox.w > 0.9 * c2.mapBox.w && c2.shadeBox.h > 20,
     labelAllowed: LABEL_RE.test(c2.panelLabel),
@@ -741,7 +755,17 @@ try {
   if (PLAN) {
     plan = {};
     plan.buttonText = await page.textContent('#plan-go');
-    if (VIEW === '3d') await armTurnWatch(page);
+    if (VIEW === '3d') {
+      // P2's check ticks #daily-toggle, a flat-only action that opens the flat page (a press): go back to the
+      // globe the way a user would, by pressing "3D", before the plan.
+      plan.viewBeforePlan = await page.evaluate(() => document.body.dataset.view);
+      if (plan.viewBeforePlan !== '3d') {
+        await page.click('#view-3d');
+        plan.restored3d = await waitForGlobe(page);
+      }
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await armTurnWatch(page);
+    }
     const planClickAt = Date.now();
     await page.click('#plan-go');
     await page.waitForFunction(() => !!document.body.dataset.planKind, null, { timeout: 15_000 });
@@ -769,7 +793,8 @@ try {
         await close();
       }
       mkdirSync(resolve('evidence'), { recursive: true });
-      await page.locator('#globe').screenshot({ path: resolve('evidence/g2-pass.png') });
+      plan.globePass.viewAfter = await page.evaluate(() => ({ view: document.body.dataset.view, why: document.body.dataset.viewWhy }));
+      await page.locator('#globe').screenshot({ path: resolve('evidence/g2-pass.png'), timeout: 5000 }).catch((e) => (plan.globePass.shotError = String(e.message).split('\n')[0]));
     }
     mkdirSync(dirname(out), { recursive: true });
     if (!OUTPUTS) await page.screenshot({ path: out, fullPage: true });
@@ -1628,6 +1653,16 @@ try {
   let clickRun = null;
   if (PATH) {
     clickRun = { rows: [], problems: [] };
+    if (VIEW === '3d') {
+      // P2's check ticked #daily-toggle (a flat-only action, which opens the flat page): press "3D" to walk the
+      // presenter path on the globe, as the demo address opens it.
+      clickRun.viewBeforePath = await page.evaluate(() => document.body.dataset.view);
+      if (clickRun.viewBeforePath !== '3d') {
+        await page.click('#view-3d');
+        clickRun.restored3d = await waitForGlobe(page);
+      }
+      await page.evaluate(() => window.scrollTo(0, 0));
+    }
     if (clickPath.length < 8) clickRun.problems.push(`click path has ${clickPath.length} rows, expected at least 8`);
     const secs = clickPath.map((s) => /^(\d+):(\d{2})$/.exec(s.when)).filter(Boolean).map((m) => Number(m[1]) * 60 + Number(m[2]));
     clickRun.lastStepAtS = secs.length ? Math.max(...secs) : null;
@@ -1676,7 +1711,7 @@ try {
         r.after = await page.evaluate(() => ({ view: document.body.dataset.view, label: document.getElementById('gibs-date')?.textContent ?? '' }));
         r.mapShown = await page.isVisible('#map');
         r.thenText = r.after.label;
-        r.ok = r.visible && r.after.view === 'flat' && r.mapShown && /\d{4}-\d{2}-\d{2}/.test(r.after.label);
+        r.ok = r.visible && r.viewBefore === VIEW && r.after.view === 'flat' && r.mapShown && /\d{4}-\d{2}-\d{2}/.test(r.after.label);
         await page.uncheck('#daily-toggle');
       } catch (e) {
         r.ok = false;
@@ -1838,7 +1873,7 @@ try {
           (PLAN ? `; planner: "${plan.buttonText?.trim()}", ${plan.traceRows} trace rows, ${plan.passShown} on the map, "${plan.countdown}", trip note "${plan.tripNote}", keys ok` : '') +
           (PLAN && plan.globePass ? `; globe pass: ${plan.globePass.points} points, first ${plan.globePass.firstOffDeg.toFixed(4)} deg from the rise and last ${plan.globePass.lastOffDeg.toFixed(4)} deg from the set (pass ${plan.globePass.node.start} to ${plan.globePass.node.end} recomputed in Node), city ${plan.globePass.city.lat}/${plan.globePass.city.lon} vs ${plan.globePass.place.name} ${plan.globePass.place.lat}/${plan.globePass.place.lon}, centre within 5 deg of the highest point after ${plan.globePass.reachedMs} ms (${plan.globePass.finalOffDeg.toFixed(2)} deg at 2 s), ${plan.globePass.framesIn500} frames in the first 0.5 s of the turn; evidence/g2-pass.png` : '') +
           (OUTPUTS ? `; outputs: download "${outputs.download}" (${outputs.ics.bytes} bytes, 1 VEVENT, TRIGGER:-PT10M, CRLF, longest line ${outputs.ics.longestLineBytes} bytes, DTSTART ${outputs.ics.dtstart}), print view: sheet shown with ${outputs.print.sheetLines} lines and ${outputs.print.questions.length} questions, map and its controls hidden, sheet "${outputs.sheetAudit}"` : '') +
-          (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s` : '') +
+          (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s; row cue-3 (tick #daily-toggle): ${clickRun.rows.at(-1).viewBefore} -> ${clickRun.rows.at(-1).after?.view} with "${clickRun.rows.at(-1).after?.label?.slice(0, 40)}..."` : '') +
           (FIRST ? `; first screen ${w}x${h}: no horizontal scroll, planner box and next-pass line inside, "Detroit" + Enter -> "${first7.detroitText}" in ${first7.detroitMs} ms, ${first7.tabs.length} tabs open (${first7.tabs.map((t) => t.label).join(', ')}); after "Plan my sighting": Place control "${first7.placeAfter.placeControl}", passes table "${first7.placeAfter.tableCaption}" (${first7.placeAfter.tableRows} rows), City box "${first7.placeAfter.cityBox}"` : '') +
           (FIRST ? `; game: round 1 "${game6.rounds[0].score}" (recomputed ${game6.rounds[0].recomputedKm.toFixed(1)} km; answer = satellite.js at +10 min), rounds ${game6.rounds.map((r) => r.score).join(' / ')}, ${game6.end.totalText.replace(/ That.*/, '')} on the device board (${game6.end.boardRows.length} row), evidence/m6${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png; orbit lab "${game6.lab.text}" at ${game6.lab.alt} km (formula ${game6.lab.recomputed.min.toFixed(2)} min, ${game6.lab.recomputed.kmS.toFixed(3)} km/s)` : '') +
           (A11Y ? `; a11y: sentence "${a11y.whereText}" changed ${a11y.whereChanges.length} time(s) in ${a11y.watchedS} s (other live regions: ${a11y.otherLiveChanges.length} change(s)); axe-core ${a11y.axeVersion} on ${a11y.axe.length} page states: ${a11y.axeTotals.critical} critical, ${a11y.axeTotals.serious} serious, ${a11y.axeTotals.moderate} moderate, ${a11y.axeTotals.minor} minor, ${a11y.axeIncompleteContrast} "incomplete" contrast item(s); keyboard: ${a11y.keyboard.reachedByTab} of ${a11y.keyboard.buttonsVisibleAtSomePoint} buttons seen reached by Tab (${a11y.keyboard.tabPresses} Tab presses, ${a11y.keyboard.passes.length} passes), Enter fired ${a11y.keyboard.enterPressed - a11y.keyboard.enterFailed.length} of ${a11y.keyboard.enterPressed}, focus ring on all, Space on ${Object.keys(a11y.keyboard.spaceOnLinkButtons).length} zoom buttons; keyboard game round "${a11y.game.score}"; evidence/c3.png` : '') +
