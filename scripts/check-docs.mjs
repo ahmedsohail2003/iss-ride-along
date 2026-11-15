@@ -19,7 +19,8 @@
 //    answer has a "File:" line whose backticked files all exist, and every `name()` on that line is
 //    defined in one of those files. Its 90-second click path has at least 8 rows (smoke.mjs --path
 //    presses them on the built page).
-// 9. (M9b; B4) docs/PRESENTING.md, docs/CUE_SHEET.md and the DEV post draft docs/DEV_POST.md: every
+// 9. (M9b; B4; T1) docs/PRESENTING.md, docs/CUE_SHEET.md, the DEV post draft docs/DEV_POST.md and the
+//    final Devpost text DEVPOST_DRAFT.md (the text a teammate pastes): every
 //    number in them appears in the build log's
 //    evidence (`.autopilot/PROGRESS.md` beside the repo; a number with decimals may be a rounding of a
 //    logged one; clock times, timecodes, list numbers and `code` are not counted as numbers); no part
@@ -42,6 +43,16 @@
 //    (names Claude Code, Fable 5.2, Opus 5.5 and Ahmed), carries the #mlhacks tag and the line "Not
 //    affiliated with or endorsed by NASA", stays "published: false" (publishing is a human step), and
 //    never says "we coded", "I programmed" or "we wrote the code".
+// 13. (T1) The final Devpost text DEVPOST_DRAFT.md (besides rules 6, 9 and 10): the honesty lines are in
+//    it (Claude Code, Fable 5.2, Opus 5.5, Ahmed; Gemini live-tested; the OpenAI adapter "not
+//    live-tested"; "Not affiliated with or endorsed by NASA"; CelesTrak as US Space Force data; "not
+//    investment advice"; the RoBuff line); "accurate to" and "in progress" appear nowhere (every part is
+//    VERIFIED, so what is open is listed as not done); nobody says "we coded" or "we wrote the code";
+//    its test count is the README table's; "Built with" has three.js. Its story block (the markdown
+//    box) is 900 words or fewer without the three teammates' own lines, has no table and no HTML,
+//    carries the kit's 3D paragraph word for word (where the kit is present), words "who wrote the code"
+//    as question 1 of docs/PRESENTER_PACK.md does, and keeps one line each for Quinn, Denim and Armeis
+//    ("wait" while a line is still marked [FILL], as in rule 11).
 // Exit 0 when everything holds, 1 otherwise. Offline, no dependencies.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -300,7 +311,7 @@ const inLog = (s) => {
 
 // ---- 9. Presentation plan and cue sheet (M9b).
 {
-  const DOCS = ['docs/PRESENTING.md', 'docs/CUE_SHEET.md', 'docs/DEV_POST.md']; // DEV_POST.md: B4
+  const DOCS = ['docs/PRESENTING.md', 'docs/CUE_SHEET.md', 'docs/DEV_POST.md', 'DEVPOST_DRAFT.md']; // DEV_POST.md: B4; DEVPOST_DRAFT.md: T1
 
   // Parts that must not be named until their milestone's verdict line says VERIFIED.
   const UNBUILT = [
@@ -312,6 +323,9 @@ const inLog = (s) => {
     ['X5', 'the sky view', /sky view|constellation|sky from the station/i],
     ['X3', 'reading the answer aloud', /speech synthesis|text to speech|reads? the answer aloud/i],
     ['X6', 'the forecast lab', /forecast lab|harvest/i],
+    ['P2', 'the clear map', /blue marble|clear map/i], // T1: the parts the 3D text names
+    ['G1', 'the 3D globe', /3D globe|three\.js/i],
+    ['G3', 'the scroll story', /scroll story/i],
   ];
   const verdictSource = haveLog ? log : existsSync(join(root, 'docs/VERIFICATION.md')) ? read('docs/VERIFICATION.md') : '';
   const verified = new Set([...verdictSource.matchAll(/^(?:- )?([A-Z]\d+[a-z]?) VERIFIED\b/gm)].map((m) => m[1]));
@@ -458,6 +472,123 @@ const inLog = (s) => {
     const over = post.match(/\b(?:we|i)\s+(?:all\s+)?(?:coded|programmed|wrote\s+(?:all\s+)?(?:of\s+)?(?:the|this|our|its)\s+code)\b/i);
     if (over) problems.push(`${POST}: says "${over[0]}" (the code was written by Claude Code; say what was checked or learned)`);
     if (problems.length === before) passes.push(`${POST}: AI disclosure (Claude Code, Fable 5.2, Opus 5.5, Ahmed), #mlhacks, the NASA line, "published: false", no overclaim`);
+  }
+}
+
+// ---- 13. The final Devpost text (T1): honesty lines, no stale wording, the story block's shape.
+{
+  const DRAFT = 'DEVPOST_DRAFT.md';
+  const PACK = 'docs/PRESENTER_PACK.md';
+  const KIT = join(root, '..', 'SUBMISSION.md');
+  const PEOPLE = ['Quinn', 'Denim', 'Armeis'];
+  const OVERCLAIM = /\b(?:we|i)\s+(?:all\s+)?(?:coded|programmed|wrote\s+(?:all\s+)?(?:of\s+)?(?:the|this|our|its)\s+code)\b/i;
+  const flat = (s) => s.replace(/\s+/g, ' ').trim();
+  if (!existsSync(join(root, DRAFT))) problems.push(`${DRAFT} is missing`);
+  else {
+    const draft = read(DRAFT).replace(/\r\n/g, '\n'); // a clean export on Windows may come out with CRLF
+    const before = problems.length;
+    const one = flat(draft);
+
+    // (a) The honesty lines.
+    const MUST = [
+      'Claude Code',
+      'Fable 5.2',
+      'Opus 5.5',
+      'Ahmed',
+      'live-tested with Gemini',
+      'not live-tested',
+      'Not affiliated with or endorsed by NASA',
+      'US Space Force tracking data, not NASA',
+      'not investment advice',
+      "modelled on Ahmed's earlier RoBuff page; all code was written new at this event",
+    ];
+    for (const must of MUST) if (!one.includes(must)) problems.push(`${DRAFT}: does not contain "${must}"`);
+    if (problems.length === before)
+      passes.push(`${DRAFT}: the ${MUST.length} honesty lines are in (AI tools and how, Gemini live-tested, OpenAI not live-tested, the NASA line, CelesTrak as US Space Force data, not investment advice, the RoBuff line)`);
+
+    // (b) Wording that must not come back.
+    const mid = problems.length;
+    for (const [re, why] of [
+      [/accurate to/i, 'the gap to NASA is a distance apart, never accuracy'],
+      [/in progress/i, 'every part is VERIFIED; say what is not done under "Not done yet"'],
+    ]) {
+      const m = draft.match(re);
+      if (m) problems.push(`${DRAFT}: says "${m[0]}" (${why})`);
+    }
+    const over = draft.match(OVERCLAIM);
+    if (over) problems.push(`${DRAFT}: says "${over[0]}" (the code was written by Claude Code; say what was tested, checked or learned)`);
+    if (problems.length === mid) passes.push(`${DRAFT}: no "accurate to", no "in progress", nobody is said to have written the code but the AI tools`);
+
+    // (c) The test count is the README table's.
+    const mine = draft.match(/(\d+) of \1 automated tests/);
+    const theirs = existsSync(join(root, 'README.md')) ? read('README.md').match(/\| `npm test` \|[^\n]*?\| (\d+) of \1 passed/) : null;
+    if (!mine) problems.push(`${DRAFT}: no "N of N automated tests" line`);
+    else if (!theirs) problems.push(`README.md: the "How we test" table has no "N of N passed" result for npm test, so ${DRAFT}'s count cannot be compared`);
+    else if (mine[1] !== theirs[1]) problems.push(`${DRAFT}: says ${mine[1]} automated tests, the README table says ${theirs[1]}`);
+    else passes.push(`${DRAFT}: ${mine[1]} automated tests, the same count as the README "How we test" table`);
+
+    // (d) "Built with" has three.js.
+    const built = draft.match(/^## Box F[^\n]*\n+```text\n([^`]*)\n```/m);
+    if (!built) problems.push(`${DRAFT}: no "## Box F" built-with box`);
+    else if (!/three\.js/.test(built[1])) problems.push(`${DRAFT}: "Built with" does not list three.js`);
+    else passes.push(`${DRAFT}: "Built with" lists three.js`);
+
+    // (e) The story block.
+    const box = draft.match(/```markdown\n([\s\S]*?)\n```/);
+    if (!box) problems.push(`${DRAFT}: no story block (a markdown box)`);
+    else {
+      const story = box[1];
+      const lines = story.split('\n');
+      const own = (l) => PEOPLE.some((n) => l.startsWith(`- ${n}:`));
+      const count = (ls) => ls.join(' ').split(/\s+/).filter(Boolean).length;
+      const words = count(lines.filter((l) => !own(l)));
+      const all = count(lines);
+      if (words > 900) problems.push(`${DRAFT}: the story block is ${words} words without the teammates' own lines (limit 900)`);
+      else passes.push(`${DRAFT}: the story block is ${words} words without the three teammates' own lines, ${all} with them (limit 900)`);
+      const table = lines.find((l) => /^\s*\|/.test(l));
+      const html = story.match(/<[A-Za-z/!][^>]*>/);
+      if (table) problems.push(`${DRAFT}: the story block has a table row ("${table.slice(0, 40)}"); Devpost's story field does not take tables`);
+      if (html) problems.push(`${DRAFT}: the story block has HTML ("${html[0]}")`);
+      if (!table && !html) passes.push(`${DRAFT}: the story block has no table and no HTML`);
+
+      // The 3D paragraph, as written in the kit.
+      if (!existsSync(KIT)) passes.push(`${DRAFT}: 3D paragraph comparison SKIPPED (the submission kit is not in this checkout)`);
+      else {
+        const para = readFileSync(KIT, 'utf8').match(/^"(Where the device can draw it smoothly[^\n]*)"\r?$/m);
+        if (!para) problems.push('SUBMISSION.md: the 3D paragraph ("Where the device can draw it smoothly ...") was not found');
+        else if (!story.includes(para[1])) problems.push(`${DRAFT}: the story block does not carry the kit's 3D paragraph word for word`);
+        else passes.push(`${DRAFT}: the story block carries the kit's 3D paragraph word for word (${para[1].split(/\s+/).length} words)`);
+      }
+
+      // "Who wrote the code" is question 1's own sentence.
+      const q1 = existsSync(join(root, PACK)) ? flat(read(PACK).split(/^### /m).find((b) => b.startsWith('1. Who wrote the code')) ?? '') : '';
+      const who = flat(story).match(/The code was written by .{0,200}?\bAhmed\b/);
+      if (!q1) problems.push(`${DRAFT}: question 1 ("Who wrote the code ...") not found in ${PACK}, so the line cannot be compared`);
+      else if (!who) problems.push(`${DRAFT}: the story block has no "The code was written by ... Ahmed" sentence`);
+      else if (!q1.includes(who[0])) problems.push(`${DRAFT}: "who wrote the code" is not worded as in question 1 of ${PACK}: "${who[0]}"`);
+      else passes.push(`${DRAFT}: "who wrote the code" is word for word from question 1 of ${PACK}`);
+
+      // One line per first-timer, theirs to write.
+      const filled = [];
+      const waiting = [];
+      for (const name of PEOPLE) {
+        const line = lines.find((l) => l.startsWith(`- ${name}:`));
+        if (!line) {
+          problems.push(`${DRAFT}: the story block has no "- ${name}:" line under "What we learned"`);
+          continue;
+        }
+        const ownWords = line.replace(`- ${name}:`, '').trim();
+        if (!ownWords || /\[FILL\b/.test(ownWords)) waiting.push(name);
+        else {
+          filled.push(name);
+          const m = ownWords.match(OVERCLAIM);
+          if (m) problems.push(`${DRAFT}: ${name}'s line says "${m[0]}"; the story says who wrote the code (say what you tested, checked or learned)`);
+        }
+      }
+      if (filled.length) passes.push(`${DRAFT}: ${filled.length} of ${PEOPLE.length} first-timers' own lines are in (${filled.join(', ')})`);
+      if (waiting.length)
+        waits.push(`${DRAFT} "What we learned": ${waiting.length} of ${PEOPLE.length} lines still to be written by the person named (${waiting.join(', ')}); a line still empty at paste time is deleted, never written for them`);
+    }
   }
 }
 
