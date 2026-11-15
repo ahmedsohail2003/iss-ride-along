@@ -31,7 +31,8 @@ Ahmed's earlier RoBuff page; all code was written new at this event. Not affilia
 NASA,
 G4 the full re-check of both views, the refreshed presenter files and the re-recorded video,
 B4 the DEV post draft (docs/DEV_POST.md, not published),
-T1 the final Devpost text, the README's test table and the kit.
+T1 the final Devpost text, the README's test table and the kit,
+G5 a dotted Earth (the Photo / Dots switch), labels on the globe, a grid backdrop and a rim of light.
 
 - M0 VERIFIED 14:12 ET — fresh-shell re-run 2:10-2:12 PM: npm test 5/5 passed; build exit 0, dist/index.html 23,866 bytes single-file, 0 external script/link; src/data TLE/OMM/10 samples/150 cities/256x256 tile/snapshot-meta present; git clean, commit 3bfbfb5 by Ahmed, no trailers; headless Chrome file:// shows title, lat -48.38 lon 175.33, 0 console errors, 0 non-file requests (evidence/m0-r0.png). Notes: findPasses test not ported (logged deviation, M5); orbit data from 12:36 PM fetch (CelesTrak unreachable 2:07 PM).
 
@@ -98,3 +99,5 @@ T1 the final Devpost text, the README's test table and the kit.
 - B4 VERIFIED 05:36 ET — fresh-shell verify 5:34-5:37 AM Sun at HEAD e13ab05 (git clean before/after; RAM 2.06 GB, C: 32.2 GB): check-docs exit 0 DOCS PASS 0 FAIL (105 numbers found in PROGRESS, 0 unverified parts named of 8 guarded, 6/6 paths, AI disclosure + #mlhacks + NASA line + published: false); negative test (published: true, no #mlhacks, overclaim, unlogged 7319.46 m) -> 4 FAIL, exit 1, file restored byte-identical (blob 5fdb65c); re-run numbers: check-oem 0.485/0.308/0.870/1.767/4.763 km (off 26.10/36.95/45.19 km), oem.test 9/9 (max 1.031 km, median 0.368 km, eq. C-3 0.8175 m, 0 terms 169.5 m), npm test 193/193 (23 files) = post's 193; OEM header, package versions, 106-term table, measuredLine imports, team line, commit author 0 trailer hits all match; text-only, no screenshot; nothing pushed or published (evidence/b4-r0-check-docs.txt)
 
 - T1 VERIFIED 06:09 ET - fresh-shell verify 6:02-6:10 AM Sun at HEAD 0ad36c6 (git clean before/after): check-docs DOCS PASS in workspace and clean export; negative copies (accurate to, in progress, we wrote the code, unlogged number, G1 renamed) each FAIL exit 1; npm test 193/193 matching README table; recomputed OEM, position, 8/8 passes, 1627 stars, 6 scenes, video 147.36 s; story 889 words (871 without teammates' lines, limit 900); honesty lines present; secrets scan 0; no src changes since e13ab05. Minor non-blocking: '6 verification runs' lacks denominator, README line 124 old C1 wording, no B4 line in docs/VERIFICATION.md.
+
+- G5 VERIFIED 08:11 ET — re-run from fresh shell on HEAD ff23360 (clean), 8:01-8:10 AM: tsc 0, 198/198 tests, dist 2,752,862 B; dots smoke PASS at 1366x768 and 390x844 (land brighter than sea, 0 errors), labels match #alt/#speed, flat + a11y PASS (axe 0 violations), all earlier smokes PASS, real-chip dots median 4.2 ms, DOCS PASS, secrets clean, no deps/checks loosened; note: 202 axe incomplete contrast items over grid (not violations).
