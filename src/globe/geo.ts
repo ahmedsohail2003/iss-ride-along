@@ -92,6 +92,25 @@ export function orbitPoints(satrec: SatRec, now: Date, periodMin: number, stepS 
   return { past, next };
 }
 
+/**
+ * G2: the chosen pass, rise to set: the station every `stepS` seconds (5, the step of the flat map's pink
+ * arc, groundTrack(satrec, start, 0, minutes, 5)) from `start`, plus `end` itself, with the height kept
+ * so the 3D arc flies at the station's height.
+ */
+export function passPoints(satrec: SatRec, start: Date, end: Date, stepS = 5): OrbitPoint[] {
+  const out: OrbitPoint[] = [];
+  const t0 = start.getTime();
+  const t1 = end.getTime();
+  const push = (ms: number) => {
+    const t = new Date(ms);
+    const st = stateAt(satrec, t);
+    if (st) out.push({ t, latDeg: st.latDeg, lonDeg: st.lonDeg, altKm: st.altKm });
+  };
+  for (let ms = t0; ms < t1; ms += stepS * 1000) push(ms);
+  push(t1);
+  return out;
+}
+
 /** Unit vector from the Earth's centre to the Sun in globe axes (from subsolarPoint, our own Sun math). */
 export function sunVector(date: Date): Vec3 {
   const s = subsolarPoint(date);

@@ -10,6 +10,8 @@
 // X5: src/sky/skyPanel.ts draws the stars and constellations above the station right now (the Sky tab).
 // G1: src/globe/ is the 3D globe (three.js) in the map's place, fed by the same calls as the flat map; the
 // page still opens flat, and src/globe/view.ts holds the switch and the rule for which view shows.
+// G2: the chosen pass is drawn on the globe too (src/globe/geo.ts passPoints), and the 3D view wears its own
+// black look (src/globe/look.ts, the colours; src/style.css, the rules under body[data-view="3d"]).
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import * as L from 'leaflet';
@@ -37,7 +39,8 @@ import { initVoice, voiceHtml } from './ui/voice';
 import { initSkyPanel, skyPanelHtml } from './sky/skyPanel';
 import { initView } from './globe/view';
 import { createGlobe, type Globe } from './globe/globe';
-import { orbitPoints } from './globe/geo';
+import { orbitPoints, passPoints, type OrbitPoint } from './globe/geo';
+import { applyLook } from './globe/look';
 import { subsolarPoint } from './orbit/daynight';
 import globeImageUrl from './data/globe/bluemarble-2048.jpg';
 
@@ -45,9 +48,11 @@ import globeImageUrl from './data/globe/bluemarble-2048.jpg';
 // box, the next-pass line for the chosen place and a small "How accurate is this?" card. Everything
 // else opens from the tabs under it (anything built later gets a tab too).
 const app = document.querySelector<HTMLDivElement>('#app')!;
+applyLook(document.documentElement);
 app.innerHTML = `
   <header class="top">
     <h1>ISS Ride-Along</h1>
+    <span class="look-badge">3D globe</span>
     <p class="tag">Where the International Space Station is right now, and when you can see it, computed in your browser from public orbit data.</p>
   </header>
   ${warningsHtml}
@@ -177,7 +182,10 @@ function feedGlobe(g: Globe, now = new Date()) {
   const t = orbitPoints(elements.satrec, now, periodMinutes(elements.satrec));
   g.setTrack(t.past, t.next);
   g.setNight(nightToggle.checked);
+  if (shownPass) g.setPass(shownPass.points, shownPass.city, shownPass.peak, false);
 }
+/** G2: the pass "Plan my sighting" last showed, kept so a globe made later draws it too. */
+let shownPass: { points: OrbitPoint[]; city: { lat: number; lon: number }; peak: { lat: number; lon: number } } | null = null;
 
 // M7: a larger marker with an "ISS" label, so a stranger finds it at once.
 const issIcon = L.divIcon({
@@ -331,6 +339,9 @@ initPlanner({
     if (s) {
       passPeak.setLatLng([s.latDeg, s.lonDeg]).addTo(map);
       map.setView([s.latDeg, s.lonDeg], Math.max(map.getZoom(), 3));
+      // G2: the same pass on the globe, rise to set at the station's height, and the turn to its highest point.
+      shownPass = { points: passPoints(elements.satrec, p.start, p.end), city: { lat: info.place.latDeg, lon: info.place.lonDeg }, peak: { lat: s.latDeg, lon: s.lonDeg } };
+      view?.globe()?.setPass(shownPass.points, shownPass.city, shownPass.peak, true);
     }
     const tz = info.place.timeZone ?? ctx.viewerTimeZone;
     $('pass-key').hidden = false;

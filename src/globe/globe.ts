@@ -5,6 +5,8 @@
 //   two orbits     orbitPoints: stateAt every 30 s, one period back and one forward (the flat map's two lines)
 //   night side     subsolarPoint: the shader darkens where the surface faces away from the Sun
 //   crew's view    footprintRadiusKm: a circle of angle km / 6371.0088 round the point under the station
+//   chosen pass    G2: passPoints (stateAt rise to set, the flat map's pink arc) at the station's height,
+//                  a marker on the planned place, and a turn to the point under the pass's highest moment
 // When it draws: every frame while dragged, a key is held or the camera is still easing; otherwise once a
 // second (the station moves about 7.7 km a second); never while the tab is hidden or the flat page is shown.
 // For headless checks it carries data-* values on #globe and a small window.__iss3d (see PLAN.md 4e).
@@ -71,6 +73,8 @@ export interface Globe extends GlobeHandle {
   setTrack(past: OrbitPoint[], next: OrbitPoint[]): void;
   setSun(latDeg: number, lonDeg: number): void;
   setNight(on: boolean): void;
+  /** G2: the chosen pass (rise to set), the planned place, and the point under the pass's highest moment. */
+  setPass(points: OrbitPoint[], city: { lat: number; lon: number }, peak: { lat: number; lon: number }, turn: boolean): void;
 }
 
 export function createGlobe(opts: {
@@ -137,7 +141,18 @@ export function createGlobe(opts: {
   );
   station.renderOrder = 10;
   scene.add(station);
-  const overlays = [pastLine, nextLine, viewCircle, station];
+  // G2: the chosen pass in the flat map's pink, as a line and a row of dots (WebGL lines are 1 px wide), and
+  // the planned place as a white dot on the ground.
+  const PASS = 0xff5fa2;
+  const passLine = lineOf(PASS);
+  const passDots = new Points(new BufferGeometry(), new PointsMaterial({ color: PASS, size: 4, sizeAttenuation: false }));
+  scene.add(passDots);
+  passLine.visible = passDots.visible = false; // nothing to draw until a plan is shown
+  const cityGeom = new BufferGeometry();
+  const city = new Points(cityGeom, new PointsMaterial({ color: 0xffffff, size: 9, sizeAttenuation: false }));
+  city.visible = false;
+  scene.add(city);
+  const overlays = [pastLine, nextLine, viewCircle, station, passLine, passDots, city];
 
   const setLine = (l: Line, pts: Vec3[]) => {
     l.geometry.setAttribute('position', new Float32BufferAttribute(pts.flat(), 3));
@@ -158,6 +173,10 @@ export function createGlobe(opts: {
   let lastDraw = 0;
   const gaps: number[] = [];
   let disposed = false;
+  /** G2: the eased turn to the chosen pass (about 0.3 s, drawn every frame until it settles). */
+  const TURN_MS = 300;
+  let turn: { from: { lat: number; lon: number }; to: { lat: number; lon: number }; t0: number } | null = null;
+  const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
   const clampLat = (v: number) => Math.max(-85, Math.min(85, v));
   const wrapLon = (v: number) => ((((v + 180) % 360) + 360) % 360) - 180;
@@ -219,11 +238,22 @@ export function createGlobe(opts: {
     dirty = false;
   }
 
+  /** Advance the turn to the pass; true while it is still moving. */
+  function turning(): boolean {
+    if (!turn) return false;
+    const k = Math.min(1, Math.max(0, (performance.now() - turn.t0) / TURN_MS));
+    const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2; // ease in and out
+    cur.lat = target.lat = turn.from.lat + (turn.to.lat - turn.from.lat) * e;
+    cur.lon = target.lon = wrapLon(turn.from.lon + wrapLon(turn.to.lon - turn.from.lon) * e);
+    if (k >= 1) turn = null;
+    return true;
+  }
+
   function loop(ts: number) {
     if (disposed) return;
     requestAnimationFrame(loop);
     if (!active || document.hidden) return;
-    const moving = easing();
+    const moving = turning() || easing();
     if (dragging || held.size > 0 || moving || dirty || ts - lastDraw >= 1000) draw(ts);
   }
   requestAnimationFrame(loop);
@@ -234,6 +264,7 @@ export function createGlobe(opts: {
   canvas.style.touchAction = 'none';
   canvas.addEventListener('pointerdown', (e) => {
     dragging = true;
+    turn = null;
     last = { x: e.clientX, y: e.clientY };
     canvas.setPointerCapture?.(e.pointerId);
     host.focus({ preventScroll: true });
@@ -271,6 +302,7 @@ export function createGlobe(opts: {
     else if (e.key === '+' || e.key === '=') target.dist = Math.max(DIST_MIN, target.dist / 1.25);
     else if (e.key === '-' || e.key === '_') target.dist = Math.min(DIST_MAX, target.dist * 1.25);
     else return;
+      turn = null;
       e.preventDefault();
       held.add(e.key);
     },
@@ -291,6 +323,7 @@ export function createGlobe(opts: {
     return { lat: ll.latDeg, lon: ll.lonDeg };
   }
   function turnTo(lat: number, lon: number) {
+    turn = null;
     cur.lat = target.lat = clampLat(lat);
     cur.lon = target.lon = wrapLon(lon);
     draw(performance.now());
@@ -309,10 +342,11 @@ export function createGlobe(opts: {
     cur.lon = target.lon = wrapLon(lon);
     u.uWhite.value = white ? 1 : 0;
     u.uNight.value = night ? 1 : 0;
+    const shown = overlays.map((o) => o.visible);
     overlays.forEach((o) => (o.visible = false));
     render();
     const rgb = readMiddle();
-    overlays.forEach((o) => (o.visible = true));
+    overlays.forEach((o, i) => (o.visible = shown[i]));
     u.uWhite.value = keep.white;
     u.uNight.value = keep.night;
     dirty = true;
@@ -327,11 +361,16 @@ export function createGlobe(opts: {
       return (r + g + b) / 3;
     },
     frameMs: () => [...gaps],
+    /** G2: the chosen pass as given to the globe (every point), and where the turn ends */
+    pass: () => ({ points: passAt.map((p) => ({ t: p.t.toISOString(), lat: p.latDeg, lon: p.lonDeg, alt: p.altKm })), peak: peakAt, city: cityAt }),
     STATION_RGB,
   };
   (window as unknown as { __iss3d: typeof api3d }).__iss3d = api3d;
   host.dataset.renderer = opts.renderer;
   host.dataset.passPoints = '0';
+  let passAt: OrbitPoint[] = [];
+  let peakAt: { lat: number; lon: number } | null = null;
+  let cityAt: { lat: number; lon: number } | null = null;
   host.dataset.stars = '0';
   host.dataset.scene = '';
 
@@ -384,6 +423,29 @@ export function createGlobe(opts: {
     setNight(on) {
       earthMat.uniforms.uNight.value = on ? 1 : 0;
       dirty = true;
+    },
+    setPass(points, place, peak, doTurn) {
+      passAt = points;
+      peakAt = { ...peak };
+      cityAt = { ...place };
+      const pts = points.map((p) => latLonToVec3(p.latDeg, p.lonDeg, p.altKm));
+      setLine(passLine, pts);
+      passDots.geometry.setAttribute('position', new Float32BufferAttribute(pts.flat(), 3));
+      passDots.geometry.computeBoundingSphere();
+      cityGeom.setAttribute('position', new Float32BufferAttribute(latLonToVec3(place.lat, place.lon, 2), 3));
+      cityGeom.computeBoundingSphere();
+      city.visible = passLine.visible = passDots.visible = points.length > 0;
+      host.dataset.cityLat = place.lat.toFixed(4);
+      host.dataset.cityLon = place.lon.toFixed(4);
+      host.dataset.passPoints = String(points.length);
+      dirty = true;
+      if (!doTurn) return;
+      const to = { lat: clampLat(peak.lat), lon: wrapLon(peak.lon) };
+      if (reducedMotion() || !active) {
+        turn = null;
+        cur.lat = target.lat = to.lat;
+        cur.lon = target.lon = to.lon;
+      } else turn = { from: { lat: cur.lat, lon: cur.lon }, to, t0: performance.now() };
     },
   };
 }
