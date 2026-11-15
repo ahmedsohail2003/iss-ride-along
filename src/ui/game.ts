@@ -106,12 +106,14 @@ export function initGame(opts: { map: L.Map; getSatrec: () => SatRec; onStart?: 
     bar.dataset.target = target.toISOString();
     for (const k of ['guessLat', 'guessLon', 'answerLat', 'answerLon', 'km']) delete bar.dataset[k];
     nextBtn.hidden = true;
-    msg.textContent = `Round ${round} of ${ROUNDS}: the orange dot is the station at ${clock(start)}. Tap where it will be at ${clock(target)}, ${AHEAD_MIN} minutes later.`;
+    msg.textContent = `Round ${round} of ${ROUNDS}: the orange dot is the station at ${clock(start)}. Tap where it will be at ${clock(target)}, ${AHEAD_MIN} minutes later (keyboard: arrow keys move the map under the + in its centre, Enter guesses there).`;
     setState('guessing');
   }
 
   function reveal(guess: LatLon) {
     setState('revealing');
+    // C3: the fast-forward text changes 20 times a second; aria-busy keeps screen readers to the final score.
+    bar.setAttribute('aria-busy', 'true');
     const { start, target } = roundTimes(t0, round);
     const answer = positionAt(satrec, target);
     if (!answer) return stop('The orbit model could not compute this moment; the game stopped.');
@@ -128,6 +130,7 @@ export function initGame(opts: { map: L.Map; getSatrec: () => SatRec; onStart?: 
       window.clearInterval(timer);
       timer = undefined;
       runner.remove();
+      bar.removeAttribute('aria-busy');
       const km = scoreGuess(guess, answer);
       scores.push(km);
       bar.dataset.answerLat = answer.latDeg.toFixed(4);
@@ -182,6 +185,7 @@ export function initGame(opts: { map: L.Map; getSatrec: () => SatRec; onStart?: 
   function stop(text?: string) {
     window.clearInterval(timer);
     timer = undefined;
+    bar.removeAttribute('aria-busy');
     layer.clearLayers();
     bar.hidden = true;
     if (text) $('game-total').textContent = text;
@@ -211,6 +215,14 @@ export function initGame(opts: { map: L.Map; getSatrec: () => SatRec; onStart?: 
   map.on('click', (e: L.LeafletMouseEvent) => {
     if (state !== 'guessing') return;
     const p = e.latlng.wrap();
+    reveal({ latDeg: p.lat, lonDeg: p.lng });
+  });
+  // C3: the keyboard way to guess. With the map focused, the arrow keys pan it (Leaflet) and Enter guesses
+  // the point under the + drawn in the map's centre while a round waits for a guess.
+  map.getContainer().addEventListener('keydown', (e) => {
+    if (state !== 'guessing' || e.key !== 'Enter' || e.target !== map.getContainer()) return;
+    e.preventDefault();
+    const p = map.getCenter().wrap();
     reveal({ latDeg: p.lat, lonDeg: p.lng });
   });
   startBtn.addEventListener('click', start);

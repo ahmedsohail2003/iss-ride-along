@@ -51,11 +51,11 @@ point at, what they do, and a sentence to say out loud. It follows the page's li
 
 ## Stop 5: the page itself
 
-- Files: `src/main.ts`, `src/ui/warnings.ts`, `src/ui/tabs.ts`, `src/ui/game.ts`, `src/game/game.ts`
-- Functions: `tick()`, `drawTrack()`, `renderAge()`, `warnSource()`, `initTabs()`, `initGame()`, `roundTimes()`
+- Files: `src/main.ts`, `src/ui/warnings.ts`, `src/ui/tabs.ts`, `src/ui/game.ts`, `src/game/game.ts`, `src/ui/sentence.ts`
+- Functions: `tick()`, `drawTrack()`, `renderAge()`, `warnSource()`, `initTabs()`, `initGame()`, `roundTimes()`, `renderWhere()`, `whereNow()`, `nearestCity()`
 - Leaflet, a map library, draws the map. `initNasaLayers()` (stop 6) adds the NASA layers to it. First screen (M7): map, planner box, next-pass line, "How accurate is this?"; the rest in tabs; a source that fails calls `warnSource()`.
-- `tick()` runs every second: it calls `stateAt()` for "now", updates the numbers and moves the marker.
-  `drawTrack()` redraws the two orbit lines every minute. `renderAge()` writes the data-age label. The Game tab (M6): `initGame()` runs 3 rounds on the same map; `roundTimes()` moves the game clock 10 min a round; the answer is `stateAt()` at that time.
+- `tick()` runs every second: it calls `stateAt()` for "now", updates the numbers and moves the marker. `drawTrack()` redraws the two orbit lines every minute. `renderAge()` writes the data-age label. The Game tab (M6): `initGame()` runs 3 rounds on the same map; `roundTimes()` moves the game clock 10 min a round; the answer is `stateAt()` at that time.
+- The sentence above the map (C3): `renderWhere()` in `src/main.ts` calls `whereNow()` in `src/ui/sentence.ts` once at load and then only from the 60-second timer, so the `aria-live="polite"` paragraph it fills (the one place a screen reader is told to announce changes) changes at most once a minute; the per-second numbers sit in a block marked `aria-live="off"`. `nearestCity()` is a plain loop over the 150 cities with `greatCircleKm()`; `compass8()` turns the bearing from the city into one of 8 words; `groundHeadingDeg()` is the bearing between the points under the station now and 10 s later. Keyboard: every tab button is in the Tab order (`src/ui/tabs.ts`), a yellow `:focus-visible` ring is in `src/style.css`, Space presses Leaflet's zoom links (a small handler in `src/main.ts`), and in a game round Enter on the focused map guesses the point under the + in its centre (`src/ui/game.ts`). The test that the sentence names the right city, distance and compass word is `tests/sentence.test.ts`; it recomputes them with unit vectors instead of the formulas above.
 - Say: "Every second the browser recomputes the station's position itself; nothing is streamed from a server."
 
 ## Stop 6: what the station is flying over (NASA layers)

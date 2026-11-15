@@ -4,7 +4,9 @@
 // compares our answer with wheretheiss.at; src/nasa/layers.ts draws what the station is flying over;
 // src/passes-ui.ts lists when it can be seen from a chosen place; src/orbit/daynight.ts shades the night
 // side of the map and labels the station "in sunlight" or "in Earth's shadow" (C2); src/ui/game.ts is
-// the guessing game (M6) and src/orbit/lab.ts the orbit lab line under the numbers.
+// the guessing game (M6) and src/orbit/lab.ts the orbit lab line under the numbers. C3: src/ui/sentence.ts
+// writes the plain sentence above the map ("110 km northeast of Detroit, ..."), which is the page's one
+// screen-reader live region for the position and changes once a minute; the per-second numbers are not announced.
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import * as L from 'leaflet';
@@ -27,6 +29,7 @@ import { briefSheetHtml } from './ui/outputs';
 import { accuracyHtml, recordReference, renderAccuracy } from './ui/accuracy';
 import { gameBarHtml, gameHtml, initGame } from './ui/game';
 import { orbitLabLine } from './orbit/lab';
+import { whereNow } from './ui/sentence';
 
 // M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
 // box, the next-pass line for the chosen place and a small "How accurate is this?" card. Everything
@@ -39,9 +42,10 @@ app.innerHTML = `
   </header>
   ${warningsHtml}
   <main class="layout">
-    <section class="map-wrap">
+    <section class="map-wrap" aria-label="Where the station is">
+      <p id="where-now" class="where-now" aria-live="polite" aria-atomic="true"></p>
       ${gameBarHtml}
-      <div id="map" role="img" aria-label="World map with the space station's position and path"></div>
+      <div id="map" role="region" aria-label="World map with the space station's position and path. Arrow keys move the map; plus and minus zoom."></div>
       <p class="small legend">
         <span class="key key-iss"></span> ISS now
         <span class="key key-past"></span> last orbit
@@ -51,7 +55,7 @@ app.innerHTML = `
         · <span id="gibs-date"></span>
         <span id="pass-key" hidden><span class="key key-pass"></span> <span id="pass-key-text"></span></span>
       </p>
-      <dl class="readout">
+      <dl class="readout" aria-live="off">
         <div><dt>Latitude</dt><dd><span id="lat">-</span>°</dd></div>
         <div><dt>Longitude</dt><dd><span id="lon">-</span>°</dd></div>
         <div><dt>Altitude</dt><dd><span id="alt">-</span> km</dd></div>
@@ -86,9 +90,11 @@ app.innerHTML = `
     ],
     'nasa',
   )}
+  <footer>
   ${creditsHtml}
   <p class="small foot">Orbit data: CelesTrak (US Space Force data, not NASA). Reference: wheretheiss.at
     (not NASA). Not affiliated with or endorsed by NASA.</p>
+  </footer>
   ${briefSheetHtml}
 `;
 
@@ -199,9 +205,22 @@ function tick() {
   renderAge(now);
 }
 
+// ---- C3: the plain sentence above the map. Set once now and then only by the 60-second timer below
+// (not on every tick and not when fresh orbit numbers arrive), so a screen reader hears it at most once a minute.
+function renderWhere(now: Date) {
+  const w = whereNow(elements.satrec, now);
+  if (!w) return;
+  const el = $('where-now');
+  el.textContent = w.text;
+  el.dataset.city = w.city.name;
+  el.dataset.km = w.km.toFixed(1);
+  el.dataset.direction = w.direction;
+}
+
 tick();
 drawTrack(new Date());
 drawNight(new Date());
+renderWhere(new Date());
 const passPanel = initPassPanel(() => elements.satrec);
 const oemPanel = initOemPanel(() => elements.satrec);
 renderAccuracy();
@@ -216,7 +235,18 @@ setInterval(tick, 1000);
 setInterval(() => {
   drawTrack(new Date());
   drawNight(new Date());
+  renderWhere(new Date());
 }, 60_000);
+
+// C3: Space activates the map's zoom buttons too (Leaflet draws them as links with role="button", which
+// browsers activate with Enter only); real <button>s already take Enter and Space.
+document.addEventListener('keydown', (e) => {
+  const t = e.target as HTMLElement | null;
+  if (e.key === ' ' && t?.matches('a[role="button"]')) {
+    e.preventDefault();
+    t.click();
+  }
+});
 
 // ---- "Plan my sighting" (A1): the chosen pass is drawn on the map (its arc and the point under the
 // station at its highest moment) and the map moves there.

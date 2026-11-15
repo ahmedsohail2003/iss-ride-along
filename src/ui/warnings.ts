@@ -42,4 +42,6 @@ export function clearSource(key: SourceKey): void {
   if (lines.delete(key)) render();
 }
 
-export const warningsHtml = `<ul id="source-warnings" class="warnings" role="status" aria-label="Sources that could not be reached" hidden></ul>`;
+// C3: the live "status" role sits on a wrapper, because a <ul> given role="status" stops being a list for
+// screen readers (axe-core: "listitem" and "aria-allowed-role").
+export const warningsHtml = `<div role="status" aria-label="Sources that could not be reached"><ul id="source-warnings" class="warnings" hidden></ul></div>`;

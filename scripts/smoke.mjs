@@ -24,6 +24,23 @@
 //                                               appears; evidence/m9-path.png
 //   P1 (default mode): after "Detroit" + Enter, "Plan my sighting" is pressed too; the Place control and the
 //   passes table (its caption, rows and City box) must then name Detroit.
+//   node scripts/smoke.mjs --a11y               C3: mocked network as in the default mode. (1) watches every live region
+//                                               (aria-live polite/assertive, role status/alert/log) for 65 s with
+//                                               nobody touching the page: the plain sentence (#where-now) must change
+//                                               at most once (and does change once: it is refreshed each minute), no
+//                                               other live region more than once; (2) axe-core (injected from
+//                                               node_modules) on the first screen, on each tab and again after the
+//                                               keyboard run: 0 "serious" and 0 "critical" findings; (3) keyboard
+//                                               only: for each tab, open it with Tab + Enter, then Tab from the top of
+//                                               the page and press Enter on every button, link-button, tab and
+//                                               <summary> the Tab key reaches that was not pressed before, repeating
+//                                               until a pass finds nothing new; every button visible at any point must
+//                                               have been reached by Tab, every Enter must fire its click, every
+//                                               focused button must show a focus ring (outline 2 px or more), and
+//                                               Space must work on the map's zoom buttons; then one game round played
+//                                               by keyboard (Tab to the map, Enter guesses the centre). window.print
+//                                               is replaced by a counter for the run (the "Print this sheet" button).
+//                                               evidence/c3.png (a focused button and the sentence).
 //   node scripts/smoke.mjs --url <url> --out evidence/x.png --size 390x844
 //   node scripts/smoke.mjs --block <host>       M7: every source mocked except <host>, whose requests are refused
 //                                               (connection refused). Presses "Check against reference" and plans
@@ -81,6 +98,7 @@ const PLAN = args.includes('--plan');
 const OEM = args.includes('--oem');
 const PATH = args.includes('--path');
 const OUTPUTS = PLAN && args.includes('--outputs');
+const A11Y = args.includes('--a11y');
 // M7: the 8 live sources, by the host each one's URL constant names in src/.
 const BLOCKABLE = {
   'celestrak.org': { key: 'celestrak', name: 'CelesTrak' },
@@ -98,7 +116,7 @@ if (args.includes('--block') && !BLOCKABLE[BLOCK]) {
   process.exit(1);
 }
 // The M7 first-screen checks run in the default mode (no other mode flag).
-const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK;
+const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y;
 // --path: the click path rows from the presenter pack (M9). Columns: Step | When | Do | Where on screen |
 // Then you see | Say. "Do" is `look`, `click`, `key` (type the test key) or `tick`; "Where" is a backticked
 // CSS selector, optionally followed by the quoted words the element must show.
@@ -132,7 +150,7 @@ if (NET && OFFLINE) {
 }
 const defaultFile = OFFLINE ? 'docs/iss-ride-along-offline.html' : 'dist/index.html';
 const url = opt('--url', pathToFileURL(resolve(defaultFile)).href);
-const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : PATH ? 'evidence/m9-path.png' : BLOCK ? `evidence/m7-block-${BLOCK}.png` : 'evidence/m1.png'));
+const out = resolve(opt('--out', OFFLINE ? 'evidence/m3-offline.png' : PLAN ? 'evidence/a1.png' : OEM ? 'evidence/c1.png' : PATH ? 'evidence/m9-path.png' : A11Y ? 'evidence/c3.png' : BLOCK ? `evidence/m7-block-${BLOCK}.png` : 'evidence/m1.png'));
 const [w, h] = opt('--size', '1366x768').split('x').map(Number);
 
 // Stale-build guard (M4 fix r2): a file:// page must carry the fingerprint of the current source
@@ -166,7 +184,7 @@ const tle = readFileSync(resolve('src/data/iss.tle'), 'utf8');
 const eonetSnapshot = readFileSync(resolve('src/data/eonet-open.json'), 'utf8');
 const blueMarbleTile = readFileSync(resolve('src/data/bluemarble-z0.jpg'));
 // --plan: the planner's services answered from the saved real replies in tests/fixtures/.
-const planFixtures = PLAN || PATH || FIRST || BLOCK
+const planFixtures = PLAN || PATH || FIRST || BLOCK || A11Y
   ? {
       openMeteo: JSON.stringify(JSON.parse(readFileSync(resolve('tests/fixtures/openmeteo-ypsilanti.json'), 'utf8')).reply),
       exa: JSON.parse(readFileSync(resolve('tests/fixtures/exa-station-news.json'), 'utf8')).reply,
@@ -185,7 +203,8 @@ const requests = { file: 0, mockedCelestrak: 0, mockedEonet: 0, mockedGibs: 0, b
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 let failed = false;
 try {
-  const context = await browser.newContext({ viewport: { width: w, height: h }, offline: OFFLINE });
+  // --a11y: reduced motion, so the game's reveal is instant (the page's own prefers-reduced-motion path).
+  const context = await browser.newContext({ viewport: { width: w, height: h }, offline: OFFLINE, ...(A11Y ? { reducedMotion: 'reduce' } : {}) });
   const page = await context.newPage();
   // M7: unhandled promise rejections are counted as uncaught errors too.
   await page.addInitScript(() => {
@@ -229,12 +248,12 @@ try {
       requests.refusedBlock = (requests.refusedBlock ?? 0) + 1;
       return route.abort('connectionrefused');
     }
-    if ((PATH || BLOCK || FIRST) && u.startsWith('https://api.wheretheiss.at/')) {
+    if ((PATH || BLOCK || FIRST || A11Y) && u.startsWith('https://api.wheretheiss.at/')) {
       planRequests.wheretheiss = (planRequests.wheretheiss ?? 0) + 1;
       const sample = JSON.parse(readFileSync(resolve('src/data/wheretheiss-samples.json'), 'utf8')).samples[0];
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(sample) });
     }
-    const MOCK_PLAN = PLAN || PATH || FIRST || BLOCK;
+    const MOCK_PLAN = PLAN || PATH || FIRST || BLOCK || A11Y;
     if (MOCK_PLAN && u.startsWith('https://api.open-meteo.com/')) {
       planRequests.openMeteo++;
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: planFixtures.openMeteo });
@@ -720,6 +739,246 @@ try {
   }
 
 
+  // ---- C3 --a11y: live regions, axe-core, keyboard only.
+  let a11y = null;
+  if (A11Y) {
+    a11y = { liveRegions: [], whereChanges: [], axe: [], keyboard: null, game: null };
+    // (1) Live regions, watched for 65 s while nothing is pressed.
+    a11y.whereTextAtStart = await page.textContent('#where-now');
+    await page.evaluate(() => {
+      window.__live = [];
+      const regions = [...document.querySelectorAll('[aria-live]:not([aria-live="off"]), [role="status"], [role="alert"], [role="log"]')];
+      window.__liveIds = regions.map((el, i) => el.id || `${el.tagName.toLowerCase()}#${i}:${el.getAttribute('aria-label') ?? el.className}`);
+      regions.forEach((el, i) => {
+        let last = el.textContent;
+        new MutationObserver(() => {
+          if (el.textContent === last) return;
+          last = el.textContent;
+          window.__live.push({ id: window.__liveIds[i], t: Math.round(performance.now()), text: last.slice(0, 120) });
+        }).observe(el, { subtree: true, childList: true, characterData: true });
+      });
+    });
+    const watchStart = Date.now();
+    await page.waitForTimeout(65_000);
+    a11y.watchedS = Math.round((Date.now() - watchStart) / 1000);
+    const live = await page.evaluate(() => ({ ids: window.__liveIds, changes: window.__live }));
+    a11y.liveRegions = live.ids;
+    a11y.whereChanges = live.changes.filter((c) => c.id === 'where-now');
+    a11y.otherLiveChanges = live.changes.filter((c) => c.id !== 'where-now');
+    a11y.whereText = await page.textContent('#where-now');
+
+    // (2) axe-core on the first screen and on each tab.
+    const axeSource = readFileSync(resolve('node_modules/axe-core/axe.min.js'), 'utf8');
+    a11y.axeVersion = JSON.parse(readFileSync(resolve('node_modules/axe-core/package.json'), 'utf8')).version;
+    const runAxe = async (state) => {
+      if (!(await page.evaluate(() => typeof window.axe === 'object'))) await page.addScriptTag({ content: axeSource });
+      const v = await page.evaluate(async () => {
+        const r = await window.axe.run(document, { resultTypes: ['violations'] });
+        return r.violations.map((x) => ({ id: x.id, impact: x.impact, nodes: x.nodes.length, where: x.nodes.slice(0, 3).map((n) => n.target.join(' ')) }));
+      });
+      a11y.axe.push({ state, violations: v });
+    };
+    await runAxe('first screen');
+    const tabIds = await page.$$eval('.tabs [role="tab"]', (bs) => bs.map((b) => b.dataset.tab));
+    for (const id of tabIds) {
+      await page.click(`#tab-btn-${id}`);
+      await runAxe(`tab ${id}`);
+    }
+    await page.click('#tab-btn-nasa');
+    await page.evaluate(() => window.scrollTo(0, 0));
+
+    // (3) Keyboard only.
+    await page.evaluate(() => {
+      window.__clicks = [];
+      window.__printed = 0;
+      window.print = () => {
+        window.__printed++;
+      };
+      window.__keyOf = (el) =>
+        el.id
+          ? `#${el.id}`
+          : el.dataset.example
+            ? `[data-example=${el.dataset.example}]`
+            : el.dataset.openTab
+              ? `[data-open-tab=${el.dataset.openTab}]`
+              : `${el.tagName.toLowerCase()}:${(el.getAttribute('aria-label') || el.textContent).trim().replace(/\s+/g, ' ').slice(0, 40)}`;
+      window.__isButton = (el) => !!el && el.matches('button, [role="button"], [role="tab"], summary');
+      window.__visibleButtons = () =>
+        [...document.querySelectorAll('button, [role="button"], [role="tab"], summary')]
+          .filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden' && !el.disabled && !el.closest('[hidden]');
+          })
+          .map(window.__keyOf);
+      document.addEventListener(
+        'click',
+        (e) => {
+          const b = e.target.closest?.('button, [role="button"], [role="tab"], summary');
+          if (b) window.__clicks.push(window.__keyOf(b));
+        },
+        true,
+      );
+      const s = document.createElement('span');
+      s.id = '__kb-start';
+      s.tabIndex = -1;
+      document.body.prepend(s);
+    });
+    const kb = { passes: [], reached: new Set(), everVisible: new Set(), enterOk: {}, ring: {}, spaceOk: {}, tabPresses: 0 };
+    const addVisible = async () => (await page.evaluate(() => window.__visibleButtons())).forEach((k) => kb.everVisible.add(k));
+    const focusInfo = () =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        if (!el || el === document.body || el.id === '__kb-start') return null;
+        const cs = getComputedStyle(el);
+        return {
+          key: window.__keyOf(el),
+          button: window.__isButton(el),
+          linkButton: el.matches('a[role="button"]'),
+          disabled: !!el.disabled,
+          outline: `${cs.outlineStyle} ${cs.outlineWidth}`,
+          ringPx: cs.outlineStyle === 'none' ? 0 : parseFloat(cs.outlineWidth),
+        };
+      });
+    const clickCount = () => page.evaluate(() => window.__clicks.length);
+    const clicksSince = (n) => page.evaluate((n) => window.__clicks.slice(n), n);
+    const tabTo = async (key, max = 300) => {
+      for (let i = 0; i < max; i++) {
+        await page.keyboard.press('Tab');
+        kb.tabPresses++;
+        const f = await focusInfo();
+        if (f?.key === key) return true;
+      }
+      return false;
+    };
+    // One round per tab: open the tab by keyboard (Tab to it, Enter), then walk the page until a pass presses
+    // nothing new (a panel's buttons are only on the page while its tab is open).
+    // (The first round leaves the tabs as they are; its walk presses each tab button once.)
+    for (const tabId of [null, ...tabIds]) {
+    await page.evaluate(() => document.getElementById('__kb-start').focus());
+    if (tabId && (await tabTo(`#tab-btn-${tabId}`))) await page.keyboard.press('Enter');
+    for (let pass = 1; pass <= 4; pass++) {
+      await addVisible();
+      await page.evaluate(() => document.getElementById('__kb-start').focus());
+      let fresh = 0;
+      let firstKey = null;
+      let steps = 0;
+      for (; steps < 300; steps++) {
+        await page.keyboard.press('Tab');
+        kb.tabPresses++;
+        const f = await focusInfo();
+        if (!f) break; // past the last element
+        if (steps > 0 && f.key === firstKey) break; // wrapped round
+        if (steps === 0) firstKey = f.key;
+        if (!f.button || f.disabled) continue;
+        kb.reached.add(f.key);
+        kb.ring[f.key] = Math.max(kb.ring[f.key] ?? 0, f.ringPx);
+        if (f.key in kb.enterOk) continue;
+        const n = await clickCount();
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(350);
+        kb.enterOk[f.key] = (await clicksSince(n)).includes(f.key);
+        if (f.linkButton) {
+          const still = await focusInfo();
+          if (still?.key === f.key) {
+            const m = await clickCount();
+            await page.keyboard.press(' ');
+            await page.waitForTimeout(200);
+            kb.spaceOk[f.key] = (await clicksSince(m)).includes(f.key);
+          } else kb.spaceOk[f.key] = false;
+        }
+        fresh++;
+        await addVisible();
+      }
+      kb.passes.push({ tab: tabId, pass, tabs: steps, newButtonsPressed: fresh });
+      if (fresh === 0) break;
+    }
+    }
+    // One game round by keyboard: Game tab, Play, Tab to the map, Enter guesses the centre, Enter on Next round.
+    const game = { steps: [] };
+    await page.evaluate(() => document.getElementById('__kb-start').focus());
+    game.steps.push(['Tab to the Game tab', await tabTo('#tab-btn-game')]);
+    await page.keyboard.press('Enter');
+    game.steps.push(['Tab to Play', await tabTo('#game-start')]);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+    game.stateAfterPlay = await page.evaluate(() => document.body.dataset.game);
+    game.steps.push(['Tab to the map', await tabTo('#map')]);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => ['scored', 'done'].includes(document.body.dataset.game), null, { timeout: 5000 }).catch(() => {});
+    game.stateAfterEnter = await page.evaluate(() => document.body.dataset.game);
+    game.score = await page.evaluate(() => document.getElementById('game-score')?.textContent ?? '');
+    game.guess = await page.evaluate(() => ({ lat: document.getElementById('game-bar').dataset.guessLat, lon: document.getElementById('game-bar').dataset.guessLon }));
+    game.focusAfterScore = (await focusInfo())?.key ?? null;
+    if (game.focusAfterScore === '#game-next') {
+      // (the page moves focus to Next round after a score; it is pressed with Enter here, not counted as reached by Tab)
+      game.nextRingPx = (await focusInfo()).ringPx;
+      const n = await clickCount();
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(300);
+      kb.enterOk['#game-next'] = (await clicksSince(n)).includes('#game-next');
+      game.stateAfterNext = await page.evaluate(() => document.body.dataset.game);
+    }
+    await addVisible();
+    game.steps.push(['Tab to Stop', await tabTo('#game-stop')]);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+    game.stateAfterStop = await page.evaluate(() => document.body.dataset.game);
+    a11y.game = game;
+    await page.evaluate(() => document.getElementById('__kb-start')?.remove());
+    const reached = [...kb.reached];
+    a11y.keyboard = {
+      passes: kb.passes,
+      tabPresses: kb.tabPresses,
+      buttonsVisibleAtSomePoint: kb.everVisible.size,
+      reachedByTab: reached.length,
+      notReached: [...kb.everVisible].filter((k) => !kb.reached.has(k)),
+      enterFailed: Object.entries(kb.enterOk).filter(([, ok]) => !ok).map(([k]) => k),
+      enterPressed: Object.keys(kb.enterOk).length,
+      noFocusRing: reached.filter((k) => !(kb.ring[k] >= 2)),
+      spaceOnLinkButtons: kb.spaceOk,
+      printCalls: await page.evaluate(() => window.__printed),
+      reachedList: reached,
+    };
+    await runAxe('after the keyboard run');
+    a11y.axeTotals = { serious: 0, critical: 0, moderate: 0, minor: 0 };
+    for (const st of a11y.axe) for (const v of st.violations) a11y.axeTotals[v.impact] = (a11y.axeTotals[v.impact] ?? 0) + v.nodes;
+    // Evidence: the sentence and a keyboard-focused button on the first screen.
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+      const s = document.createElement('span');
+      s.id = '__kb-start';
+      s.tabIndex = -1;
+      document.body.prepend(s);
+      s.focus();
+    });
+    a11y.shotFocus = (await tabTo('#plan-go', 80)) ? '#plan-go' : null;
+    await page.evaluate(() => document.getElementById('__kb-start')?.remove());
+    mkdirSync(dirname(out), { recursive: true });
+    await page.screenshot({ path: out });
+    const otherCounts = a11y.otherLiveChanges.reduce((m, c) => ((m[c.id] = (m[c.id] ?? 0) + 1), m), {});
+    a11y.checks = {
+      sentenceShown: /^(Right over .+|[\d,]+ km (north|northeast|east|southeast|south|southwest|west|northwest) of .+), heading [a-z]+, \d+ km up\.$/.test(a11y.whereText ?? ''),
+      watchedAtLeast60s: a11y.watchedS >= 60,
+      sentenceAtMostOncePer60s: a11y.whereChanges.length <= 1,
+      sentenceRefreshed: a11y.whereChanges.length === 1,
+      otherLiveRegionsAtMostOnce: Object.values(otherCounts).every((n) => n <= 1),
+      axeNoSerious: a11y.axeTotals.serious === 0,
+      axeNoCritical: a11y.axeTotals.critical === 0,
+      everyButtonReachedByTab: a11y.keyboard.notReached.length === 0 && a11y.keyboard.reachedByTab > 0,
+      everyEnterActivates: a11y.keyboard.enterFailed.length === 0 && a11y.keyboard.enterPressed >= a11y.keyboard.reachedByTab,
+      focusRingOnEvery: a11y.keyboard.noFocusRing.length === 0,
+      spaceOnZoomButtons: Object.keys(kb.spaceOk).length >= 2 && Object.values(kb.spaceOk).every(Boolean),
+      keyboardGameRound:
+        game.steps.every(([, ok]) => ok) &&
+        game.stateAfterPlay === 'guessing' &&
+        game.stateAfterEnter === 'scored' &&
+        / km off$/.test(game.score) &&
+        game.stateAfterNext === 'guessing' &&
+        game.nextRingPx >= 2 &&
+        game.stateAfterStop === 'idle',
+    };
+  }
+
   // ---- --path: the presenter pack's 90-second click path (M9), row by row.
   let clickRun = null;
   if (PATH) {
@@ -844,6 +1103,7 @@ try {
     first7,
     game6,
     block7,
+    a11y,
     blockedConsole,
     oem,
     c2,
@@ -873,6 +1133,7 @@ try {
     (FIRST && Object.values(first7.checks).includes(false)) ||
     (FIRST && Object.values(game6.checks).includes(false)) ||
     (BLOCK && Object.values(block7.checks).includes(false)) ||
+    (A11Y && Object.values(a11y.checks).includes(false)) ||
     Object.values(oem.checks).includes(false) ||
     Object.values(c2.checks).includes(false);
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
@@ -890,6 +1151,7 @@ try {
           (PATH ? `; click path: ${clickRun.rows.filter((r) => r.ok).length} of ${clickRun.rows.length} rows done, last timed step at ${clickRun.lastStepAtS} s` : '') +
           (FIRST ? `; first screen ${w}x${h}: no horizontal scroll, planner box and next-pass line inside, "Detroit" + Enter -> "${first7.detroitText}" in ${first7.detroitMs} ms, ${first7.tabs.length} tabs open (${first7.tabs.map((t) => t.label).join(', ')}); after "Plan my sighting": Place control "${first7.placeAfter.placeControl}", passes table "${first7.placeAfter.tableCaption}" (${first7.placeAfter.tableRows} rows), City box "${first7.placeAfter.cityBox}"` : '') +
           (FIRST ? `; game: round 1 "${game6.rounds[0].score}" (recomputed ${game6.rounds[0].recomputedKm.toFixed(1)} km; answer = satellite.js at +10 min), rounds ${game6.rounds.map((r) => r.score).join(' / ')}, ${game6.end.totalText.replace(/ That.*/, '')} on the device board (${game6.end.boardRows.length} row), evidence/m6${w === 1366 && h === 768 ? '' : `-${w}x${h}`}.png; orbit lab "${game6.lab.text}" at ${game6.lab.alt} km (formula ${game6.lab.recomputed.min.toFixed(2)} min, ${game6.lab.recomputed.kmS.toFixed(3)} km/s)` : '') +
+          (A11Y ? `; a11y: sentence "${a11y.whereText}" changed ${a11y.whereChanges.length} time(s) in ${a11y.watchedS} s (other live regions: ${a11y.otherLiveChanges.length} change(s)); axe-core ${a11y.axeVersion} on ${a11y.axe.length} page states: ${a11y.axeTotals.critical} critical, ${a11y.axeTotals.serious} serious, ${a11y.axeTotals.moderate} moderate, ${a11y.axeTotals.minor} minor; keyboard: ${a11y.keyboard.reachedByTab} of ${a11y.keyboard.buttonsVisibleAtSomePoint} buttons seen reached by Tab (${a11y.keyboard.tabPresses} Tab presses, ${a11y.keyboard.passes.length} passes), Enter fired ${a11y.keyboard.enterPressed - a11y.keyboard.enterFailed.length} of ${a11y.keyboard.enterPressed}, focus ring on all, Space on ${Object.keys(a11y.keyboard.spaceOnLinkButtons).length} zoom buttons; keyboard game round "${a11y.game.score}"; evidence/c3.png` : '') +
           (BLOCK ? `; blocked ${BLOCK} (${requests.refusedBlock} request(s) refused): warning "${block7.warnings.find((x) => x.source === BLOCKABLE[BLOCK].key)?.text}", marker moved, 0 uncaught errors` : ''),
   );
 } finally {

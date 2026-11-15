@@ -47,6 +47,22 @@ Still being built at the time of writing (Sat Nov 14, 7:25 PM EST), so not liste
 screen built around the planner, a calendar file for the chosen pass, day and night on the map, a
 30-second guessing game, and a plain sentence for where the station is.
 
+## Who can use it
+
+Above the map, one plain sentence says where the station is, for example "1,050 km west of
+Johannesburg, South Africa, heading southeast, 430 km up." It is built from the 150 cities in
+`src/data/cities.json` (the nearest one, the distance rounded to 10 km, the compass direction from the
+city) and is refreshed once a minute. A screen reader (the program blind people use to hear a page)
+reads that sentence when it changes, and not the numbers that change every second. Every button,
+tab and map control works from the keyboard alone: Tab reaches it, Enter presses it, and a yellow
+ring shows where you are; the game can be played by keyboard too (arrow keys move the map under
+a + in its centre, Enter guesses there). Checked on Sat Nov 14, 9:47-9:49 PM EST by
+`node scripts/smoke.mjs --a11y`: axe-core 4.14.0 (an open-source accessibility checker) found 0
+critical and 0 serious problems in 7 states of the page (the first screen, each of the 5 tabs, and after
+the keyboard run); a keyboard-only run reached every button that appeared (22 of 22) with Tab, pressed
+each with Enter and played a game round; the sentence changed once in 65 seconds of watching. Not done
+yet: a test by a person using a real screen reader.
+
 ## How it works, and how we know the numbers are right
 
 The hard part of a tracker is not drawing a dot; it is knowing the dot is right. So each layer was
@@ -113,6 +129,7 @@ if all of them pass. Latest local results, Sat Nov 14, 2026 (EST):
 | `node scripts/check-live.mjs` | our position for "now" vs wheretheiss.at (needs the network) | 0.774 km, under the 2 km limit (7:19 PM) |
 | `node scripts/check-oem.mjs` | our position vs NASA's trajectory file at 0, 12, 24, 36 and 72 h, and with the conversion off | 0.485 / 0.308 / 0.870 / 1.767 / 4.763 km; off: 26.10-45.19 km (7:19 PM) |
 | `node scripts/smoke.mjs` | opens the built page in headless Chrome (Playwright drives it), network mocked: the dot moves, both orbit lines, the NASA panel, 0 console errors | SMOKE PASS (7:20 PM) |
+| `node scripts/smoke.mjs --a11y` | axe-core on 7 states of the page; Tab and Enter on every button; the screen-reader sentence changes at most once a minute; 0 console errors | 0 critical, 0 serious; 22 of 22 buttons by Tab, Enter on each; 1 change in 65 s (9:49 PM) |
 | `node scripts/check-agent.mjs --provider gemini` | the planner against the real Gemini API (key from the environment, never printed) | 1 trip run, 13.2 s, 4 model calls, audit 0 (6:23 PM) |
 | secret scan (a `git grep` step in `.github/workflows/pages.yml`) | no tracked file holds text shaped like a Google, OpenAI or GitHub key, a NASA demo key, a key assignment, or a key header or `Bearer` line with a value | no hits (7:24 PM) |
 
@@ -148,6 +165,8 @@ so the page falls back to that copy and its age label says so.
   the page builds into one HTML file that also opens from `file://`.
 - [satellite.js](https://github.com/shashwatak/satellite-js) 7.2.0: SGP4 orbit propagation.
 - [Leaflet](https://leafletjs.com/) 1.9.4: the 2D map.
+- [axe-core](https://github.com/dequelabs/axe-core) 4.14.0: the accessibility checker the smoke test
+  injects into the page (`--a11y`); not part of the page itself.
 - [Vitest](https://vitest.dev/) 5.1.0: the unit tests. playwright-core 1.65.1: drives the Chrome
   already on the machine for the smoke test (no browser download).
 - [astronomy-engine](https://github.com/cosinekitty/astronomy) 2.1.19: used only in

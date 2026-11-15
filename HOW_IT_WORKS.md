@@ -5,7 +5,7 @@ the visitor's own browser from the station's published orbit numbers and checked
 (wheretheiss.at, within 0.0003 km on 10 of 10 saved samples) and against NASA mission control's own predicted trajectory
 (0.37 km apart on median within 12 hours of the orbit numbers' time). The page builds into one HTML file.
 
-Status (Sat Nov 14, 9:30 PM EST): tracker, NASA layers, pass predictor, planner, NASA trajectory check, the M7 first screen (planner box, next-pass line, "How accurate is this?"; the rest in tabs; a source that cannot be reached shows a warning naming it), day and night, and the game (Game tab) with the orbit lab line built.
+Status (Sat Nov 14, 9:30 PM EST): tracker, NASA layers, pass predictor, planner, NASA trajectory check, the M7 first screen (planner box, next-pass line, "How accurate is this?"; the rest in tabs; a source that cannot be reached shows a warning naming it), day and night, the game (Game tab) with the orbit lab line, and the plain sentence above the map with keyboard and screen-reader use (C3) built.
 
 ## In one minute
 
@@ -32,6 +32,7 @@ position, altitude and speed every second, and the path one orbit back and ahead
 | Visible passes for a city (next 5 days) | computed in the browser | local time, compass points, degrees above the horizon | TLE from CelesTrak; cities from Natural Earth |
 | Cloud for each pass hour, station news | fetched only when "Plan my sighting" is pressed | %, dates | Open-Meteo (no key), Exa web search (no key) |
 | "X km apart" from NASA's trajectory | computed at NASA's latest row time, against the built-in copy of NASA's file | km, hours | NASA JSC trajectory file (OEM) |
+| The sentence above the map ("1,050 km west of Johannesburg, South Africa, heading southeast, 430 km up.") | computed once a minute, on purpose, so a screen reader announces it once a minute (it can be up to a minute behind the numbers): the nearest of the 150 built-in cities only, no oceans (haversine distance, rounded to 10 km), the 8-point compass direction from that city, the direction of travel from two SGP4 positions 10 s apart. Keyboard and screen-reader use checked by axe-core and a scripted keyboard run (`node scripts/smoke.mjs --a11y`), not yet by a person using a screen reader | km, compass words | TLE from CelesTrak; city list in `src/data/cities.json` |
 | Game "N km off" (board kept in this browser only); orbit lab line | computed: our SGP4 position 10 min after the round's start and the haversine distance to your tap; a circular orbit's speed = √(GM ÷ r), time = 2πr ÷ speed (GM = 398,600.4418 km³/s², r = 6,378.137 km + height; 7.6686 km/s and 92.560 min at 400 km in `tests/geometry.test.ts`) | km; min, km/s | TLE from CelesTrak; textbook formula |
 
 There is no server and no account. The only key is one a visitor may type into the Settings tab. The page shows this table too ("Accuracy and sources" tab).
@@ -94,12 +95,11 @@ Both trackers run their own code on public orbit numbers: a small difference sho
 - **Leaflet 1.9.4** (BSD-2-Clause): a small map library that draws the 2D map, marker and lines.
 - **NASA GIBS, EONET, Image and Video Library**: NASA's map tiles (Blue Marble built in, the daily MODIS image live),
   list of open natural events, and photo archive. **NASA's ISS trajectory file (OEM)**: the check above.
-- **Vite 8.3.8 + vite-plugin-singlefile 2.3.4**: build the site into one self-contained `index.html`.
 - **Gemini API** (`gemini-4-hydrogen`, `generateContent`): the planner's model, live-tested; OpenAI only with saved replies.
 - **ERFA** (BSD 3-clause, from the IAU's SOFA library): source of the 106-term nutation table. **astronomy-engine 2.1.19**
   (MIT): a second, independent frame conversion, used only in a test.
 - **Open-Meteo** (free weather service, CC BY 4.0) for cloud; **Exa** (a search engine built for AI) for station news.
-- **TypeScript 7.0.2** (type-checked JavaScript); **Vitest 5.1.0** runs the 112 unit tests offline; **playwright-core 1.65.1** drives Chrome.
+- **Vite 8.3.8 + vite-plugin-singlefile 2.3.4** build one self-contained `index.html`; **TypeScript 7.0.2** (type-checked JavaScript); **Vitest 5.1.0** runs the 119 unit tests offline; **playwright-core 1.65.1** drives Chrome; **axe-core 4.14.0** (an accessibility checker) runs in the smoke test.
 
 ## Honest edges
 

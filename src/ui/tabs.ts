@@ -1,6 +1,8 @@
 // M7: everything that is not on the first screen opens from a tab (the passes table, the NASA panel,
 // the accuracy numbers, the AI keys; anything built later gets a tab here too). One panel is shown
-// at a time; the buttons follow the WAI-ARIA tabs pattern (arrow keys move between tabs).
+// at a time; the buttons follow the WAI-ARIA tabs pattern (arrow keys move between tabs), except that
+// every tab stays in the Tab order (C3: a keyboard user who does not know the arrow-key convention still
+// reaches each one with Tab).
 export interface TabDef {
   id: string;
   label: string;
@@ -11,7 +13,7 @@ export function tabsHtml(tabs: TabDef[], open: string): string {
   const buttons = tabs
     .map(
       (t) =>
-        `<button type="button" role="tab" class="tab" id="tab-btn-${t.id}" data-tab="${t.id}" aria-controls="tab-${t.id}" aria-selected="${t.id === open}" tabindex="${t.id === open ? 0 : -1}">${t.label}</button>`,
+        `<button type="button" role="tab" class="tab" id="tab-btn-${t.id}" data-tab="${t.id}" aria-controls="tab-${t.id}" aria-selected="${t.id === open}" tabindex="0">${t.label}</button>`,
     )
     .join('');
   const panels = tabs
@@ -26,7 +28,6 @@ export function initTabs(onOpen?: (id: string) => void): { open(id: string): voi
     for (const b of buttons) {
       const on = b.dataset.tab === id;
       b.setAttribute('aria-selected', String(on));
-      b.tabIndex = on ? 0 : -1;
       document.getElementById(`tab-${b.dataset.tab}`)!.hidden = !on;
     }
     document.body.dataset.tab = id;

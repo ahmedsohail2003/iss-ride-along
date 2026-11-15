@@ -231,3 +231,13 @@ button.linkish { background: none; color: #7fdbff; padding: 0.2rem 0; text-align
 .lab-line { margin: 0 0 0.3rem; }
 .lab-line #orbit-lab { opacity: 1; }
 .lab-const { font-size: 0.72rem; }
+/* C3: one plain sentence above the map, a visible focus ring on everything that takes focus, and the
+   keyboard player's aim mark (a + in the map's centre while a game round waits for a guess). */
+.where-now { margin: 0 0 0.4rem; font-size: 1.05rem; font-weight: 600; min-height: 1.5rem; }
+:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
+.leaflet-container:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
+.leaflet-bar a:focus-visible { outline: 3px solid #ffd166; outline-offset: 1px; position: relative; z-index: 1; }
+#map.game-guessing::after {
+  content: '+'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1000;
+  font: 700 2rem/1 system-ui, sans-serif; color: #ffffff; text-shadow: 0 0 3px #000, 0 0 6px #000; pointer-events: none;
+}
