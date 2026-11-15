@@ -135,7 +135,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { freemem, tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { armTurnWatch, autoCases, dotsChecks, fpsReading, globeChecks, gpuRun, globeKeyboard, globePassChecks, g6Checks, hudChecks, hudPassCheck, storyChecks, waitForGlobe } from './smoke-globe.mjs';
+import { armTurnWatch, autoCases, dotsChecks, fpsReading, globeChecks, gpuRun, globeKeyboard, globePassChecks, g6Checks, g7Checks, hudChecks, hudPassCheck, storyChecks, waitForGlobe } from './smoke-globe.mjs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { builtHash, sourceHash } from './source-hash.mjs';
@@ -334,6 +334,12 @@ const STYLE_INIT = () => {
 // script's default runs (the workspace's .autopilot/scratch/g6-measure.mjs): 55.3 px in both views.
 const G6_PLANNER_TOP_6472101 = 55.3;
 const G6_REPO_URL = 'https://github.com/ahmedsohail2003/iss-ride-along';
+// G7: the planner card's height at 1366x768 in the 3D view at commit b50af56 (measured on the page built from that
+// source, .autopilot/backup/g7/dist-b50af56.html; see PROGRESS.md G7). The calmer card must be shorter.
+const G7_PLANNER_HEIGHT_B50AF56 = 424.7;
+// G7 --bg-off (with --view 3d --fps): the scene's canvas is removed before the reading (its draw loop stops when the
+// canvas leaves the page), to compare the frame time with and without the scene.
+const BG_OFF = args.includes('--bg-off');
 const allRequestUrls = [];
 const SWIFTSHADER = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
 const browser = await chromium.launch({ channel: 'chrome', headless: true, ...(VIEW !== 'flat' && !GPU ? { args: SWIFTSHADER } : {}) });
@@ -525,6 +531,10 @@ try {
       await page.click('#style-dots');
       await page.waitForFunction(() => Number(document.getElementById('globe').dataset.dots) > 0, null, { timeout: 10_000 }).catch(() => {});
     }
+    if (BG_OFF) {
+      await page.evaluate(() => document.getElementById('bg-scene')?.remove());
+      console.log('G7 --bg-off: #bg-scene removed before the reading (its draw loop stops)');
+    } else console.log(`G7: #bg-scene ${await page.evaluate(() => (document.getElementById('bg-scene') ? 'on the page, drawing' : 'absent'))}`);
     const f = await fpsReading({ page });
     if (STYLE === 'dots') {
       f.style = await page.evaluate(() => ({ style: document.getElementById('globe').dataset.style, dots: Number(document.getElementById('globe').dataset.dots) }));
@@ -633,6 +643,12 @@ try {
     mkdirSync(resolve('evidence'), { recursive: true });
     g6 = await g6Checks({ page, w, h, view: VIEW, plannerTopBaseline: G6_PLANNER_TOP_6472101, requestUrls: allRequestUrls, repoUrl: G6_REPO_URL, evidence: resolve(`evidence/g6-${VIEW}${sizeTag}.png`) });
     if (VIEW === '3d' && globe?.checks?.headerSameTopAndHeight !== undefined) g6.checks.headerSameTopAndHeight = globe.checks.headerSameTopAndHeight;
+  }
+  // ---- G7: the dotted space scene and the calmer page (default mode, both views).
+  let g7 = null;
+  if (FIRST) {
+    const sizeTag = w === 1366 && h === 768 ? '' : `-${w}x${h}`;
+    g7 = await g7Checks({ page, w, h, view: VIEW, plannerHeightBaseline: Number.isFinite(G7_PLANNER_HEIGHT_B50AF56) ? G7_PLANNER_HEIGHT_B50AF56 : null, evidence: (n) => resolve(`evidence/${n}${sizeTag}.png`) });
   }
   const first = await read();
   await page.waitForTimeout(2500);
@@ -1791,8 +1807,13 @@ try {
       const ONLY_3D = ['#style-dots', '#style-photo'];
       a11y.styleSwitch = { reached: ONLY_3D.filter((k) => mine.reached.includes(k)), fired: ONLY_3D.filter((k) => mine.fired.includes(k)) };
       a11y.styleSwitch.ok = a11y.styleSwitch.reached.length === ONLY_3D.length && a11y.styleSwitch.fired.length === ONLY_3D.length;
-      mine.reached = mine.reached.filter((k) => !ONLY_3D.includes(k));
-      mine.fired = mine.fired.filter((k) => !ONLY_3D.includes(k));
+      // G7: the two disclosures' summaries are shown in the 3D view only (on the flat page they are open with the
+      // summary hidden), so they are compared apart in the same way: both must be reached and fire in 3D.
+      const G7_ONLY_3D = ['summary:About these numbers', 'summary:How this is checked'];
+      a11y.g7Summaries = { reached: G7_ONLY_3D.filter((k) => mine.reached.includes(k)), fired: G7_ONLY_3D.filter((k) => mine.fired.includes(k)) };
+      a11y.g7Summaries.ok = a11y.g7Summaries.reached.length === G7_ONLY_3D.length && a11y.g7Summaries.fired.length === G7_ONLY_3D.length;
+      mine.reached = mine.reached.filter((k) => !ONLY_3D.includes(k) && !G7_ONLY_3D.includes(k));
+      mine.fired = mine.fired.filter((k) => !ONLY_3D.includes(k) && !G7_ONLY_3D.includes(k));
       a11y.setCompare = flatSets
         ? { reachedOnlyIn3d: mine.reached.filter((k) => !flatSets.reached.includes(k)), reachedOnlyInFlat: flatSets.reached.filter((k) => !mine.reached.includes(k)), firedOnlyIn3d: mine.fired.filter((k) => !flatSets.fired.includes(k)), firedOnlyInFlat: flatSets.fired.filter((k) => !mine.fired.includes(k)), same: same(mine.reached, flatSets.reached) && same(mine.fired, flatSets.fired) }
         : { same: false, problem: 'run the flat --a11y first (evidence/g1-a11y-buttons-flat.json missing)' };
@@ -1846,6 +1867,7 @@ try {
             playOpensFlat: game.viewAfterPlay === 'flat',
             sameButtonsAsFlatRun: a11y.setCompare.same === true,
             styleSwitchReachedAndFiresIn3d: a11y.styleSwitch?.ok === true,
+            g7SummariesReachedAndFireIn3d: a11y.g7Summaries?.ok === true,
           }
         : { pairInFlatSet: PAIR.every((k) => kb.reached.has(k)) }),
     };
@@ -2059,8 +2081,11 @@ try {
     (VIEW === 'flat' && info.storyShown) ||
     (VIEW === 'flat' && info.g5Shown.length > 0) ||
     (globe && Object.values(globe.checks).includes(false)) ||
-    (g6 && Object.values(g6.checks).includes(false));
+    (g6 && Object.values(g6.checks).includes(false)) ||
+    (g7 && Object.values(g7.checks).includes(false));
   if (g6) console.log(JSON.stringify({ g6 }, null, 2));
+  if (g7) console.log(JSON.stringify({ g7 }, null, 2));
+  if (g7) console.log(`G7 ${VIEW} ${w}x${h}: ${Object.entries(g7.checks).map(([k, v]) => `${k} ${v}`).join(', ')}`);
   const offlineNote = OFFLINE ? `, network off (${requests.refusedOffline.length} request(s) refused), label says built into this page` : '';
   console.log(
     failed

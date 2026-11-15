@@ -1190,3 +1190,231 @@ export async function g6Checks({ page, w, h, view, plannerTopBaseline, requestUr
   r.checks = C;
   return r;
 }
+
+/**
+ * G7: the dotted space scene (#bg-scene) and the calmer page, default mode. In the 3D view: the canvas exists, is
+ * aria-hidden, has pointer-events none, lies behind the panels (the point at the middle of "Plan my sighting" is the
+ * button, and a trial click reaches it), is hidden in print; dots show in the background (bright pixels at points
+ * with no panel and no text near, scene on vs the canvas hidden); the pointer moved from the left edge to the right
+ * edge changes data-parallax and moving it back restores it; under reduced motion two screenshots 2 s apart are the
+ * same at those points and the pointer changes nothing; no text has a scene pixel behind it unless an opaque panel
+ * is between them. Every <details class="more"> summary is reached by Tab and opens with Enter and with Space.
+ * On the flat page: the canvas is not shown and every disclosure is open with its summary hidden.
+ */
+export async function g7Checks({ page, w, h, view, plannerHeightBaseline, evidence }) {
+  const C = {};
+  const r = {};
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(700);
+  const base = await page.evaluate(() => {
+    const c = document.getElementById('bg-scene');
+    const cs = c && getComputedStyle(c);
+    const more = [...document.querySelectorAll('details.more')].map((d) => ({ open: d.open, summaryShown: getComputedStyle(d.querySelector('summary')).display !== 'none', text: d.querySelector('summary').textContent }));
+    const planner = document.querySelector('section.planner[aria-labelledby="planner-h"]').getBoundingClientRect();
+    const next = document.querySelector('section.next-box')?.getBoundingClientRect();
+    return {
+      exists: !!c,
+      ariaHidden: c?.getAttribute('aria-hidden'),
+      pointerEvents: cs?.pointerEvents,
+      display: cs?.display,
+      position: cs?.position,
+      more,
+      plannerHeight: +planner.height.toFixed(1),
+      plannerBottom: +planner.bottom.toFixed(1),
+      nextBottom: next ? +next.bottom.toFixed(1) : null,
+    };
+  });
+  Object.assign(r, base);
+  if (view !== '3d') {
+    C.g7FlatNoScene = base.exists && base.display === 'none';
+    C.g7FlatDisclosuresOpen = base.more.length > 0 && base.more.every((m) => m.open && !m.summaryShown);
+    return { ...r, checks: C };
+  }
+  C.g7SceneExists = base.exists && base.ariaHidden === 'true' && base.pointerEvents === 'none' && base.display === 'block' && base.position === 'fixed';
+  C.g7DisclosuresClosedIn3d = base.more.length === 2 && base.more.every((m) => !m.open && m.summaryShown);
+  if (w === 1366 && h === 768) {
+    C.g7PlannerAndNextInFirstScreen = base.plannerBottom <= 768 && base.nextBottom !== null && base.nextBottom <= 768;
+    if (plannerHeightBaseline) C.g7PlannerShorter = base.plannerHeight < plannerHeightBaseline;
+  }
+  r.plannerHeightBaseline = plannerHeightBaseline;
+  if (!base.exists) return { ...r, checks: C }; // BG_ON off: the scene checks cannot run (g7SceneExists is false)
+  // behind the panels: the topmost element at the middle of the main button is the button
+  r.hit = await page.evaluate(() => {
+    const b = document.getElementById('plan-go').getBoundingClientRect();
+    const e = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    return e?.closest('#plan-go') ? '#plan-go' : e ? `${e.tagName}#${e.id}` : null;
+  });
+  let trial = true;
+  try {
+    await page.click('#plan-go', { trial: true, timeout: 3000 });
+  } catch {
+    trial = false;
+  }
+  C.g7BehindPanels = r.hit === '#plan-go' && trial;
+  // print: hidden
+  await page.emulateMedia({ media: 'print' });
+  r.printDisplay = await page.evaluate(() => getComputedStyle(document.getElementById('bg-scene')).display);
+  await page.emulateMedia({ media: 'screen' });
+  C.g7HiddenInPrint = r.printDisplay === 'none';
+
+  // background points: no panel under them (no ancestor up to body with a background) and no text within 14 px
+  const pts = await page.evaluate(() => {
+    const rects = [];
+    const range = document.createRange();
+    const walker = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.nodeValue.trim()) continue;
+      range.selectNodeContents(n);
+      for (const q of range.getClientRects()) if (q.width > 0 && q.height > 0) rects.push(q);
+    }
+    for (const el of document.querySelectorAll('#app input, #app select, #app button')) {
+      const q = el.getBoundingClientRect();
+      if (q.width > 0) rects.push(q);
+    }
+    const nearText = (x, y) => rects.some((q) => x > q.left - 14 && x < q.right + 14 && y > q.top - 14 && y < q.bottom + 14);
+    const panel = (e) => {
+      for (let a = e; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
+        const cs = getComputedStyle(a);
+        if (cs.backgroundColor !== 'rgba(0, 0, 0, 0)' || cs.backgroundImage !== 'none' || a.tagName === 'CANVAS' || a.tagName === 'IMG') return true;
+      }
+      return false;
+    };
+    const out = [];
+    for (let y = 3; y < innerHeight; y += 6)
+      for (let x = 3; x < innerWidth; x += 6) {
+        const e = document.elementFromPoint(x, y);
+        if (!e || panel(e) || nearText(x, y)) continue;
+        out.push([x, y]);
+      }
+    return out;
+  });
+  r.backgroundPoints = pts.length;
+  const { decodePng: dec } = await import('./ndvi-decode.mjs');
+  const shotAll = async (path) => dec(await page.screenshot(path ? { path } : {}));
+  const lumAt = (img, x, y) => {
+    const i = (Math.round(y) * img.width + Math.round(x)) * 4;
+    return 0.2126 * img.pixels[i] + 0.7152 * img.pixels[i + 1] + 0.0722 * img.pixels[i + 2];
+  };
+  const bright = (img) => pts.filter(([x, y]) => lumAt(img, x, y) > 40).length;
+  const on = await shotAll(evidence('g7-scene'));
+  await page.evaluate(() => (document.getElementById('bg-scene').style.visibility = 'hidden'));
+  await page.waitForTimeout(100);
+  const off = await shotAll();
+  await page.evaluate(() => (document.getElementById('bg-scene').style.visibility = ''));
+  r.brightOn = bright(on);
+  r.brightOff = bright(off);
+  C.g7DotsInBackground = pts.length >= 50 && r.brightOn > r.brightOff;
+
+  // the pointer: left edge -> right edge -> left edge
+  const par = async () => (await page.evaluate(() => document.getElementById('bg-scene').dataset.parallax ?? '')).split(',').map(Number);
+  await page.mouse.move(1, h / 2, { steps: 4 });
+  await page.waitForTimeout(1800);
+  const a = await par();
+  await page.mouse.move(w - 2, h / 2, { steps: 12 });
+  await page.waitForTimeout(1800);
+  const b = await par();
+  await page.mouse.move(1, h / 2, { steps: 12 });
+  await page.waitForTimeout(1800);
+  const c = await par();
+  r.parallax = { left: a, right: b, backLeft: c };
+  C.g7PointerMovesScene = a.length === 2 && Math.abs(a[0] - b[0]) > 10;
+  C.g7PointerBackRestores = Math.abs(a[0] - c[0]) <= 0.5 && Math.abs(a[1] - c[1]) <= 0.5;
+
+  // no text with a scene pixel behind it, unless an opaque panel is between them
+  await page.waitForTimeout(700);
+  r.textOverScene = await page.evaluate(() => {
+    const cv = document.getElementById('bg-scene');
+    const ctx = cv.getContext('2d');
+    const k = cv.width / innerWidth;
+    const img = ctx.getImageData(0, 0, cv.width, cv.height).data;
+    const alphaAt = (x, y) => {
+      const px = Math.floor(x * k);
+      const py = Math.floor(y * k);
+      if (px < 0 || py < 0 || px >= cv.width || py >= cv.height) return 0;
+      return img[(py * cv.width + px) * 4 + 3];
+    };
+    const opaqueBetween = (e) => {
+      for (let a = e; a && a !== document.body; a = a.parentElement) {
+        const bg = getComputedStyle(a).backgroundColor;
+        const m = bg.match(/rgba?\(([^)]+)\)/);
+        const parts = m ? m[1].split(',') : [];
+        const alpha = m ? (parts[3] === undefined ? 1 : Number(parts[3])) : 0;
+        if (alpha >= 1) return true;
+      }
+      return false;
+    };
+    const range = document.createRange();
+    const walker = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
+    let texts = 0;
+    let onPage = 0;
+    const bad = [];
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.nodeValue.trim()) continue;
+      range.selectNodeContents(n);
+      const rs = [...range.getClientRects()].filter((q) => q.width > 0 && q.height > 0 && q.bottom > 0 && q.top < innerHeight);
+      if (!rs.length) continue;
+      texts++;
+      if (opaqueBetween(n.parentElement)) continue;
+      onPage++;
+      let hit = 0;
+      for (const q of rs) for (let y = q.top; y < q.bottom; y += 2) for (let x = q.left; x < q.right; x += 2) if (alphaAt(x, y) > 0) hit++;
+      if (hit) bad.push(`${n.parentElement.id || n.parentElement.className || n.parentElement.tagName}: "${n.nodeValue.trim().slice(0, 30)}" (${hit} px)`);
+    }
+    return { texts, onPage, bad };
+  });
+  C.g7NoTextOverScene = r.textOverScene.onPage > 0 && r.textOverScene.bad.length === 0;
+
+  // reduced motion: one still frame; the pointer changes nothing
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForTimeout(800);
+  const p0 = await par();
+  const s1 = await shotAll();
+  await page.waitForTimeout(2000);
+  const s2 = await shotAll();
+  await page.mouse.move(w - 2, 3, { steps: 8 });
+  await page.waitForTimeout(800);
+  const p1 = await par();
+  r.reduced = { diffPoints: pts.filter(([x, y]) => Math.abs(lumAt(s1, x, y) - lumAt(s2, x, y)) > 0).length, parallaxBefore: p0, parallaxAfterPointer: p1 };
+  await page.emulateMedia({ reducedMotion: null });
+  await page.mouse.move(w / 2, h / 2);
+  C.g7ReducedStill = r.reduced.diffPoints === 0;
+  C.g7ReducedPointerNothing = p0[0] === 0 && p0[1] === 0 && p1[0] === 0 && p1[1] === 0;
+
+  // the disclosures: Tab reaches each summary; Enter opens it, Enter closes it, Space opens it
+  r.details = [];
+  for (let i = 0; i < base.more.length; i++) {
+    await page.evaluate(() => {
+      const s = document.createElement('span');
+      s.id = '__g7-start';
+      s.tabIndex = -1;
+      document.body.prepend(s);
+      s.focus();
+    });
+    let reached = false;
+    for (let t = 0; t < 120 && !reached; t++) {
+      await page.keyboard.press('Tab');
+      reached = await page.evaluate((k) => document.activeElement === document.querySelectorAll('details.more > summary')[k], i);
+    }
+    const isOpen = () => page.evaluate((k) => document.querySelectorAll('details.more')[k].open, i);
+    let enter = false;
+    let space = false;
+    if (reached) {
+      await page.keyboard.press('Enter');
+      enter = await isOpen();
+      await page.keyboard.press('Enter');
+      const closed = !(await isOpen());
+      await page.keyboard.press(' ');
+      space = closed && (await isOpen());
+      await page.keyboard.press(' ');
+    }
+    await page.evaluate(() => document.getElementById('__g7-start')?.remove());
+    r.details.push({ summary: base.more[i].text, reached, enter, space });
+  }
+  C.g7DetailsKeyboard = r.details.length === 2 && r.details.every((d) => d.reached && d.enter && d.space);
+  await page.evaluate(() => {
+    for (const d of document.querySelectorAll('details.more')) d.open = false;
+    document.activeElement?.blur?.();
+    window.scrollTo(0, 0);
+  });
+  return { ...r, checks: C };
+}

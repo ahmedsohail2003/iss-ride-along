@@ -15,6 +15,7 @@ Final version, Sun Nov 15, 5:15 AM EST, the 3D refresh (before it: 12:30 AM; ver
 - **The scroll story below the tool** (`#story`): six short scenes that turn the globe as you scroll, shown in the 3D view only.
 - **Optional: the Photo / Dots switch** on the globe (`#style-photo`, `#style-dots`): the same Earth drawn as a cloud of dots, with small labels on the globe; nothing in the script changes.
 - **New type and cards:** the type and the cards were restyled at about 9:40 AM (Geist, a two-tone headline above the globe, rounder cards, a "Code" link in the header); every click and line is unchanged.
+- **Space scene and calmer cards:** in the 3D view a dotted Moon, a ringed planet and stars sit behind the page and move with the mouse (background art, not data); two longer notes fold under "About these numbers" and "How this is checked". Every click and line is unchanged.
 
 ## 1. The table
 

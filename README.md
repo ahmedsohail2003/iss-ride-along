@@ -98,6 +98,12 @@ Open Font License 1.1, from npm, built into the page so no font is fetched). In 
 the main button is white, the switches are segmented, and a "Code" link in the header opens this repo. Like G5,
 the look was modelled on Ahmed's earlier RoBuff page from his screenshots; all code was written new at this event.
 
+The space scene and the calmer cards (G7): in the 3D view a dotted Moon, a small ringed planet, dust and stars sit
+behind the page and move a little with the mouse, near ones more than far ones (one still frame with reduced
+motion). They are background art, not data, and are cleared behind every line of text. The planner's controls sit
+in even rows with the nights as small chips, and the longer notes fold under "About these numbers" and "How this
+is checked"; every button the script uses is still one press away.
+
 **When the flat page opens instead:** the device has no WebGL2, draws in software, is slow (30 frames
 drawn back to back take a median of more than 33 ms each), or asks for reduced motion; or the page was
 not being drawn when it checked (then it checks once more when it is shown). "Play" in the Game tab

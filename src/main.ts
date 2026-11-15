@@ -52,6 +52,8 @@ import globeImageUrl from './data/globe/bluemarble-2048.jpg';
 import { STORY_ON } from './globe/story';
 import { initStory, storyHtml } from './globe/storyUi';
 import { codeLinkHtml, heroHtml, initLook2, markSvg } from './ui/hero';
+import { mountScene } from './bg/scene';
+import { initClean, moreHtml } from './ui/clean';
 
 // M7: the first screen answers a stranger's question, "can I see it, and when?": the map, the planner
 // box, the next-pass line for the chosen place and a small "How accurate is this?" card. Everything
@@ -86,14 +88,14 @@ ${voiceHtml}
         </div>` : ''}
       </div>
       <p class="small legend">
-        <span class="key key-iss"></span> ISS now
-        <span class="key key-past"></span> last orbit
-        <span class="key key-next"></span> next orbit
-        <span class="key key-view"></span> station's view
-        <label class="night-toggle"><input type="checkbox" id="night-toggle" checked> <span class="key key-night"></span> night side</label>
-        <label class="night-toggle"><input type="checkbox" id="daily-toggle" disabled> Daily satellite photo (with clouds)</label>
-        · <span id="gibs-date"></span>
-        <span id="pass-key" hidden><span class="key key-pass"></span> <span id="pass-key-text"></span></span>
+        <span class="lg"><span class="key key-iss"></span> ISS now</span>
+        <span class="lg"><span class="key key-past"></span> last orbit</span>
+        <span class="lg"><span class="key key-next"></span> next orbit</span>
+        <span class="lg"><span class="key key-view"></span> station's view</span>
+        <label class="night-toggle lg"><input type="checkbox" id="night-toggle" checked> <span class="key key-night"></span> night side</label>
+        <label class="night-toggle lg"><input type="checkbox" id="daily-toggle" disabled> Daily satellite photo (with clouds)</label>
+        <span class="lg-sep">·</span> <span id="gibs-date"></span>
+        <span id="pass-key" class="lg" hidden><span class="key key-pass"></span> <span id="pass-key-text"></span></span>
       </p>
       <dl class="readout" aria-live="off">
         <div><dt>Latitude</dt><dd><span id="lat">-</span>°</dd></div>
@@ -103,8 +105,8 @@ ${voiceHtml}
         <div><dt>Time</dt><dd id="clock">-</dd></div>
         <div><dt>Station</dt><dd id="sunlit">-</dd></div>
       </dl>
-      <p class="small lab-line"><span id="orbit-lab">-</span> <span class="lab-const">(circular orbit: speed = √(GM ÷ r), time = 2πr ÷ speed, with GM = 398,600.4418 km³/s² and r = 6,378.137 km + height)</span></p>
-      <p class="small why-sun">You can see it only when you are in the dark and it is still in sunlight, which happens in the hours after sunset and before sunrise.</p>
+      ${moreHtml('About these numbers', `<p class="small lab-line"><span id="orbit-lab">-</span> <span class="lab-const">(circular orbit: speed = √(GM ÷ r), time = 2πr ÷ speed, with GM = 398,600.4418 km³/s² and r = 6,378.137 km + height)</span></p>
+      <p class="small why-sun">You can see it only when you are in the dark and it is still in sunlight, which happens in the hours after sunset and before sunrise.</p>`, 'more-numbers')}
       <p id="data-age" class="age"></p>
     </section>
     <aside class="side">
@@ -116,7 +118,7 @@ ${voiceHtml}
         ${oemPanelHtml}
         <button id="check-ref" type="button">Check against reference</button>
         <p id="ref-result" class="ref-result" aria-live="polite"></p>
-        <button type="button" class="linkish" data-open-tab="accuracy">Every measured number, and what is computed vs fetched</button>
+        ${moreHtml('How this is checked', `<div id="oem-measured-slot"></div><button type="button" class="linkish" data-open-tab="accuracy">Every measured number, and what is computed vs fetched</button>`, 'more-acc')}
       </section>
     </aside>
   </main>
@@ -142,6 +144,17 @@ ${voiceHtml}
 
 // G6: the card look (body.look2) and the tag pills on three cards; the hero copy and the header are in the HTML above.
 initLook2();
+// G7: the calmer 3D page (disclosures, src/ui/clean.ts) and the dotted space scene behind it (src/bg/scene.ts).
+// In the 3D view the measured-gap line (#oem-measured, same element and id) sits in the accuracy card's "How this is
+// checked" disclosure; on the flat page it goes back under the gap, where it always was.
+initClean(document, (v) => {
+  const m = document.getElementById('oem-measured');
+  const slot = document.getElementById('oem-measured-slot');
+  if (!m || !slot) return;
+  if (v === '3d') slot.append(m);
+  else document.getElementById('oem-gap')?.after(m);
+});
+mountScene();
 
 const $ = (id: string) => document.getElementById(id)!;
 
