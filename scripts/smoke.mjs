@@ -124,6 +124,8 @@
 // scene sets data-scene within 2 s, "now" centred on the station, "daynight" on the day/night line, the height in
 // #scene-now = #alt, the canvas fixed to the window, the median frame gap over a 3-second scroll printed). Flat
 // runs fail if #story is shown; --plan --outputs fails if #globe, #story or the view switch prints.
+// G4: --view 3d --fps: a frame-rate reading while the globe turns (ArrowRight held): data-renderer and the median
+// and 95th-percentile frameMs() over the last 120 frames; with the SwiftShader flags, or --gpu for the real chip.
 // Element ids, every mode: every id in scripts/ids-baseline.json (saved from the build of the commit before
 // G1, first screen and each tab open) must be on the page, or the run fails. --save-ids writes that file
 // (only from a page built from the committed source).
@@ -133,7 +135,7 @@ import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { freemem, tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { armTurnWatch, autoCases, globeChecks, gpuRun, globeKeyboard, globePassChecks, storyChecks, waitForGlobe } from './smoke-globe.mjs';
+import { armTurnWatch, autoCases, fpsReading, globeChecks, gpuRun, globeKeyboard, globePassChecks, storyChecks, waitForGlobe } from './smoke-globe.mjs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { builtHash, sourceHash } from './source-hash.mjs';
@@ -157,6 +159,9 @@ const VOICE = args.includes('--voice');
 const FORECAST = args.includes('--forecast');
 // G3 --story (with --view 3d): the scroll story and the stars.
 const STORY = args.includes('--story');
+// G4 --fps (with --view 3d): a frame-rate reading while the globe turns (smoke-globe.mjs fpsReading). With the
+// SwiftShader flags like every 3D run, or with --gpu on this laptop's own chip (no flags).
+const FPS = args.includes('--fps');
 // G1: which view to open (?view=), and the id baseline.
 const VIEW = opt('--view', 'flat');
 if (!['flat', '3d', 'auto'].includes(VIEW)) {
@@ -169,8 +174,12 @@ if (!['flat', '3d', 'auto'].includes(VIEW)) {
 // station-marker check must pass, 0 console errors; then ?view=flat, press 3D: the globe's centre within 5
 // degrees of the station. If the chip is not reached, it prints why and SMOKE FAIL, never SMOKE PASS.
 const GPU = args.includes('--gpu');
-if (GPU && VIEW !== 'auto') {
-  console.log('SMOKE FAIL: --gpu needs --view auto');
+if (FPS && VIEW !== '3d') {
+  console.log('SMOKE FAIL: --fps needs --view 3d');
+  process.exit(1);
+}
+if (GPU && VIEW !== 'auto' && !FPS) {
+  console.log('SMOKE FAIL: --gpu needs --view auto (or --view 3d --fps)');
   process.exit(1);
 }
 if (STORY && VIEW !== '3d') {
@@ -202,7 +211,7 @@ if (args.includes('--block') && !BLOCKABLE[BLOCK]) {
   process.exit(1);
 }
 // The M7 first-screen checks run in the default mode (no other mode flag).
-const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y && !VOICE && !FORECAST && !STORY;
+const FIRST = !NET && !args.includes('--offline') && !args.includes('--plan') && !args.includes('--oem') && !PATH && !BLOCK && !A11Y && !VOICE && !FORECAST && !STORY && !FPS;
 // --path: the click path rows from the presenter pack (M9). Columns: Step | When | Do | Where on screen |
 // Then you see | Say. "Do" is `look`, `click`, `key` (type the test key) or `tick`; "Where" is a backticked
 // CSS selector, optionally followed by the quoted words the element must show.
@@ -482,6 +491,19 @@ try {
 
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => /^-?\d+(\.\d+)?$/.test(document.getElementById('lat')?.textContent ?? ''), null, { timeout: 15_000 });
+  // ---- G4 --view 3d --fps: the frame-rate reading, then exit.
+  if (FPS) {
+    const f = await fpsReading({ page });
+    console.log(JSON.stringify({ url, viewport: `${w}x${h}`, launch: GPU ? 'no extra flags (real chip)' : SWIFTSHADER.join(' '), fps: f, consoleErrors, pageErrors }, null, 2));
+    failed = Object.values(f.checks).includes(false) || consoleErrors.length > 0 || pageErrors.length > 0;
+    console.log(
+      failed
+        ? `SMOKE FAIL: --view 3d --fps: ${Object.entries(f.checks).filter(([, v]) => !v).map(([k]) => k).join(', ')}${consoleErrors.length ? `; ${consoleErrors.length} console error(s)` : ''}${pageErrors.length ? `; ${pageErrors.length} page error(s)` : ''}`
+        : `SMOKE PASS: --view 3d --fps ${w}x${h} (${GPU ? 'no SwiftShader flags' : 'SwiftShader flags'}): data-renderer "${f.renderer}"; ${f.framesDrawn} frames drawn in ${f.wallMs} ms while ArrowRight was held (globe turned ${f.turnedDeg.toFixed(1)} deg); last 120 frameMs(): median ${f.medianMs.toFixed(1)} ms, 95th percentile ${f.p95Ms.toFixed(1)} ms (min ${f.minMs.toFixed(1)}, max ${f.maxMs.toFixed(1)}); 0 console errors`,
+    );
+    await browser.close();
+    process.exit(failed ? 1 : 0);
+  }
   // ---- G3 --view 3d --story: its own checks, then exit.
   if (STORY) {
     mkdirSync(resolve('evidence'), { recursive: true });

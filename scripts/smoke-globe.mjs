@@ -821,3 +821,43 @@ export async function gpuRun({ newPage, baseUrl, evidence }) {
   }
   return r;
 }
+
+/**
+ * G4 --view 3d --fps: a frame-rate reading while the globe turns. ArrowRight is held on the focused globe (the
+ * first press and then repeat presses every 100 ms, the way a held key repeats), so the camera keeps turning and
+ * the loop draws every frame; when 121 frames have been drawn since the hold began, the last 120 gaps of
+ * frameMs() are read and their median and 95th percentile printed with the globe's data-renderer. A reading, not
+ * a pass/fail threshold: it fails only if 120 frames were not drawn within 30 s or the globe did not turn.
+ */
+export async function fpsReading({ page }) {
+  const r = { shown: await waitForGlobe(page) };
+  if (!r.shown) return { ...r, checks: { globeShown: false } };
+  const read = () => page.evaluate(() => ({ frames: Number(document.getElementById('globe').dataset.frames), centre: window.__iss3d.centre(), renderer: document.getElementById('globe').dataset.renderer }));
+  await page.focus('#globe');
+  await page.waitForTimeout(500);
+  const before = await read();
+  r.renderer = before.renderer;
+  const t0 = Date.now();
+  await page.keyboard.down('ArrowRight');
+  let now = await read();
+  while (now.frames - before.frames < 121 && Date.now() - t0 < 30_000) {
+    await page.waitForTimeout(100);
+    await page.keyboard.down('ArrowRight'); // a repeat press, as a held key sends
+    now = await read();
+  }
+  const gaps = await page.evaluate(() => window.__iss3d.frameMs());
+  await page.keyboard.up('ArrowRight');
+  r.framesDrawn = now.frames - before.frames;
+  r.wallMs = Date.now() - t0;
+  const used = gaps.slice(-120).sort((a, b) => a - b);
+  r.gapsUsed = used.length;
+  const at = (q) => used[Math.min(used.length - 1, Math.ceil(q * used.length) - 1)];
+  r.medianMs = used.length ? (used[59] + used[60]) / 2 : null;
+  r.p95Ms = used.length ? at(0.95) : null;
+  r.minMs = used[0] ?? null;
+  r.maxMs = used[used.length - 1] ?? null;
+  const wrap = (v) => ((((v + 180) % 360) + 360) % 360) - 180;
+  r.turnedDeg = before.centre && now.centre ? Math.abs(wrap(now.centre.lon - before.centre.lon)) : null;
+  r.checks = { globeShown: true, frames120: r.framesDrawn >= 121 && r.gapsUsed === 120, globeTurned: r.turnedDeg !== null && r.turnedDeg > 1 };
+  return r;
+}
