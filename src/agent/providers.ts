@@ -26,7 +26,7 @@ export interface StepResult {
 }
 
 export class ProviderError extends Error {
-  kind: 'auth' | 'rate' | 'http' | 'format';
+  kind: 'auth' | 'rate' | 'http' | 'format' | 'refused';
   status: number;
   retryAfterS: number | null;
   constructor(kind: ProviderError['kind'], status: number, message: string, retryAfterS: number | null = null) {
@@ -45,6 +45,16 @@ export interface Provider {
   /** R1: the provider the loop asks once more when a reply is slow, 429 or 5xx (Gemini: the next id
    *  in GEMINI_MODELS). Absent or null: the loop asks the same provider again. */
   next?(): Provider | null;
+  /** R3: when a reply is a refusal of this model id (404, 403 or 429), the provider to ask at once
+   *  instead, with the Steps-list words; null = not a refusal (the R1 rule applies). Gemini only. */
+  failover?(e: unknown): Failover | null;
+}
+
+/** R3: what the loop does after a model id was refused. next null = every id refused (error says why). */
+export interface Failover {
+  next: Provider | null;
+  row: string;
+  error: ProviderError | null;
 }
 
 export const GEMINI_MODELS = ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
@@ -124,6 +134,65 @@ export function gemini(apiKey: string, model: string, fetchFn: typeof fetch): Pr
       return after ? gemini(apiKey, after, fetchFn) : null;
     },
   };
+}
+
+// ---------------------------------------------------------------- R3: Gemini model failover
+
+/** R3: the answers that mean "this model id will not answer this key now": tried on the next id at once. */
+export const REFUSED_STATUS = [404, 403, 429];
+const REFUSED_WORDS: Record<number, string> = { 404: 'not found', 403: 'not allowed for this key', 429: 'quota' };
+
+/** R3: the model ids refused in this page session (id -> HTTP status). One per page, kept in memory only. */
+export interface ModelBook {
+  refused: Map<string, number>;
+}
+export const newModelBook = (): ModelBook => ({ refused: new Map() });
+
+/** R3: the order the ids are tried in: the chosen id first (if it is one of ours), then the list order. */
+export function modelOrder(chosen: string | null = null): string[] {
+  return chosen && GEMINI_MODELS.includes(chosen) ? [chosen, ...GEMINI_MODELS.filter((m) => m !== chosen)] : [...GEMINI_MODELS];
+}
+
+/** R3: the reason when every id was refused, naming the status(es) and what to do. */
+export function allRefusedText(book: ModelBook, n = GEMINI_MODELS.length): string {
+  const codes = [...new Set(book.refused.values())].sort((a, b) => b - a);
+  const what = codes.includes(429)
+    ? "this key's free quota is used up for now. Wait a minute, or pick another model in Settings"
+    : codes.includes(403)
+      ? 'this key is not allowed to use them. Check the key in Settings, or pick another model there'
+      : 'these model names are not offered to this key. Pick another model in Settings';
+  return `Gemini refused all ${n} model names (${codes.join(', ')}): ${what}`;
+}
+
+/**
+ * R3: the Gemini provider the page uses. It asks the first id in modelOrder(chosen) that this page
+ * session has not seen refused; a 404, 403 or 429 marks the id refused (kept in `book`) and the loop
+ * asks the next id at once. When every id was refused before the run starts, the book is cleared, so
+ * "wait a minute" works without a reload.
+ */
+export function geminiAuto(apiKey: string, fetchFn: typeof fetch, book: ModelBook, chosen: string | null = null): Provider {
+  const order = modelOrder(chosen);
+  if (order.every((m) => book.refused.has(m))) book.refused.clear();
+  const open = (after = -1) => order.slice(after + 1).find((m) => !book.refused.has(m)) ?? null;
+  const at = (model: string): Provider => {
+    const base = gemini(apiKey, model, fetchFn);
+    return {
+      ...base,
+      next() {
+        const after = open(order.indexOf(model));
+        return after ? at(after) : null;
+      },
+      failover(e) {
+        if (!(e instanceof ProviderError) || !REFUSED_STATUS.includes(e.status)) return null;
+        book.refused.set(model, e.status);
+        const head = `${model} was refused (${e.status}, ${REFUSED_WORDS[e.status]})`;
+        const nextId = open();
+        if (nextId) return { next: at(nextId), row: `${head}; using ${nextId}`, error: null };
+        return { next: null, row: `${head}; no other model name left`, error: new ProviderError('refused', e.status, allRefusedText(book, order.length)) };
+      },
+    };
+  };
+  return at(open() ?? order[0]);
 }
 
 // ---------------------------------------------------------------- OpenAI

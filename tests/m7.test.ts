@@ -20,6 +20,8 @@ describe('M7 placeFromSentence: a town typed alone is the place', () => {
     expect(placeFromSentence(EXAMPLES.trip)).toBeNull();
     expect(placeFromSentence(EXAMPLES.simple)).toBeNull();
     expect(placeFromSentence('Detroit tomorrow after 9')).toBeNull();
+    // R3: a place, never the sentence after it
+    expect(placeFromSentence('Detroit, this weekend after dinner')).toBe('Detroit');
     expect(placeFromSentence('')).toBeNull();
   });
 });

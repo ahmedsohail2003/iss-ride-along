@@ -9,7 +9,7 @@ import { runFixedPlan, type Card, type Controls, type PlanResult } from '../agen
 import { nextDates, weekdayOf } from '../agent/format';
 import { runAgent, type AgentResult } from '../agent/loop';
 import { isMoneyQuestion, MONEY_LINE } from '../agent/money';
-import { gemini, GEMINI_MODELS, openai, OPENAI_MODEL } from '../agent/providers';
+import { GEMINI_MODELS, geminiAuto, newModelBook, openai, OPENAI_MODEL } from '../agent/providers';
 import { newContext, SEARCH_DAYS, type PassInfo, type RunContext, type TraceRow } from '../agent/tools';
 import { KeyStore, PRIVACY_LINE, STATUS, type KeyName } from './settings';
 import { builtInMatches, type AgentPlace } from '../agent/places';
@@ -29,13 +29,32 @@ export const NEEDS_AI_TEXT = 'this one needs the AI: add a key in settings';
  * M7, no key: a stranger types just a town ("Detroit") and presses Enter. A built-in name, or up to
  * three words with no digits (sent to the place search), is used as the place; anything longer is a
  * sentence that needs the AI, so the plain controls are used. The two examples use the plain controls.
+ * R3: it returns a place only, never a sentence. With commas: up to 3 parts of up to 3 words each and
+ * no digits is a place written out ("Ann Arbor, Michigan"); otherwise the first part, if it has up to 3
+ * words and no digits ("Detroit" from "Detroit, this weekend after dinner"), or the longest built-in
+ * name it starts with ("Ypsilanti" from "Ypsilanti until Monday"); otherwise null.
  */
 export function placeFromSentence(text: string): string | null {
   const t = text.trim();
   if (!t || t === EXAMPLES.trip || t === EXAMPLES.simple) return null;
-  if (builtInMatches(t).length) return t;
-  const words = t.split(',')[0].trim().split(/\s+/);
-  return words.length <= 3 && !/\d/.test(t) ? t : null;
+  const wordsOf = (s: string) => s.trim().split(/\s+/).filter(Boolean);
+  const plain = (s: string) => wordsOf(s).length >= 1 && wordsOf(s).length <= 3 && !/\d/.test(s);
+  const parts = t.split(',').map((p) => p.trim());
+  const written = parts.length <= 3 && parts.every(plain);
+  // A built-in name (matched on the part before the first comma) is the whole text only when the
+  // rest is a place written out too ("chicago, il"); otherwise just that name ("Detroit, after 9").
+  if (builtInMatches(t).length && (parts.length === 1 || written)) return t;
+  if (parts.length === 1) return plain(t) ? t : null;
+  if (written) return t;
+  const first = parts[0];
+  if (builtInMatches(first).length) return first;
+  if (!plain(first)) return null;
+  const w = wordsOf(first);
+  for (let n = w.length - 1; n >= 1; n--) {
+    const head = w.slice(0, n).join(' ');
+    if (builtInMatches(head).length) return head;
+  }
+  return first;
 }
 
 export const plannerPanelHtml = `
@@ -98,6 +117,7 @@ export const plannerSettingsHtml = `
       <summary>Settings: AI keys</summary>
       <label>Provider <select id="set-provider"><option value="gemini">Gemini</option><option value="openai">OpenAI</option></select></label>
       <label>Gemini key <input id="key-gemini" type="password" autocomplete="off" /></label> <span class="small" id="status-gemini"></span>
+      <label>Gemini model <select id="gemini-model"><option value="">Automatic (the first that answers)</option>${GEMINI_MODELS.map((m) => `<option value="${m}">${m}</option>`).join('')}</select></label>
       <label>OpenAI key <input id="key-openai" type="password" autocomplete="off" /></label> <span class="small" id="status-openai"></span>
       <label>Exa key (optional) <input id="key-exa" type="password" autocomplete="off" /></label> <span class="small" id="status-exa"></span>
       <label class="tick"><input id="key-keep" type="checkbox" /> keep until this tab is closed</label>
@@ -125,6 +145,8 @@ const viewerTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 export function initPlanner(h: PlannerHooks) {
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
   const store = new KeyStore(sessionStorage);
+  // R3: the Gemini model ids refused in this page session (memory only; a new key starts a fresh list).
+  const book = newModelBook();
   let aiCalls = 0;
   let countdownTimer: ReturnType<typeof setInterval> | undefined;
   const showOutputs = initOutputs();
@@ -153,6 +175,7 @@ export function initPlanner(h: PlannerHooks) {
     $(`status-${k}`).textContent = STATUS[k];
     keyInputs[k].addEventListener('input', () => {
       store.set(k, keyInputs[k].value);
+      if (k === 'gemini') book.refused.clear();
       if (k !== 'exa') providerSel.value = store.defaultProvider() ?? providerSel.value;
       updateMode();
     });
@@ -160,6 +183,13 @@ export function initPlanner(h: PlannerHooks) {
   keep.checked = store.keep;
   keep.addEventListener('change', () => store.setKeep(keep.checked));
   providerSel.value = store.defaultProvider() ?? 'gemini';
+  // R3: the Gemini model picker; the chosen id is tried first (even if it was refused earlier this session).
+  const modelSel = $<HTMLSelectElement>('gemini-model');
+  modelSel.value = GEMINI_MODELS.includes(store.geminiModel()) ? store.geminiModel() : '';
+  modelSel.addEventListener('change', () => {
+    store.setGeminiModel(modelSel.value);
+    book.refused.delete(modelSel.value);
+  });
   providerSel.addEventListener('change', updateMode);
 
   function activeProvider(): 'gemini' | 'openai' | null {
@@ -197,6 +227,7 @@ export function initPlanner(h: PlannerHooks) {
     const nights = [...document.querySelectorAll<HTMLInputElement>('#plan-nights input')].filter((c) => c.checked).map((c) => c.value);
     return {
       place: placeOverride ?? ($<HTMLInputElement>('plan-place').value.trim() || 'Ypsilanti'),
+      plainPlace: $<HTMLInputElement>('plan-place').value.trim() || 'Ypsilanti',
       nights: nights.length === dates.length ? null : nights,
       earliest: $<HTMLInputElement>('plan-earliest').value || null,
       latest: $<HTMLInputElement>('plan-latest').value || null,
@@ -357,7 +388,7 @@ export function initPlanner(h: PlannerHooks) {
       let r: PlanResult | AgentResult;
       if (p && text) {
         $('plan-note').textContent = 'Planning with the AI (at most 6 AI calls, 30 seconds)...';
-        const provider = p === 'gemini' ? gemini(store.get('gemini'), GEMINI_MODELS[0], (...a) => fetch(...a)) : openai(store.get('openai'), OPENAI_MODEL, (...a) => fetch(...a));
+        const provider = p === 'gemini' ? geminiAuto(store.get('gemini'), (...a) => fetch(...a), book, store.geminiModel() || null) : openai(store.get('openai'), OPENAI_MODEL, (...a) => fetch(...a));
         const ar = await runAgent({
           sentence: text,
           provider,
@@ -369,7 +400,10 @@ export function initPlanner(h: PlannerHooks) {
           },
         });
         r = ar;
-        $('plan-note').textContent = `${ar.mode === 'ai' ? 'Planned by the AI' : 'Fixed plan'} in ${ar.seconds.toFixed(1)} s with ${ar.modelCalls} AI call${ar.modelCalls === 1 ? '' : 's'}.`;
+        $('plan-note').textContent =
+          `${ar.mode === 'ai' ? 'Planned by the AI' : 'Fixed plan'} in ${ar.seconds.toFixed(1)} s with ${ar.modelCalls} AI call${ar.modelCalls === 1 ? '' : 's'}.` +
+          // R3: when the AI could not be used, the note says why in the same words as the card.
+          (ar.mode === 'fixed plan' && ar.fallbackReason ? ` ${ar.fallbackReason}.` : '');
       } else {
         r = await runFixedPlan(ctx, controls(typedPlace));
         if (!p && text && sentence.value === EXAMPLES.trip) $('plan-note').textContent = `The trip has two places: ${NEEDS_AI_TEXT}. This is the fixed plan for the first place only (Ypsilanti).`;
@@ -377,6 +411,8 @@ export function initPlanner(h: PlannerHooks) {
         else if (!p && text && text !== EXAMPLES.simple) $('plan-note').textContent = `A sentence like this one needs the AI: add a key in Settings. Fixed plan, no AI: the plain controls below the box were used.`;
         else if (!p) $('plan-note').textContent = 'Fixed plan, no AI: the plain controls below the box were used.';
       }
+      // R3: say when the typed place was too long to be a place name and the Place box was used.
+      if (r.placeNote) $('plan-note').textContent = `${$('plan-note').textContent ?? ''} ${r.placeNote}`.trim();
       showResult(r, ctx);
       h.onResult?.(r.card);
       showOutputs(ctx, r.card.kind === 'pass' ? r.card.passId : null);

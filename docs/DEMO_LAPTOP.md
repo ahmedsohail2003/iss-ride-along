@@ -20,6 +20,7 @@ One of Quinn's, Denim's or Armeis's laptops is the demo laptop at the table on S
 ## If something goes wrong at the table
 
 - **The AI does not answer:** the page falls back to the fixed plan by itself and says why. Say: "this is the plan for one city without AI; the scoring rule is the same." Paste the key again between judges.
+- **The AI is refused** (the note under the button says Gemini refused the model names): open Settings, pick another Gemini model in "Gemini model", and press the example again; or wait a minute and try again.
 - **The page will not load:** use the spare device, then the backup file.
 - **The reference check fails:** say what it normally shows and point to the saved test (10 of 10 samples within 1 metre of the other tracker).
 

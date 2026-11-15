@@ -5,11 +5,14 @@
 // for the rest of the run), when at least RETRY_MIN_MS of the 30 seconds is left. The Steps list gets an
 // "askAgain" row; every request sent counts as a model call. Any other failure, or a second one, follows
 // the rule below exactly as before R1.
+// R3: with the page's Gemini provider (geminiAuto), a model id that answers 404, 403 or 429 is marked
+// refused for the page session and the next id is asked at once (a "switchModel" row; it is not R1's one
+// retry). When every id is refused the run ends in the fixed plan with a reason naming the status.
 // One rule for every failure (bad key, rate limit, slow reply, the 30-second limit, no answer after
 // 6 calls): the run ends in the fixed plan for the first place found (or the place in the plain
 // controls), keeps the trace rows already made, and shows one plain line naming the reason.
 import { audit, type AuditResult } from './audit';
-import { buildCard, runFixedPlan, type Controls, type PlanResult } from './fixedPlan';
+import { buildCard, runFixedPlan, safePlace, type Controls, type PlanResult } from './fixedPlan';
 import { fmtClock, nextDates, weekdayOf } from './format';
 import { ProviderError, type Provider, type StepResult, type Turn } from './providers';
 import { isMoneyQuestion, MONEY_LINE } from './money';
@@ -79,6 +82,7 @@ export function reasonText(e: unknown, limits = LIMITS): string {
   if (e instanceof ProviderError) {
     if (e.kind === 'auth') return `AI key refused (HTTP ${e.status})`;
     if (e.kind === 'rate') return 'AI rate limit reached (HTTP 429)';
+    if (e.kind === 'refused') return e.message;
     return `AI provider error (${e.message})`;
   }
   return `AI step failed (${(e as Error)?.message ?? 'unknown error'})`;
@@ -129,20 +133,34 @@ export async function runAgent(o: AgentOptions): Promise<AgentResult> {
 
   const loop = async () => {
     while (modelCalls < limits.maxCalls && !stopped) {
-      const sentAt = Date.now();
       let step: StepResult;
-      try {
-        step = await ask(provider);
-      } catch (e) {
-        const why = retryWhy(e, limits);
-        const left = t0 + limits.runMs - Date.now();
-        if (stopped || retried || !why || left < RETRY_MIN_MS || modelCalls >= limits.maxCalls) throw e;
-        retried = true;
-        provider = provider.next?.() ?? provider;
-        const row: TraceRow = { n: ctx.trace.length + 1, tool: 'askAgain', by: 'loop', input: `model: ${provider.model}`, summary: why, ms: Date.now() - sentAt, ok: false };
-        ctx.trace.push(row);
-        ctx.onTrace?.(row);
-        step = await ask(provider);
+      for (;;) {
+        const sentAt = Date.now();
+        try {
+          step = await ask(provider);
+          break;
+        } catch (e) {
+          if (stopped) throw e;
+          // R3: a model id that refuses (404, 403, 429) is skipped at once for the next one; it does not use R1's retry.
+          const f = provider.failover?.(e) ?? null;
+          if (f) {
+            const row: TraceRow = { n: ctx.trace.length + 1, tool: 'switchModel', by: 'loop', input: f.next ? `model: ${f.next.model}` : 'model: none left', summary: f.row, ms: Date.now() - sentAt, ok: false };
+            ctx.trace.push(row);
+            ctx.onTrace?.(row);
+            if (!f.next) throw f.error ?? e;
+            if (modelCalls >= limits.maxCalls) throw e;
+            provider = f.next;
+            continue;
+          }
+          const why = retryWhy(e, limits);
+          const left = t0 + limits.runMs - Date.now();
+          if (retried || !why || left < RETRY_MIN_MS || modelCalls >= limits.maxCalls) throw e;
+          retried = true;
+          provider = provider.next?.() ?? provider;
+          const row: TraceRow = { n: ctx.trace.length + 1, tool: 'askAgain', by: 'loop', input: `model: ${provider.model}`, summary: why, ms: Date.now() - sentAt, ok: false };
+          ctx.trace.push(row);
+          ctx.onTrace?.(row);
+        }
       }
       if (stopped) return;
       history.push({ role: 'model', calls: step.calls, text: step.text, raw: step.raw });
@@ -171,12 +189,14 @@ export async function runAgent(o: AgentOptions): Promise<AgentResult> {
 
   if (failure) {
     const firstPlace = [...ctx.places.values()][0];
-    const place = firstPlace ? firstPlace.name : o.controls.place;
+    // R3: a place text too long to be a place name is never sent to the place search: the Place box is used.
+    const safe = firstPlace ? { place: firstPlace.name, note: null } : safePlace(o.controls);
+    const place = safe.place;
     ctx.shown = null;
     ctx.why = null;
     const reason = `${reasonText(failure, limits)}; this is the plan for ${place} without AI`;
     const r = await runFixedPlan(ctx, { ...o.controls, place }, reason);
-    return { ...r, audit: null, modelCalls, seconds: (Date.now() - t0) / 1000, text: '' };
+    return { ...r, placeNote: r.placeNote ?? safe.note, audit: null, modelCalls, seconds: (Date.now() - t0) / 1000, text: '' };
   }
 
   // The search found an engine burn after our orbit numbers: make sure the age is in the trace.
