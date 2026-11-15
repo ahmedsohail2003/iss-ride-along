@@ -43,7 +43,7 @@ for a parent, a teacher or a first-time stargazer, starting with us in Michigan 
   position every 4 minutes for 15 days. The page shows how far apart our position and NASA's are at
   NASA's latest row, how old our orbit numbers were then, and a 3-day chart.
 
-Still being built at the time of writing (Sat Nov 14, 7:30 PM EST), so not listed above: a first
+Still being built at the time of writing (Sat Nov 14, 7:25 PM EST), so not listed above: a first
 screen built around the planner, a calendar file for the chosen pass, day and night on the map, a
 30-second guessing game, and a plain sentence for where the station is.
 
